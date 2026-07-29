@@ -37,8 +37,18 @@ DATABASE_URL=postgres://lagekatse:lagekatse@localhost:5432/lagekatse pnpm dev:se
 pnpm dev:web
 ```
 
-Konfiguration siehe [.env.example](./.env.example) (Server läuft aber auch komplett
-ohne `.env` mit sinnvollen Defaults).
+### Konfiguration (`.env`)
+
+Einstellungen kommen aus einer `.env` **im Repo-Root** (`cp .env.example .env`).
+Das Backend lädt sie via dotenv, Vite liest die `VITE_*`-Variablen aus derselben
+Datei. Werte werden **einmal beim Start** gelesen — nach Änderungen `pnpm dev`
+neu starten (und für einen Web-Prod-Build `pnpm build` erneut ausführen). Ohne
+`.env` laufen sinnvolle Defaults (Port 8080, Memory-Store, CORS auf `localhost:5173`).
+
+Beim Testen **auf einem Server** müssen zwei Werte auf die *vom Browser
+erreichbare* Adresse zeigen (nicht `localhost`): `VITE_API_URL` (Backend-URL) und
+`CORS_ORIGIN` (Origin, unter dem die Web-App geöffnet wird). Der Vite-Dev-Server
+bindet dank `host: true` auf alle Interfaces.
 
 ## Skripte
 

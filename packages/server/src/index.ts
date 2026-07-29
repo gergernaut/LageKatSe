@@ -1,3 +1,4 @@
+import "./load-dotenv"; // must run before anything reads process.env
 import cors from "@fastify/cors";
 import Fastify from "fastify";
 import { loadConfig } from "./config";
