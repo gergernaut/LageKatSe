@@ -94,7 +94,7 @@ export function Lobby({ onEnter }: { onEnter: (session: Session) => void }) {
   const nameField = (
     <label className="field">
       <span className="lab">Anzeigename</span>
-      <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="z. B. K. K." />
+      <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="z. B. M. Mustermann" />
     </label>
   );
 
