@@ -146,6 +146,12 @@ input, select, textarea { font-family: inherit; }
 .person .rl { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
 .rolechip { font-family: var(--mono); font-size: 10px; padding: 2px 6px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); }
 
+/* ---------- Lagekarte ---------- */
+.lagekarte-map { min-height: 0; position: relative; }
+.leaflet-container { height: 100%; width: 100%; }
+.lagekarte-symbol { background: transparent; border: 0; }
+.lagekarte-symbol img { display: block; width: 100%; height: 100%; object-fit: contain; transform-origin: center; }
+
 @media (max-width: 860px) {
   .modules, .cols, .roles { grid-template-columns: 1fr; }
 }
