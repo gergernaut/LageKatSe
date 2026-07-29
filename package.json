@@ -1,0 +1,23 @@
+{
+  "name": "lagekatse",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Modulare, browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @lagekatse/server --filter @lagekatse/web run dev",
+    "dev:server": "pnpm --filter @lagekatse/server run dev",
+    "dev:web": "pnpm --filter @lagekatse/web run dev",
+    "build": "pnpm --filter @lagekatse/web run build",
+    "typecheck": "pnpm -r run typecheck",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "packageManager": "pnpm@9.15.0"
+}
