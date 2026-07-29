@@ -102,12 +102,23 @@ async function main() {
   console.log(`[${test1 ? "PASS" : "FAIL"}] writer -> observer propagation`);
   console.log(`[${test2 ? "PASS" : "FAIL"}] monitor write blocked (read-only enforcement)`);
 
+  // 3) hot-join: a client connecting AFTER msg1 must receive the existing history.
+  const late = await join(room.joinCode, "Late S4", ["S4"]);
+  const L = connect(room.id, late.token);
+  await waitConnected(L.provider);
+  await sleep(900);
+  const lateSeen = bodies(L.arr);
+  console.log("late joiner sees:", lateSeen);
+  const test3 = lateSeen.includes("hello from S3") && !lateSeen.includes("monitor blocked");
+  console.log(`[${test3 ? "PASS" : "FAIL"}] hot-join receives existing history`);
+
   W.provider.destroy();
   M.provider.destroy();
   O.provider.destroy();
+  L.provider.destroy();
   await sleep(150);
 
-  process.exit(test1 && test2 ? 0 : 1);
+  process.exit(test1 && test2 && test3 ? 0 : 1);
 }
 
 main().catch((err) => {
