@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CHAT_ARRAY, canWrite, type ChatMessage, type PresenceState } from "@lagekatse/shared";
 import type { Session } from "../session";
+import { uid } from "../uid";
 import { connectModule, type ModuleConnection } from "./provider";
 
 const COLORS = ["#2f6bd8", "#d5372b", "#2e9e5b", "#e08a1e", "#7c5ad8", "#0e9aa7", "#c2477f"];
@@ -78,7 +79,7 @@ export function useRoomChat(session: Session): RoomChat {
     if (!conn || !text || !canChat) return;
     conn.doc.getArray<ChatMessage>(CHAT_ARRAY).push([
       {
-        id: crypto.randomUUID(),
+        id: uid(),
         authorName: session.name,
         authorRoles: session.roles,
         body: text,
