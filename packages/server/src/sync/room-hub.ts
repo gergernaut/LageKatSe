@@ -39,6 +39,8 @@ interface ManagedDoc {
   conns: Set<Conn>;
   updatesSinceSnapshot: number;
   snapshotTimer: ReturnType<typeof setTimeout> | null;
+  /** Serialises append + snapshot compaction so neither interleaves with the other. */
+  persistQueue: Promise<void>;
 }
 
 function send(conn: Conn, data: Uint8Array): void {
@@ -99,6 +101,7 @@ export class RoomHub {
       conns: new Set(),
       updatesSinceSnapshot: 0,
       snapshotTimer: null,
+      persistQueue: Promise.resolve(),
     };
 
     doc.on("update", (update: Uint8Array, origin: unknown) => {
@@ -111,7 +114,7 @@ export class RoomHub {
         if (conn !== origin) send(conn, message);
       }
       // Durably log everything a client produced (not our own replays).
-      if (origin !== LOAD_ORIGIN) void this.persistUpdate(md, update);
+      if (origin !== LOAD_ORIGIN) this.persistUpdate(md, update);
     });
 
     awareness.on(
@@ -168,8 +171,8 @@ export class RoomHub {
       const syncType = decoding.readVarUint(decoder);
 
       // Authoritative rights enforcement: a read-only connection may READ
-      // (syncStep1) but any state-mutating message is dropped and the client
-      // is re-offered the server's state to roll back its optimistic change.
+      // (syncStep1 and receiving updates) but any state-mutating message
+      // (syncStep2 / update) is dropped before it can touch the shared doc.
       const isWrite =
         syncType === syncProtocol.messageYjsSyncStep2 || syncType === syncProtocol.messageYjsUpdate;
       if (isWrite && !conn.canWrite) {
@@ -205,13 +208,18 @@ export class RoomHub {
     if (md.conns.size === 0) this.snapshotNow(md);
   }
 
-  private async persistUpdate(md: ManagedDoc, update: Uint8Array): Promise<void> {
-    try {
-      await this.store.appendUpdate(md.roomId, md.module, update);
-    } catch (err) {
-      console.error(`[hub] appendUpdate failed for ${md.key}`, err);
-    }
+  // Append and snapshot both run through md.persistQueue, so they never
+  // interleave. The snapshot is encoded *inside* its queued task — after every
+  // previously-enqueued append has landed — and only then is the log truncated.
+  // An update arriving mid-snapshot enqueues *after* it and therefore survives
+  // (worst case it is replayed once on top of the snapshot; applyUpdate is
+  // idempotent). This closes the "compaction deletes an un-captured update" race.
+  private persistUpdate(md: ManagedDoc, update: Uint8Array): void {
     md.updatesSinceSnapshot += 1;
+    md.persistQueue = md.persistQueue
+      .then(() => this.store.appendUpdate(md.roomId, md.module, update))
+      .catch((err) => console.error(`[hub] appendUpdate failed for ${md.key}`, err));
+
     if (md.updatesSinceSnapshot >= SNAPSHOT_EVERY_N_UPDATES) {
       this.snapshotNow(md);
     } else if (!md.snapshotTimer) {
@@ -226,9 +234,11 @@ export class RoomHub {
     }
     if (md.updatesSinceSnapshot === 0) return;
     md.updatesSinceSnapshot = 0;
-    const snapshot = Y.encodeStateAsUpdate(md.doc);
-    void this.store.saveSnapshot(md.roomId, md.module, snapshot).catch((err) => {
-      console.error(`[hub] saveSnapshot failed for ${md.key}`, err);
-    });
+    md.persistQueue = md.persistQueue
+      .then(async () => {
+        const snapshot = Y.encodeStateAsUpdate(md.doc);
+        await this.store.saveSnapshot(md.roomId, md.module, snapshot);
+      })
+      .catch((err) => console.error(`[hub] saveSnapshot failed for ${md.key}`, err));
   }
 }

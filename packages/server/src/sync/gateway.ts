@@ -38,6 +38,20 @@ export function attachGateway(
   });
 
   async function handleConnection(ws: WebSocket, url: URL): Promise<void> {
+    // Attach the message listener *before* the async setup below. The client
+    // sends its opening sync frames the instant the socket is open; if we only
+    // listened after awaiting auth + doc-load, those frames would be dropped and
+    // a hot-join into a non-empty room could miss existing state. Buffer until
+    // ready, then flush in order.
+    let md: Awaited<ReturnType<RoomHub["getDoc"]>> | null = null;
+    let conn: Conn | null = null;
+    const pending: Uint8Array[] = [];
+    ws.on("message", (data: Buffer | ArrayBuffer | Buffer[]) => {
+      const bytes = toBytes(data);
+      if (md && conn) hub.handleMessage(md, conn, bytes);
+      else pending.push(bytes);
+    });
+
     const parts = url.pathname.split("/").filter(Boolean); // ["sync", roomId, module]
     const roomId = parts[1] ?? "";
     const moduleParam = parts[2] ?? "";
@@ -61,9 +75,12 @@ export function attachGateway(
     const writable = canWrite(claims.roles, moduleParam, {
       allowMonitorChat: room.settings.allowMonitorChat,
     });
+    const loaded = await hub.getDoc(roomId, moduleParam);
 
-    const md = await hub.getDoc(roomId, moduleParam);
-    const conn: Conn = {
+    // The socket may have closed while we were setting up.
+    if (ws.readyState !== WebSocket.OPEN) return;
+
+    conn = {
       ws,
       sid: claims.sid,
       roomId,
@@ -71,16 +88,18 @@ export function attachGateway(
       canWrite: writable,
       controlledIds: new Set(),
     };
+    md = loaded;
 
     markAlive(ws);
-    hub.addConn(md, conn);
-
-    ws.on("message", (data: Buffer | ArrayBuffer | Buffer[]) => {
-      hub.handleMessage(md, conn, toBytes(data));
-    });
     ws.on("pong", () => markAlive(ws));
-    ws.on("close", () => hub.removeConn(md, conn));
-    ws.on("error", () => hub.removeConn(md, conn));
+    ws.on("close", () => hub.removeConn(loaded, conn!));
+    ws.on("error", () => hub.removeConn(loaded, conn!));
+
+    hub.addConn(md, conn);
+    // Flush frames buffered during setup, in arrival order (runs synchronously
+    // right after md/conn are set, so no live frame can jump ahead of these).
+    for (const bytes of pending) hub.handleMessage(md, conn, bytes);
+    pending.length = 0;
   }
 
   // Keepalive: terminate connections that stop answering pings.
