@@ -1,0 +1,26 @@
+# Optional durable persistence for LageKatSe.
+# The app runs without this (in-memory store) — bring this up when you want
+# stabsräume to survive a server restart.
+#
+#   docker compose up -d db
+#   DATABASE_URL=postgres://lagekatse:lagekatse@localhost:5432/lagekatse pnpm dev:server
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: lagekatse
+      POSTGRES_PASSWORD: lagekatse
+      POSTGRES_DB: lagekatse
+    ports:
+      - "5432:5432"
+    volumes:
+      - lagekatse_pg:/var/lib/postgresql/data
+      - ./packages/server/src/store/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lagekatse -d lagekatse"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  lagekatse_pg:

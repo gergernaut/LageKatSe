@@ -752,16 +752,20 @@ flowchart LR
 
 ## 17. Offene Entscheidungen
 
-| # | Frage | Empfehlung |
-|---|-------|-----------|
-| E1 | Darf der Monitor chatten? | Ja (konfigurierbar je Raum) |
-| E2 | ETB-Einträge frei editier-/löschbar oder mit Historie/Storno? | Historie + Storno (Nachvollziehbarkeit) |
-| E3 | Auth-Stärke für Produktivbetrieb | Auth-Proxy/SSO + geschlossenes Netz; freie Rollenwahl nur in Übung |
-| E4 | Lizenz der DV-102-SVG-Bibliothek | Vor Nutzung klären, ggf. gemeinfreie Alternative |
-| E5 | Konfliktsemantik beim gleichzeitigen Verschieben | Last-Write-Wins pro Feld akzeptabel? mit Nutzern testen |
-| E6 | Karten-Engine Leaflet vs. MapLibre | Start mit Leaflet; MapLibre bei Performance-Bedarf |
-| E7 | Rückseite Arbeitsblatt (ABC/MANV/Wetter) | Phase 2, nach Nutzerpriorisierung |
-| E8 | Eigene Nutzerkonten statt Raumcode? | Erst wenn Mehrfach-Einsätze/Historie über Räume nötig |
+Stand der Entscheidungen (2026-07-29 mit K. Kelker geklärt) — ✅ = entschieden, ▫ = Default (später revidierbar):
+
+| # | Frage | Entscheidung |
+|---|-------|--------------|
+| E1 | Darf der Monitor chatten? | ✅ Konfigurierbar je Raum, **Standard: an** (Koordination ≠ Lageänderung) |
+| E2 | ETB frei editierbar oder Historie/Storno? | ▫ Historie + Storno — im Datenmodell vorgesehen, greift in M2 |
+| E3 | Auth-Modell / -Stärke | ✅ **M0:** Lobby-Code + optionales Raum-Passwort, selbst deklarierter Name, Session-Token (JWT). Token-/Session-Schicht so gebaut, dass SSO/Accounts später andockbar sind. Produktiv weiterhin Auth-Proxy/geschlossenes Netz empfohlen |
+| E4 | Lizenz DV-102-SVG-Bibliothek | ⚠️ LICENSE-Check **vor M1** (blockt M0 nicht) |
+| E5 | Konflikt beim Verschieben | ▫ Last-Write-Wins pro Feld — in M1 mit Nutzern testen |
+| E6 | Leaflet vs. MapLibre | ▫ Leaflet — Entscheidung erst in M1 relevant |
+| E7 | Rückseite Arbeitsblatt (ABC/MANV/Wetter) | ▫ Phase 2 |
+| E8 | Nutzerkonten statt Raumcode? | ✅ Vorerst **Raumcode**, keine Accounts in M0; Accounts erst bei raumübergreifender Historie |
+
+**Tooling (M0):** Monorepo mit **pnpm-Workspaces**, gemeinsames `shared`-Paket. Frontend React+Vite, Backend Fastify + `ws` + Yjs, PostgreSQL.
 
 ---
 
