@@ -146,6 +146,121 @@ input, select, textarea { font-family: inherit; }
 .person .rl { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
 .rolechip { font-family: var(--mono); font-size: 10px; padding: 2px 6px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); }
 
+/* ---------- Lagekarte ---------- */
+.lagekarte-stage { min-height: 0; position: relative; overflow: hidden; }
+.lagekarte-map { height: 100%; min-height: 0; position: relative; }
+.lagekarte-map--placing, .lagekarte-map--placing.leaflet-grab { cursor: crosshair; }
+.leaflet-container { height: 100%; width: 100%; }
+.lagekarte-symbol { background: transparent; border: 0; }
+.lagekarte-symbol img { display: block; width: 100%; height: 100%; object-fit: contain; transform-origin: center; }
+.leaflet-tooltip.lagekarte-tip {
+  background: var(--ground); color: var(--on-dark); border: 1px solid var(--line-dark);
+  border-radius: 9px; padding: 8px 10px; max-width: 230px; white-space: normal;
+  line-height: 1.4; box-shadow: 0 12px 30px rgba(11,17,25,.3); font-family: var(--sans);
+}
+.leaflet-tooltip.lagekarte-tip b { display: block; font-size: 12.5px; margin: 0 0 2px; }
+.leaflet-tooltip.lagekarte-tip span { display: block; font-size: 12px; color: var(--on-dark-2); }
+.leaflet-tooltip.lagekarte-tip.leaflet-tooltip-top::before { border-top-color: var(--ground); }
+.leaflet-tooltip.lagekarte-tip.leaflet-tooltip-bottom::before { border-bottom-color: var(--ground); }
+.leaflet-tooltip.lagekarte-tip.leaflet-tooltip-left::before { border-left-color: var(--ground); }
+.leaflet-tooltip.lagekarte-tip.leaflet-tooltip-right::before { border-right-color: var(--ground); }
+
+.lagekarte-palette, .lagekarte-editor, .lagekarte-draw {
+  position: absolute; z-index: 1000; top: 12px; bottom: 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 12px 36px rgba(11,17,25,.22); color: var(--ink);
+}
+.lagekarte-palette { left: 12px; width: min(320px, calc(100% - 24px)); display: flex; flex-direction: column; overflow: hidden; }
+.lagekarte-editor { right: 12px; bottom: auto; width: min(340px, calc(100% - 24px)); }
+.lagekarte-draw {
+  left: 50%; bottom: auto; transform: translateX(-50%); padding: 8px;
+  display: flex; align-items: center; gap: 9px;
+}
+.lagekarte-draw__shapes { display: flex; gap: 4px; }
+.lagekarte-draw__shapes button, .lagekarte-draw__cancel {
+  border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px;
+  background: var(--surface-2); color: var(--ink-2); font-size: 11px; font-weight: 650;
+}
+.lagekarte-draw__shapes button:hover { border-color: var(--ink-3); }
+.lagekarte-draw__shapes .lagekarte-draw__shape--active {
+  border-color: var(--signal); background: rgba(247,168,27,.13); color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--signal);
+}
+.lagekarte-draw__cancel { display: flex; gap: 7px; align-items: center; }
+.lagekarte-draw__cancel span { font: 9px var(--mono); color: var(--ink-3); }
+.lagekarte-swatches { display: flex; align-items: center; gap: 6px; }
+.lagekarte-swatches button {
+  width: 23px; height: 23px; padding: 0; border: 2px solid var(--surface);
+  border-radius: 50%; box-shadow: 0 0 0 1px var(--line);
+}
+.lagekarte-swatches button.lagekarte-swatch--active {
+  box-shadow: 0 0 0 2px var(--ink);
+}
+.lagekarte-opacity { min-width: 112px; }
+.lagekarte-opacity span { white-space: nowrap; }
+.lagekarte-opacity input { width: 100%; accent-color: var(--signal); }
+.lagekarte-panel__head { display: flex; align-items: center; gap: 12px; padding: 14px 15px 12px; border-bottom: 1px solid var(--line-2); }
+.lagekarte-panel__head h2 { margin: 2px 0 0; font-size: 15px; }
+.lagekarte-panel__count { margin-left: auto; font: 11px var(--mono); color: var(--ink-3); }
+.lagekarte-palette__search { padding: 10px 12px; }
+.lagekarte-palette__search input, .lagekarte-field input, .lagekarte-field textarea {
+  width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px;
+  background: var(--surface-2); color: var(--ink); font-size: 13px;
+}
+.lagekarte-palette__search input::placeholder { color: var(--ink-3); }
+.lagekarte-disarm {
+  margin: 0 12px 10px; padding: 8px 10px; border: 1px solid rgba(247,168,27,.55);
+  border-radius: 8px; background: rgba(247,168,27,.13); color: var(--signal-ink);
+  display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 650;
+}
+.lagekarte-disarm span { font: 10px var(--mono); color: var(--ink-2); }
+.lagekarte-palette__groups { flex: 1; min-height: 0; overflow-y: auto; padding: 0 8px 10px; }
+.lagekarte-palette__empty { margin: 20px 8px; color: var(--ink-3); font-size: 13px; text-align: center; }
+.lagekarte-symbol-group { border-top: 1px solid var(--line-2); }
+.lagekarte-symbol-group__toggle {
+  width: 100%; border: 0; background: transparent; color: var(--ink); padding: 10px 6px;
+  display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 5px;
+  text-align: left; font-size: 12px; font-weight: 700;
+}
+.lagekarte-symbol-group__toggle:hover { background: var(--surface-2); }
+.lagekarte-symbol-group__chevron { color: var(--ink-3); }
+.lagekarte-symbol-group__count { font: 10px var(--mono); color: var(--ink-3); }
+.lagekarte-symbol-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 0 4px 10px; }
+.lagekarte-symbol-choice {
+  min-width: 0; height: 100px; padding: 7px 5px 6px; border: 1px solid var(--line-2);
+  border-radius: 8px; background: var(--surface); color: var(--ink-2);
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+}
+.lagekarte-symbol-choice:hover { border-color: var(--ink-3); background: var(--surface-2); }
+.lagekarte-symbol-choice--active {
+  border-color: var(--signal); background: rgba(247,168,27,.13);
+  box-shadow: inset 0 0 0 1px var(--signal);
+}
+.lagekarte-symbol-choice img { width: 58px; height: 58px; object-fit: contain; flex: none; }
+.lagekarte-symbol-choice span {
+  width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 10px; line-height: 1.25;
+}
+.lagekarte-editor__close {
+  margin-left: auto; width: 30px; height: 30px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--surface-2); color: var(--ink-2); font-size: 20px; line-height: 1;
+}
+.lagekarte-editor form { padding: 14px 15px 15px; }
+.lagekarte-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.lagekarte-field > span, .lagekarte-field legend { font: 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+.lagekarte-field--swatches { padding: 0; border: 0; }
+.lagekarte-field--swatches legend { margin-bottom: 6px; }
+.lagekarte-field textarea { resize: vertical; min-height: 78px; }
+.lagekarte-editor__actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 2px; }
+.lagekarte-editor__actions .btn { padding: 9px 14px; }
+.lagekarte-delete {
+  border: 1px solid rgba(213,55,43,.4); border-radius: 8px; padding: 9px 12px;
+  background: rgba(213,55,43,.08); color: var(--danger); font-weight: 650;
+}
+
 @media (max-width: 860px) {
   .modules, .cols, .roles { grid-template-columns: 1fr; }
+  .lagekarte-palette { width: min(290px, calc(100% - 24px)); }
+  .lagekarte-editor { top: auto; bottom: 12px; }
+  .lagekarte-draw { top: auto; bottom: 12px; max-width: calc(100% - 24px); flex-wrap: wrap; }
 }
