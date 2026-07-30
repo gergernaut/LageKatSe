@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import * as L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "@geoman-io/leaflet-geoman-free";
@@ -30,6 +30,39 @@ const AREA_COLORS = [
   { color: "#f7a81b", label: "Amber" },
   { color: "#2e9e5b", label: "Grün" },
 ];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isCoordinate(value: unknown): value is [number, number] {
+  return (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    typeof value[0] === "number" &&
+    Number.isFinite(value[0]) &&
+    typeof value[1] === "number" &&
+    Number.isFinite(value[1])
+  );
+}
+
+function isMapFeature(value: unknown): value is MapFeature {
+  if (!isRecord(value) || typeof value.id !== "string") return false;
+
+  if (value.kind === "symbol") {
+    return typeof value.symbolId === "string" && isCoordinate(value.position);
+  }
+
+  if (value.kind === "area") {
+    return (
+      (value.shape === "polygon" || value.shape === "rectangle" || value.shape === "circle") &&
+      Array.isArray(value.geometry) &&
+      value.geometry.every(isCoordinate)
+    );
+  }
+
+  return false;
+}
 
 function areaFromLayer(
   layer: L.Layer,
@@ -168,10 +201,12 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
   const activeDrawRef = useRef<ActiveDraw | null>(null);
   const writableRef = useRef(false);
   const renderForRightsRef = useRef<(() => void) | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [connected, setConnected] = useState(false);
   const [symbols, setSymbols] = useState<PaletteSymbol[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<PaletteSymbol | null>(null);
   const [selectedFeature, setSelectedFeature] = useState<MapFeature | null>(null);
+  const [importMessage, setImportMessage] = useState("");
   const [activeDraw, setActiveDraw] = useState<ActiveDraw | null>(null);
   const [drawColor, setDrawColor] = useState("#d5372b");
   const [drawOpacity, setDrawOpacity] = useState(0.3);
@@ -314,6 +349,82 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
     if (!writableRef.current || !selectedFeature) return;
     featuresMapRef.current?.delete(selectedFeature.id);
     clearFeatureSelection();
+  };
+
+  const exportMap = () => {
+    const map = mapRef.current;
+    const center = map?.getCenter();
+    const payload = {
+      format: "lagekatse.lagekarte",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      view: {
+        center: center ? [center.lat, center.lng] : [51.16, 10.45],
+        zoom: map?.getZoom() ?? 6,
+      },
+      features: featuresMapRef.current ? [...featuresMapRef.current.values()] : [],
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `lagekarte-${session.room.joinCode}-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const importMap = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+
+    try {
+      if (!file) return;
+      if (!writableRef.current) {
+        setImportMessage("Import nicht erlaubt.");
+        return;
+      }
+
+      const parsed: unknown = JSON.parse(await file.text());
+      if (
+        !isRecord(parsed) ||
+        parsed.format !== "lagekatse.lagekarte" ||
+        !Array.isArray(parsed.features)
+      ) {
+        setImportMessage("Import fehlgeschlagen: ungültiges Dateiformat.");
+        return;
+      }
+
+      const features = parsed.features.filter(isMapFeature);
+      const featuresMap = featuresMapRef.current;
+      if (!writableRef.current || !featuresMap) {
+        setImportMessage("Import fehlgeschlagen: Karte ist noch nicht bereit.");
+        return;
+      }
+
+      for (const feature of features) featuresMap.set(feature.id, feature);
+
+      if (
+        isRecord(parsed.view) &&
+        isCoordinate(parsed.view.center) &&
+        typeof parsed.view.zoom === "number" &&
+        Number.isFinite(parsed.view.zoom)
+      ) {
+        mapRef.current?.setView(parsed.view.center, parsed.view.zoom);
+      }
+
+      const skipped = parsed.features.length - features.length;
+      setImportMessage(
+        `${features.length} Feature${features.length === 1 ? "" : "s"} importiert${
+          skipped > 0 ? `, ${skipped} ungültig` : ""
+        }.`,
+      );
+    } catch {
+      setImportMessage("Import fehlgeschlagen: ungültige JSON-Datei.");
+    } finally {
+      input.value = "";
+    }
   };
 
   useEffect(() => {
@@ -491,6 +602,32 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
           <span className={`dot ${connected ? "dot--ok" : "dot--off"}`} />
           {connected ? "Live synchronisiert" : "Verbinde…"}
         </span>
+        <button className="btn btn--ghost" type="button" onClick={exportMap}>
+          Export
+        </button>
+        {writable && (
+          <>
+            <button
+              className="btn btn--ghost"
+              type="button"
+              onClick={() => importInputRef.current?.click()}
+            >
+              Import
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json,.json"
+              hidden
+              onChange={importMap}
+            />
+          </>
+        )}
+        {importMessage && (
+          <span className="chip" role="status" aria-live="polite">
+            {importMessage}
+          </span>
+        )}
         <span className="chip">{writable ? "Bearbeiten" : "Nur Lesen"}</span>
       </header>
       <div className="lagekarte-stage">
