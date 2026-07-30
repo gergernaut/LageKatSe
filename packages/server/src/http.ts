@@ -6,14 +6,22 @@ import type { Config } from "./config";
 import { HttpError, RoomService, toPublic } from "./rooms";
 
 const createSchema = z.object({
-  name: z.string().min(1).max(120),
-  password: z.string().min(1).max(200).optional(),
+  name: z
+    .string({ required_error: "Bitte eine Bezeichnung der Lage angeben." })
+    .trim()
+    .min(1, "Bitte eine Bezeichnung der Lage angeben.")
+    .max(120, "Bezeichnung ist zu lang (max. 120 Zeichen)."),
+  password: z.string().min(1).max(200, "Raum-Passwort ist zu lang (max. 200 Zeichen).").optional(),
   settings: z.object({ allowMonitorChat: z.boolean() }).partial().optional(),
 });
 
 const joinSchema = z.object({
-  name: z.string().min(1).max(80),
-  roles: z.array(z.enum(ROLES)).min(1),
+  name: z
+    .string({ required_error: "Bitte einen Anzeigenamen angeben." })
+    .trim()
+    .min(1, "Bitte einen Anzeigenamen angeben.")
+    .max(80, "Anzeigename ist zu lang (max. 80 Zeichen)."),
+  roles: z.array(z.enum(ROLES)).min(1, "Bitte mindestens eine Rolle wählen."),
   password: z.string().max(200).optional(),
 });
 
@@ -54,7 +62,7 @@ export function registerRoutes(app: FastifyInstance, deps: { rooms: RoomService;
     if (err instanceof z.ZodError) {
       return reply.code(400).send({
         error: "invalid_request",
-        message: err.issues.map((i) => `${i.path.join(".") || "body"}: ${i.message}`).join("; "),
+        message: err.issues.map((i) => i.message).join(" "),
       });
     }
     app.log.error(err);
