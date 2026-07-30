@@ -18,10 +18,10 @@ jobs:
     name: typecheck & build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # pnpm zuerst — actions/setup-node braucht es für den pnpm-Store-Cache.
-      - uses: pnpm/action-setup@v4 # Version aus package.json "packageManager"
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6 # Version aus package.json "packageManager"
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: pnpm
@@ -33,11 +33,11 @@ jobs:
     name: smoke tests (memory store)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
       # Node 22: die y-websocket-Smoke-Clients brauchen ein globales WebSocket
       # (in Node erst ab v22 vorhanden). Der App-Server nutzt das ws-Paket direkt.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
