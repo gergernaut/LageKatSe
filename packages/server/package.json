@@ -11,7 +11,7 @@
   "dependencies": {
     "@fastify/cors": "^10.0.1",
     "@lagekatse/shared": "workspace:*",
-    "bcryptjs": "^2.4.3",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^16.4.7",
     "fastify": "^5.11.0",
     "jose": "^5.9.6",
@@ -24,7 +24,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^22.10.1",
     "@types/pg": "^8.11.10",
     "@types/ws": "^8.5.13",
