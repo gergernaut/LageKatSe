@@ -65,6 +65,15 @@ function viewLabel(view: ActiveView): string {
   return view === "uebersicht" ? "Übersicht" : MODULE_LABELS[view];
 }
 
+// Kurze, in die schmale Rail passende Beschriftungen (der volle Name steht im
+// title/aria-label). "takt. Arbeitsblatt" bricht in der Rail auf zwei Zeilen um.
+const RAIL_LABELS: Record<ActiveView, string> = {
+  uebersicht: "Übersicht",
+  lagekarte: "Lagekarte",
+  etb: "ETB",
+  arbeitsblatt: "takt. Arbeitsblatt",
+};
+
 function Placeholder({ view }: { view: "etb" | "arbeitsblatt" }) {
   return (
     <div className="shell-placeholder">
@@ -94,19 +103,19 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
           L
         </div>
         {VIEWS.map((view) => {
-          const label = viewLabel(view);
+          const full = viewLabel(view);
           return (
             <button
               className={`rail__item ${activeView === view ? "is-active" : ""}`}
               type="button"
               key={view}
-              title={label}
-              aria-label={label}
+              title={full}
+              aria-label={full}
               aria-current={activeView === view ? "page" : undefined}
               onClick={() => setActiveView(view)}
             >
               <ViewIcon view={view} />
-              <span>{label}</span>
+              <span>{RAIL_LABELS[view]}</span>
             </button>
           );
         })}
