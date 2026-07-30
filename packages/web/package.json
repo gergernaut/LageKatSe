@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@geoman-io/leaflet-geoman-free": "^2.17.0",
     "@lagekatse/shared": "workspace:*",
     "leaflet": "^1.9.4",
     "react": "^18.3.1",
