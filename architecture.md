@@ -394,8 +394,12 @@ Das Herzstück: eine OpenStreetMap-Karte, auf der der Stab die Lage grafisch fü
 
 - **OSM-Grundkarte** (Leaflet), frei verschieb-/zoombar.
 - **Taktische Zeichen (DV 102) platzieren:** aus einer durchsuchbaren Symbol-Palette per
-  Klick auf die Karte setzen; verschieben (Drag), beschriften, löschen. *(Drehen/Skalieren sind
-  im Datenmodell vorgesehen, aber noch nicht in der M1-UI.)*
+  Klick auf die Karte setzen; verschieben (Drag), beschriften, löschen. *(Drehen ist im
+  Datenmodell vorgesehen/gerendert, aber noch ohne Bearbeitungs-UI.)*
+- **Symbolgröße = globaler Darstellungs-Slider pro Betrachter, nicht pro Symbol.** Die
+  DV-102-Zeichen sind alle gleich groß, und Größe ist nicht bedeutungstragend; der Bedarf ist
+  Lesbarkeit je nach Bildschirm/Abstand (Beamer, Tablet). Der Slider ist client-lokal (nicht im
+  CRDT) und wirkt daher auch für Nur-Lese-Betrachter (Monitor). Siehe §8.3 und E9.
 - **Bereiche maskieren:** Polygon/Rechteck/Kreis zeichnen, halbtransparent, **Farbe wählbar**
   (z. B. Schadensgebiet rot, Bereitstellungsraum blau, Absperrbereich gelb).
 - **Beschreibungen:** Jedes Zeichen und jede Fläche kann eine Beschreibung tragen, die bei
@@ -433,8 +437,7 @@ interface SymbolFeature {
   kind: "symbol";
   symbolId: string;           // Referenz in den DV-102-Symbol-Index
   position: [number, number]; // [lat, lng]
-  rotation: number;           // Grad, 0 = Norden
-  scale: number;              // relative Größe
+  rotation: number;           // Grad, 0 = Norden (gerendert, aber noch keine Bearbeitungs-UI)
   label?: string;             // Kurzbeschriftung an der Karte
   description?: string;       // Tooltip bei MouseOver
   createdBy: string;          // Anzeigename
@@ -458,6 +461,12 @@ interface AreaFeature {
   updatedAt: string;
 }
 ```
+
+> **Darstellungsgröße (nicht im Modell):** Die Icon-Größe ist eine **betrachter-lokale**
+> Einstellung (globaler Slider, in `localStorage` je Client), kein Feld am Feature – sie wird
+> nicht synchronisiert. So wählt jeder (auch der read-only Monitor/Beamer) die für seinen
+> Bildschirm passende Größe, ohne den geteilten Zustand zu ändern. Rotation dagegen ist eine
+> echte geteilte Eigenschaft und bleibt am Feature.
 
 **Konfliktverhalten (wie in M1 umgesetzt):** Jedes Feature ist **ein** Wert im `Y.Map`, als Ganzes
 per `Y.Map.set(id, feature)` gesetzt. Änderungen an *verschiedenen* Features stören sich nicht;
@@ -731,7 +740,7 @@ Skalierung:
 | **Latenz** | Änderungen bei anderen Teilnehmern < ~300 ms (LAN/gute Verbindung) |
 | **Offline** | Weiterarbeiten bei kurzem Verbindungsverlust, automatischer Resync |
 | **Robustheit** | Kein Datenverlust bei Server-Neustart (Snapshot + Log) |
-| **Barrierefreiheit** | Kontrastreiches, gut lesbares UI (Einsatzumgebung, Beamer/Monitor) |
+| **Barrierefreiheit** | Kontrastreiches, gut lesbares UI (Einsatzumgebung, Beamer/Monitor); betrachter-lokale Symbolgröße (Slider) |
 | **Responsivität** | Nutzbar auf Laptop & Tablet (Stabsarbeit häufig am Tablet) |
 | **Auditierbarkeit** | ETB mit Änderungshistorie, Serverzeit als Zeitquelle |
 | **i18n** | Deutsch (KatS-Domäne); Struktur erlaubt spätere Erweiterung |
@@ -772,6 +781,7 @@ Stand der Entscheidungen (2026-07-29 mit K. Kelker geklärt) — ✅ = entschied
 | E6 | Leaflet vs. MapLibre | ✅ Leaflet (in M1 ausgeliefert) |
 | E7 | Rückseite Arbeitsblatt (ABC/MANV/Wetter) | ▫ Phase 2 |
 | E8 | Nutzerkonten statt Raumcode? | ✅ Vorerst **Raumcode**, keine Accounts in M0; Accounts erst bei raumübergreifender Historie |
+| E9 | Symbolgröße pro Symbol oder global? | ✅ **Global pro Betrachter** (lokaler Slider, `localStorage`); `SymbolFeature.scale` entfernt – Größe ist bei DV-102 nicht bedeutungstragend, Bedarf = Lesbarkeit (Beamer/Tablet) und muss auch für den RO-Monitor gehen. Rotation bleibt pro Symbol (§8.1/§8.3) |
 
 **Tooling (M0):** Monorepo mit **pnpm-Workspaces**, gemeinsames `shared`-Paket. Frontend React+Vite, Backend Fastify + `ws` + Yjs, PostgreSQL.
 
