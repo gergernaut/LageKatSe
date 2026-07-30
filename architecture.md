@@ -725,9 +725,14 @@ Skalierung:
   gewählt werden. Für Übung/Ausbildung ist das leichte Modell akzeptabel.
 - **Transport:** ausschließlich TLS (HTTPS/WSS).
 - **Autoritative Rechte:** siehe [§6.3](#6-rollen--rechtemodell) – Sicherheit unabhängig vom Client.
-- **DSGVO:** Meldungen/ETB können personenbezogene Daten enthalten. Nötig: Lösch-/Retention-Konzept
-  (Raum nach X Tagen Inaktivität automatisch löschen), Export für Auskunft, klare Zweckbindung,
-  Auftragsverarbeitung klären, Server-Standort EU. **⚠️** mit Datenschutz der Organisation abstimmen.
+- **DSGVO & Retention (E10):** Meldungen/ETB können personenbezogene Daten enthalten. Backbone ist eine
+  **automatische Inaktivitäts-Retention**: ein geplanter Server-Sweep löscht Räume (Cascade auf
+  Sessions/Dokumente/Chat), deren `last_active_at` älter als eine **konfigurierbare Frist** ist — kein
+  Admin-Portal nötig. Da das ETB ein Nachweisdokument ist, **vor** dem Hard-Delete das Stabsraum-Bundle
+  exportieren/archivieren (§12); das Beenden einer Lage kann auch **Self-Service** durch die S-Rollen
+  geschehen (passt zu E8, kein Admin-Account). Dazu Export für Auskunft, klare Zweckbindung,
+  Auftragsverarbeitung, Server-Standort EU. **⚠️ Frist** mit Zielgruppe/Datenschutz abstimmen (eine Lage
+  kann Wochen dauern). Nur für den Postgres-Deploy relevant (Memory-Store vergisst beim Neustart).
 - **Rate-Limiting** auf Beitritts- und Import-Endpunkten (Brute-Force auf Lobby-Codes verhindern →
   ausreichend lange, zufällige Codes).
 
@@ -782,6 +787,7 @@ Stand der Entscheidungen (2026-07-29  geklärt) — ✅ = entschieden, ▫ = Def
 | E7 | Rückseite Arbeitsblatt (ABC/MANV/Wetter) | ▫ Phase 2 |
 | E8 | Nutzerkonten statt Raumcode? | ✅ Vorerst **Raumcode**, keine Accounts in M0; Accounts erst bei raumübergreifender Historie |
 | E9 | Symbolgröße pro Symbol oder global? | ✅ **Global pro Betrachter** (lokaler Slider, `localStorage`); `SymbolFeature.scale` entfernt – Größe ist bei DV-102 nicht bedeutungstragend, Bedarf = Lesbarkeit (Beamer/Tablet) und muss auch für den RO-Monitor gehen. Rotation bleibt pro Symbol (§8.1/§8.3) |
+| E10 | Alte Räume bei Postgres-Persistenz | ✅ **Automatische Inaktivitäts-Retention** (konfigurierbare Frist auf `last_active_at`, geplanter Cascade-DELETE) statt Admin-Portal; **vor** dem Löschen Stabsraum-Bundle-Export (§12), optional Self-Service „Lage abschließen" durch S-Rollen (kein Admin-Account nötig, passt zu E8); Ops-CLI fürs Betreiben. Admin-Web-Portal erst mit Admin-Auth (M4). ⚠️ **Retention-Frist mit Zielgruppe klären** (eine Lage kann Wochen dauern) — nur Postgres-Deploy. Vorarbeit: `last_active_at` auch bei Aktivität bumpen (§14) |
 
 **Tooling (M0):** Monorepo mit **pnpm-Workspaces**, gemeinsames `shared`-Paket. Frontend React+Vite, Backend Fastify + `ws` + Yjs, PostgreSQL.
 
@@ -816,7 +822,7 @@ Iterativ, jede Stufe für sich lauffähig und demonstrierbar.
 - **Ergebnis:** Alle drei Kern-Module vollständig.
 
 ### M4 – Härtung & Ausbau
-- Offline-Robustheit, Auth-Proxy/SSO-Anbindung, Retention/Löschkonzept
+- Offline-Robustheit, Auth-Proxy/SSO-Anbindung, Retention/Löschkonzept (E10 / §14), Admin-Auth (Vorbedingung für ein Admin-Portal)
 - PDF-Export (ETB, Arbeitsblatt), Stabsraum-Bundle-Export
 - Ausbaustufen: Live-Cursor, Arbeitsblatt-Rückseite, eigener Tile-Server
 
