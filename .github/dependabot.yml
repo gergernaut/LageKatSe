@@ -7,6 +7,13 @@ updates:
       interval: monthly
     open-pull-requests-limit: 5
     groups:
+      # react + react-dom (+ ihre @types) IMMER gemeinsam anheben — sonst
+      # reißt Dependabot sie auseinander und es entsteht ein react/react-dom-
+      # Versions-Mismatch (ReactSharedInternals undefined → weiße Seite).
+      # Ohne update-types → gilt für alle Bump-Arten; zuerst gelistet → greift
+      # für react-Pakete vor der Minor/Patch-Gruppe.
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
       # Minor/Patch gebündelt in einen PR (majors einzeln zum Reviewen).
       minor-and-patch:
         patterns: ["*"]
