@@ -97,7 +97,7 @@ input, select, textarea { font-family: inherit; }
 
 /* ---------- App shell ---------- */
 .app {
-  height: 100%; display: grid; grid-template-columns: 76px 1fr; grid-template-rows: 54px 1fr;
+  height: 100%; display: grid; grid-template-columns: 90px 1fr; grid-template-rows: 54px 1fr;
   grid-template-areas: "rail top" "rail canvas"; background: var(--canvas);
 }
 .topbar {
@@ -119,14 +119,14 @@ input, select, textarea { font-family: inherit; }
   box-shadow: 0 6px 18px rgba(247,168,27,.25);
 }
 .rail__item {
-  width: 56px; height: 56px; flex: none; border: 1px solid transparent; background: transparent; border-radius: 12px;
+  width: 74px; height: 60px; flex: none; border: 1px solid transparent; background: transparent; border-radius: 12px;
   color: var(--on-dark-3); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   padding: 4px 2px; transition: color .15s, background .15s;
 }
 .rail__item svg { width: 21px; height: 21px; flex: none; }
 .rail__item span {
-  max-width: 50px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 9.5px; font-family: var(--mono); letter-spacing: .03em;
+  max-width: 68px; text-align: center; line-height: 1.12; overflow-wrap: break-word;
+  font-size: 8.5px; font-family: var(--mono); letter-spacing: .02em;
 }
 .rail__item:hover { color: var(--on-dark); background: var(--ground-2); }
 .rail__item.is-active { color: var(--signal); background: rgba(247,168,27,.1); border-color: rgba(247,168,27,.24); }
@@ -342,8 +342,9 @@ input, select, textarea { font-family: inherit; }
 }
 
 @media (max-width: 640px) {
-  .app { grid-template-columns: 64px 1fr; }
-  .rail__item, .rail__user { width: 50px; }
+  .app { grid-template-columns: 60px 1fr; }
+  .rail__item, .rail__user { width: 52px; }
+  .rail__item span { display: none; } /* schmale Rail: nur Icons, Namen im Tooltip */
   .topbar { gap: 8px; padding: 0 10px; }
   .topbar .role-badge { display: none; }
   .topbar .room { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
