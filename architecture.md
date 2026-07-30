@@ -1,7 +1,7 @@
 # LageKatSe – Architektur- und Fachkonzept
 
 > Modulare, browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz.
-> Version 0.1 (Konzeptentwurf) · Stand: 2026-07-28
+> Version 0.2 · Stand: 2026-07-30 · Konzept + Umsetzungsstand bis **M1 (Lagekarte)**
 
 Dieses Dokument überführt das Brainstorming (`LageKatSe.txt`) in ein tragfähiges technisches Konzept.
 Es beschreibt Zielbild, Architektur, Datenmodell, Rechtemodell und einen Umsetzungsfahrplan.
@@ -198,9 +198,10 @@ Rechtegrenze.** Der Server kann eine WebSocket-Verbindung pro Dokument als *read
 Ein Yjs-Dokument kann seinen Gesamtzustand jederzeit als kompaktes Binärformat ausgeben
 (`Y.encodeStateAsUpdate`). Ein neu beitretender Client schickt seinen (leeren) *State Vector*, der
 Server antwortet mit genau dem fehlenden Diff. Ergebnis: **Hot-Join ist ein Einzeiler im Protokoll**,
-kein Sonderfall (erfüllt L2). Konkurrierende Änderungen (z. B. zwei Personen verschieben dasselbe
-Zeichen) werden deterministisch aufgelöst (Last-Write-Wins pro Feld) – niemand „überschreibt" den
-ganzen Zustand.
+kein Sonderfall (erfüllt L2). Konkurrierende Änderungen an *verschiedenen* Objekten werden
+deterministisch zusammengeführt; ändern zwei Personen dasselbe Objekt gleichzeitig, gewinnt der
+letzte Schreibvorgang (Last-Write-Wins – in der Lagekarte pro Feature als Ganzes, siehe §8.3),
+ohne den übrigen Zustand zu berühren.
 
 ### 5.3 Ablauf: Beitritt & Hot-Join
 
@@ -393,7 +394,8 @@ Das Herzstück: eine OpenStreetMap-Karte, auf der der Stab die Lage grafisch fü
 
 - **OSM-Grundkarte** (Leaflet), frei verschieb-/zoombar.
 - **Taktische Zeichen (DV 102) platzieren:** aus einer durchsuchbaren Symbol-Palette per
-  Klick/Drag auf die Karte setzen; verschieben, drehen, skalieren, löschen.
+  Klick auf die Karte setzen; verschieben (Drag), beschriften, löschen. *(Drehen/Skalieren sind
+  im Datenmodell vorgesehen, aber noch nicht in der M1-UI.)*
 - **Bereiche maskieren:** Polygon/Rechteck/Kreis zeichnen, halbtransparent, **Farbe wählbar**
   (z. B. Schadensgebiet rot, Bereitstellungsraum blau, Absperrbereich gelb).
 - **Beschreibungen:** Jedes Zeichen und jede Fläche kann eine Beschreibung tragen, die bei
@@ -404,23 +406,25 @@ Das Herzstück: eine OpenStreetMap-Karte, auf der der Stab die Lage grafisch fü
 
 ### 8.2 Taktische Zeichen – Asset-Pipeline
 
-Quelle: [Bibliothek-taktische-Zeichen](https://github.com/ReneDens/Bibliothek-taktische-Zeichen)
-(SVG-Vektorgrafiken, nach Organisation/Typ in Ordnern, z. B. `Feuerwehr_Fahrzeuge/`,
-`THW_Einheiten/`; Beispieldateien `Loeschfahrzeug_10.svg`, `Einsatzleitwagen_1_Fuehrung.svg`).
+Quelle (in M1 umgesetzt): [jonas-koeritz/Taktische-Zeichen](https://github.com/jonas-koeritz/Taktische-Zeichen)
+**v2.0.0** (`release.zip`) – 894 SVG-Vektorgrafiken, nach Organisation/Typ in Ordnern
+(z. B. `Feuerwehr_Fahrzeuge/`, `Feuerwehr_Einheiten/`, `Fahrzeuge/`). Vendored unter
+`packages/web/public/taktische-zeichen/svg/`; Herkunft und Lizenz stehen in
+`packages/web/public/taktische-zeichen/ATTRIBUTION.md`.
 
-- **Build-Schritt:** SVGs werden als statische Assets eingebunden und ein **Symbol-Index** als JSON
-  generiert (`id`, `label`, `kategorie`, `pfad`, `keywords`). Der Index speist die durchsuchbare
-  Palette.
-- **Im CRDT wird nur die Referenz gespeichert** (`symbolId`), nicht die SVG-Daten – das Dokument
-  bleibt klein und schnell synchronisierbar.
-- **⚠️ zu klären – Lizenz:** Nutzungslizenz der SVG-Bibliothek prüfen (Repo-`LICENSE`). Die
-  DV-102-Symbolik selbst ist eine amtliche Norm, konkrete Vektor-Umsetzungen können aber eigenen
-  Lizenzbedingungen unterliegen. Ggf. eine CC-/gemeinfreie Alternative wählen oder Autor kontaktieren.
+- **Build-Schritt:** Aus `svg/` wird ein **Symbol-Index** (`index.json`) generiert
+  (`node packages/web/scripts/build-symbol-index.mjs`) – er speist die durchsuchbare Palette.
+- **Im CRDT wird nur die Referenz gespeichert** (`symbolId`, z. B. `Feuerwehr_Fahrzeuge/Kraftfahrzeug`),
+  nicht die SVG-Daten – das Dokument bleibt klein und schnell synchronisierbar.
+- **Lizenz (geklärt, E4):** Die fertigen Zeichen aus `release.zip` sind **gemeinfrei (CC0 1.0)** –
+  keine Attribution nötig. (Der Quell-*Code* des Repos steht unter CC BY 4.0; übernommen werden aber
+  ausschließlich die gemeinfreien Zeichen.)
 
 ### 8.3 Datenstruktur (Yjs-Dokument `lagekarte`)
 
-Ein `Y.Map` `features`, Schlüssel = Feature-`id`, Wert = `Y.Map` je Feature. Positionen als
-WGS84 (`[lat, lng]`), damit OSM-kompatibel.
+Ein `Y.Map` `features`, Schlüssel = Feature-`id`, Wert = **das Feature-Objekt als Ganzes**
+(`SymbolFeature | AreaFeature`, per `Y.Map.set` gesetzt – kein verschachteltes `Y.Map` je Feld).
+Positionen als WGS84 (`[lat, lng]`), damit OSM-kompatibel.
 
 ```ts
 // Taktisches Zeichen
@@ -443,9 +447,10 @@ interface AreaFeature {
   id: string;
   kind: "area";
   shape: "polygon" | "rectangle" | "circle";
-  geometry: [number, number][]; // Stützpunkte (bzw. Zentrum+Radius bei circle)
-  color: string;                // z. B. "#e53935"
-  opacity: number;              // 0..1, Standard 0.35 (halbtransparent)
+  geometry: [number, number][]; // polygon/rectangle: Ring aus [lat,lng]; circle: einzelner Mittelpunkt
+  radiusM?: number;             // nur circle, Radius in Metern
+  color: string;                // z. B. "#d5372b"
+  opacity: number;              // Füll-Deckkraft 0..1
   label?: string;
   description?: string;         // Tooltip
   createdBy: string;
@@ -454,9 +459,12 @@ interface AreaFeature {
 }
 ```
 
-**Konfliktverhalten:** Da jedes Feld im `Y.Map` einzeln repliziert wird, führt „zwei Personen
-verschieben dasselbe Zeichen gleichzeitig" zu Last-Write-Wins auf `position` – ohne den Rest des
-Features zu verlieren. Für die Lageführung ist das akzeptabel (⚠️ ggf. mit Zielgruppe validieren).
+**Konfliktverhalten (wie in M1 umgesetzt):** Jedes Feature ist **ein** Wert im `Y.Map`, als Ganzes
+per `Y.Map.set(id, feature)` gesetzt. Änderungen an *verschiedenen* Features stören sich nicht;
+ändern zwei Personen **dasselbe** Feature gleichzeitig, gewinnt der letzte Schreibvorgang für das
+**gesamte** Feature (Whole-Value-Last-Write-Wins) – eine parallele Änderung an einem anderen Feld
+desselben Features kann dabei verloren gehen. Für die Lageführung ist das vertretbar (⚠️ ggf. mit
+Zielgruppe validieren; feldweises Merge wäre eine spätere Ausbaustufe).
 
 ### 8.4 Import/Export-Format
 
@@ -759,9 +767,9 @@ Stand der Entscheidungen (2026-07-29 mit K. Kelker geklärt) — ✅ = entschied
 | E1 | Darf der Monitor chatten? | ✅ Konfigurierbar je Raum, **Standard: an** (Koordination ≠ Lageänderung) |
 | E2 | ETB frei editierbar oder Historie/Storno? | ▫ Historie + Storno — im Datenmodell vorgesehen, greift in M2 |
 | E3 | Auth-Modell / -Stärke | ✅ **M0:** Lobby-Code + optionales Raum-Passwort, selbst deklarierter Name, Session-Token (JWT). Token-/Session-Schicht so gebaut, dass SSO/Accounts später andockbar sind. Produktiv weiterhin Auth-Proxy/geschlossenes Netz empfohlen |
-| E4 | Lizenz DV-102-SVG-Bibliothek | ⚠️ LICENSE-Check **vor M1** (blockt M0 nicht) |
-| E5 | Konflikt beim Verschieben | ▫ Last-Write-Wins pro Feld — in M1 mit Nutzern testen |
-| E6 | Leaflet vs. MapLibre | ▫ Leaflet — Entscheidung erst in M1 relevant |
+| E4 | Lizenz DV-102-SVG-Bibliothek | ✅ Geklärt (M1): [jonas-koeritz/Taktische-Zeichen](https://github.com/jonas-koeritz/Taktische-Zeichen) v2.0.0, **CC0/gemeinfrei** (s. §8.2) |
+| E5 | Konflikt beim Verschieben | ✅ Umgesetzt (M1): **Whole-Value-LWW pro Feature** (§8.3); feldweises Merge ggf. später, Nutzer-Test offen |
+| E6 | Leaflet vs. MapLibre | ✅ Leaflet (in M1 ausgeliefert) |
 | E7 | Rückseite Arbeitsblatt (ABC/MANV/Wetter) | ▫ Phase 2 |
 | E8 | Nutzerkonten statt Raumcode? | ✅ Vorerst **Raumcode**, keine Accounts in M0; Accounts erst bei raumübergreifender Historie |
 
@@ -773,7 +781,7 @@ Stand der Entscheidungen (2026-07-29 mit K. Kelker geklärt) — ✅ = entschied
 
 Iterativ, jede Stufe für sich lauffähig und demonstrierbar.
 
-### M0 – Fundament (Skelett)
+### M0 – Fundament (Skelett) — ✅ umgesetzt
 - Projektsetup (Monorepo FE/BE), CI, Docker Compose
 - Stabsraum anlegen/beitreten, Rollenwahl (Checkboxen), Session-Token
 - WebSocket-Sync-Engine + Rechte-Gateway (generisch, modul-agnostisch)
@@ -781,13 +789,13 @@ Iterativ, jede Stufe für sich lauffähig und demonstrierbar.
 - Persistenz (Snapshot + Update-Log), Recovery
 - **Ergebnis:** Mehrere Nutzer sind in einem persistenten Raum, sehen sich, chatten.
 
-### M1 – Gemeinsame Lagekarte
-- Leaflet + OSM, Symbol-Palette (DV 102), Platzieren/Verschieben/Löschen/Drehen
+### M1 – Gemeinsame Lagekarte — ✅ umgesetzt (PR #2)
+- Leaflet + OSM, Symbol-Palette (DV 102), Platzieren/Verschieben/Löschen
 - Bereichs-Maskierung (Farbe/Transparenz), Beschreibungen + Tooltips
 - Live-Sync, Hot-Join, JSON-Import/-Export
 - **Ergebnis:** Das zentrale Lagebild funktioniert kollaborativ.
 
-### M2 – Gemeinsames Einsatztagebuch
+### M2 – Gemeinsames Einsatztagebuch — ⟵ nächster Schritt
 - Tabelle, Auto-Lfd.-Nr., Auto-Zeit (Serverzeit, editierbar)
 - Live-Sync, Hot-Join, CSV-Import/-Export, Änderungshistorie/Storno
 - **Ergebnis:** Lückenloses, kollaboratives ETB.
@@ -822,15 +830,14 @@ lagekatse/
 │   │       ├── sync/                # Yjs-Dokumentverwaltung, Persistenz
 │   │       └── db/                  # PostgreSQL-Zugriff, Migrationen
 │   └── web/                         # React-SPA (Vite)
+│       ├── public/taktische-zeichen/# vendorte DV-102-SVGs (CC0) + generierter index.json
+│       ├── scripts/                 # build-symbol-index.mjs, e2e-Smoke-Tests
 │       └── src/
 │           ├── lobby/               # Frontpage, Raum anlegen/beitreten
 │           ├── uebersicht/          # Modulauswahl + Chat + Online-Liste
-│           ├── module/
-│           │   ├── lagekarte/       # Leaflet, Symbol-Palette, Flächen
-│           │   ├── einsatztagebuch/ # Tabelle
-│           │   └── arbeitsblatt/    # Formular A–F + eingebettete Karte
-│           ├── sync/                # Yjs-Provider, Awareness-Bindung
-│           └── assets/taktische-zeichen/  # SVGs + generierter Index
+│           ├── lagekarte/           # M1: Leaflet, Symbol-Palette, Flächen
+│           │                        #   (später ergänzt um etb/, arbeitsblatt/)
+│           └── sync/                # Yjs-Provider, Awareness-Bindung
 └── README.md
 ```
 
