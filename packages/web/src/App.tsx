@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import type { Module } from "@lagekatse/shared";
 import { api } from "./api";
-import { Lagekarte } from "./lagekarte/Lagekarte";
 import { Lobby } from "./lobby/Lobby";
 import { clearSession, loadSession, saveSession, type Session } from "./session";
 import { Uebersicht } from "./uebersicht/Uebersicht";
+
+// Lazy: Leaflet + Geoman (the heavy mapping libs) only download when the map is
+// opened, keeping the lobby/overview bundle small.
+const Lagekarte = lazy(() => import("./lagekarte/Lagekarte").then((m) => ({ default: m.Lagekarte })));
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(() => loadSession());
@@ -40,7 +43,27 @@ export default function App() {
 
   if (!session) return <Lobby onEnter={enter} />;
   if (activeModule === "lagekarte") {
-    return <Lagekarte session={session} onBack={() => setActiveModule(null)} />;
+    return (
+      <Suspense
+        fallback={
+          <div
+            style={{
+              height: "100%",
+              display: "grid",
+              placeItems: "center",
+              background: "var(--canvas)",
+              color: "var(--ink-3)",
+              fontFamily: "var(--mono)",
+              fontSize: 13,
+            }}
+          >
+            Karte wird geladen…
+          </div>
+        }
+      >
+        <Lagekarte session={session} onBack={() => setActiveModule(null)} />
+      </Suspense>
+    );
   }
   return <Uebersicht session={session} onOpenModule={setActiveModule} onLeave={leave} />;
 }
