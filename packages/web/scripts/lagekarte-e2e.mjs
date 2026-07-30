@@ -87,7 +87,7 @@ async function main() {
   const now = new Date().toISOString();
   W.map.set("s1", {
     id: "s1", kind: "symbol", symbolId: "Feuerwehr_Fahrzeuge/Loeschfahrzeug",
-    position: [51.16, 10.45], rotation: 0, scale: 1, label: "LF", description: "Testzeichen",
+    position: [51.16, 10.45], rotation: 0, label: "LF", description: "Testzeichen",
     createdBy: "Writer S3", createdAt: now, updatedAt: now,
   });
   W.map.set("a1", {
@@ -104,7 +104,7 @@ async function main() {
 
   // Monitor tries to write a feature — must be dropped server-side.
   M.map.set("m1", {
-    id: "m1", kind: "symbol", symbolId: "x/y", position: [51, 10], rotation: 0, scale: 1,
+    id: "m1", kind: "symbol", symbolId: "x/y", position: [51, 10], rotation: 0,
     createdBy: "Beamer", createdAt: now, updatedAt: now,
   });
   await sleep(900);

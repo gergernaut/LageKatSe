@@ -16,7 +16,6 @@ export interface SymbolFeature {
   symbolId: string;
   position: [number, number]; // [lat, lng]
   rotation: number; // degrees, 0 = north
-  scale: number; // relative size, 1 = default
   label?: string;
   description?: string; // shown as tooltip on hover
   createdBy: string;
