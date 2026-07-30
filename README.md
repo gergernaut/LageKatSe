@@ -3,10 +3,12 @@
 Modulare, browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz.
 Fach- und Architekturkonzept: **[architecture.md](./architecture.md)**.
 
-> **Status: M0 — Fundament.** Stabsräume anlegen/beitreten, Rollen & Rechte,
-> Live-Präsenz und Chat, generische Echtzeit-Sync-Engine mit autoritativer
-> Rechte-Durchsetzung und Persistenz. Die Fachmodule (Lagekarte, Einsatztagebuch,
-> Arbeitsblatt) folgen in M1–M3.
+> **Status: M1 — Gemeinsame Lagekarte.** Auf dem M0-Fundament (Stabsräume
+> anlegen/beitreten, Rollen & Rechte, Live-Präsenz & Chat, autoritative
+> Echtzeit-Sync-Engine mit Persistenz) läuft jetzt das erste Fachmodul: eine
+> kollaborative Lagekarte (Leaflet + OSM) mit taktischen Zeichen (DV 102),
+> Flächen, Tooltips und JSON-Im-/Export. Die weiteren Fachmodule
+> (Einsatztagebuch, Arbeitsblatt) folgen in M2–M3.
 
 ## Schnellstart
 
@@ -66,14 +68,14 @@ bindet dank `host: true` auf alle Interfaces.
 packages/
   shared/   @lagekatse/shared — Rollen, Rechte-Logik, Protokoll-/Datentypen (Client+Server)
   server/   @lagekatse/server — Fastify HTTP-API + WebSocket-Sync-Gateway (Yjs) + Persistenz
-  web/      @lagekatse/web    — React/Vite SPA (Lobby, Übersicht, Chat, Präsenz)
+  web/      @lagekatse/web    — React/Vite SPA (Lobby, Übersicht, Chat, Präsenz, Lagekarte)
 ```
 
 ## Wie M0 funktioniert
 
 - **Ein Yjs-Dokument pro Raum × Modul.** Die Dokumentgrenze ist die Rechtegrenze.
-  In M0 existiert real das `chat`-Dokument; die Sync-Engine ist aber schon
-  modul-agnostisch und trägt M1–M3 ohne Änderung.
+  Real existieren die Dokumente `chat` (M0) und `lagekarte` (M1); die Sync-Engine
+  ist modul-agnostisch und trägt die weiteren Module (M2–M3) ohne Änderung.
 - **Autoritativer Server, kein P2P.** Jede WebSocket-Verbindung wird pro Dokument
   als *read-write* oder *read-only* gebunden (`packages/server/src/sync/gateway.ts`).
   Schreibversuche einer RO-Verbindung werden verworfen und der Client resynchronisiert
@@ -86,10 +88,40 @@ packages/
   Session-Token (JWT). Rollen werden serverseitig signiert; Rechte serverseitig
   durchgesetzt.
 
+## Wie M1 funktioniert (Lagekarte)
+
+Das erste Fachmodul (`packages/web/src/lagekarte/`): eine gemeinsame, live-synchrone
+Lagekarte, in die der Stab die Lage grafisch führt.
+
+- **Karte & Bedienung.** Leaflet mit OpenStreetMap-Kacheln. Taktische Zeichen
+  (DV 102) werden aus einer durchsuchbaren Palette per Klick platziert, per Drag
+  verschoben, beschriftet (Bezeichnung + Beschreibung) und gelöscht. Flächen
+  (Polygon/Rechteck/Kreis) werden mit Leaflet-Geoman gezeichnet und tragen Farbe
+  und Deckkraft. Bezeichnung + Beschreibung erscheinen als Tooltip.
+- **Zeichensatz.** 894 gemeinfreie SVGs (CC0) aus
+  [jonas-koeritz/Taktische-Zeichen](https://github.com/jonas-koeritz/Taktische-Zeichen)
+  liegen unter `packages/web/public/taktische-zeichen/`. Der durchsuchbare Index
+  (`index.json`) wird daraus generiert:
+  `node packages/web/scripts/build-symbol-index.mjs`. Im CRDT steht nur die
+  `symbolId`, nicht die SVG-Daten.
+- **Sync & Rechte.** Alle Änderungen laufen über **ein** `lagekarte`-Yjs-Dokument
+  (`Y.Map` `features`); die Karte rendert ausschließlich aus dem beobachteten
+  CRDT-Zustand (lokal wie remote). Schreiben darf nur, wer den Scope `lagekarte`
+  hat (Lagekartenführer/S-Rollen) — der Server setzt das autoritativ durch, die UI
+  blendet die Werkzeuge für Nur-Lese-Rollen aus.
+- **Persistenz & Import/Export.** Der Kartenstand überlebt Reload (F5, Session via
+  `sessionStorage`) und Server-Neustart (Snapshot + Update-Log). Zusätzlich lässt
+  sich die Lage als JSON sichern/importieren (`format: "lagekatse.lagekarte"`, v1).
+- **Ladeverhalten.** Die Karte samt Leaflet/Geoman wird per `React.lazy` erst bei
+  Bedarf geladen (kleineres Initial-Bundle).
+
+Sync und Rechte-Durchsetzung der Karte deckt ein Smoke-Test ab:
+`node packages/web/scripts/lagekarte-e2e.mjs`.
+
 ## Nächste Schritte
 
-- **M1** Gemeinsame Lagekarte (Leaflet + OSM, taktische Zeichen DV 102, Flächen)
-- **M2** Einsatztagebuch (Tabelle, Auto-Lfd-Nr./Zeit, CSV)
+- ~~**M1** Gemeinsame Lagekarte~~ ✅ umgesetzt (PR #2)
+- **M2** Einsatztagebuch (Tabelle, Auto-Lfd-Nr./Zeit, CSV) ⟵ als Nächstes
 - **M3** Taktisches Arbeitsblatt (Felder A–F, eingebettetes Live-Lagebild)
 
 Offene Punkte mit ⚠️ in [architecture.md §17](./architecture.md).
