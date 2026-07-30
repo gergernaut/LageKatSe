@@ -32,6 +32,7 @@ const AREA_COLORS = [
 ];
 
 const SYMBOL_SIZE_KEY = "lagekatse.symbolSize";
+const LABELS_VISIBLE_KEY = "lagekatse.labelsVisible";
 const SYMBOL_SIZE_MIN = 0.6;
 const SYMBOL_SIZE_MAX = 2;
 
@@ -149,6 +150,7 @@ function createLayer(
   symbolFiles: Map<string, string>,
   writable: boolean,
   symbolSize: number,
+  labelsVisible: boolean,
 ): L.Layer | null {
   let layer: L.Layer;
 
@@ -162,9 +164,20 @@ function createLayer(
     image.alt = "";
     image.style.transform = `rotate(${feature.rotation}deg)`;
 
+    const content = document.createElement("div");
+    content.className = "lagekarte-symbol__content";
+    content.appendChild(image);
+    const label = feature.label?.trim();
+    if (labelsVisible && label) {
+      const caption = document.createElement("div");
+      caption.className = "lagekarte-symbol__label";
+      caption.textContent = label;
+      content.appendChild(caption);
+    }
+
     const icon = L.divIcon({
       className: "lagekarte-symbol",
-      html: image,
+      html: content,
       iconAnchor: [size / 2, size / 2],
       iconSize: [size, size],
     });
@@ -175,18 +188,52 @@ function createLayer(
       fillColor: feature.color,
       fillOpacity: feature.opacity,
     };
+    let shape: L.Circle | L.Rectangle | L.Polygon;
 
     if (feature.shape === "circle") {
       const center = feature.geometry[0];
       if (!center) return null;
-      layer = L.circle(center, { ...options, radius: feature.radiusM ?? 0 });
+      shape = L.circle(center, { ...options, radius: feature.radiusM ?? 0 });
     } else if (feature.shape === "rectangle") {
       if (feature.geometry.length === 0) return null;
-      layer = L.rectangle(L.latLngBounds(feature.geometry), options);
+      shape = L.rectangle(L.latLngBounds(feature.geometry), options);
     } else {
       if (feature.geometry.length === 0) return null;
-      layer = L.polygon(feature.geometry, options);
+      shape = L.polygon(feature.geometry, options);
     }
+
+    const tip = buildTooltip(feature);
+    if (tip) {
+      shape.bindTooltip(tip, {
+        className: "lagekarte-tip",
+        direction: "top",
+        sticky: true,
+      });
+    }
+
+    const label = feature.label?.trim();
+    if (!labelsVisible || !label) return shape;
+
+    const labelElement = document.createElement("div");
+    labelElement.className = "lagekarte-area-label__text";
+    labelElement.textContent = label;
+    labelElement.style.backgroundColor = `color-mix(in srgb, ${feature.color} 14%, transparent)`;
+    labelElement.style.color = `color-mix(in srgb, ${feature.color} 72%, black)`;
+    labelElement.style.borderColor = feature.color;
+    const center =
+      feature.shape === "circle" ? feature.geometry[0] : shape.getBounds().getCenter();
+    if (!center) return shape;
+    const labelMarker = L.marker(center, {
+      icon: L.divIcon({
+        className: "lagekarte-area-label",
+        html: labelElement,
+        iconAnchor: [0, 0],
+        iconSize: [0, 0],
+      }),
+      interactive: false,
+      keyboard: false,
+    });
+    return L.featureGroup([shape, labelMarker]);
   }
 
   const tip = buildTooltip(feature);
@@ -194,7 +241,7 @@ function createLayer(
     layer.bindTooltip(tip, {
       className: "lagekarte-tip",
       direction: "top",
-      sticky: feature.kind === "area",
+      sticky: false,
     });
   }
   return layer;
@@ -232,6 +279,14 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
     }
   });
   const symbolSizeRef = useRef(symbolSize);
+  const [labelsVisible, setLabelsVisible] = useState(() => {
+    try {
+      return localStorage.getItem(LABELS_VISIBLE_KEY) !== "false";
+    } catch {
+      return true;
+    }
+  });
+  const labelsVisibleRef = useRef(labelsVisible);
   const writable = canWrite(session.roles, "lagekarte", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
   });
@@ -249,6 +304,16 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
     }
     refreshSymbolsRef.current?.();
   }, [symbolSize]);
+
+  useEffect(() => {
+    labelsVisibleRef.current = labelsVisible;
+    try {
+      localStorage.setItem(LABELS_VISIBLE_KEY, String(labelsVisible));
+    } catch {
+      // The preference remains active for this session when storage is unavailable.
+    }
+    renderForRightsRef.current?.();
+  }, [labelsVisible]);
 
   useEffect(() => {
     writableRef.current = writable;
@@ -489,6 +554,7 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
         symbolFiles,
         writableRef.current,
         symbolSizeRef.current,
+        labelsVisibleRef.current,
       );
       if (!layer) return;
       if (feature.kind === "symbol" && layer instanceof L.Marker) {
@@ -656,6 +722,15 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
             onChange={(event) => setSymbolSize(clampSymbolSize(event.currentTarget.valueAsNumber))}
           />
           <output>{Math.round(symbolSize * 100)} %</output>
+        </label>
+        <label className="lagekarte-label-toggle">
+          <input
+            type="checkbox"
+            checked={labelsVisible}
+            aria-label="Beschriftung anzeigen"
+            onChange={(event) => setLabelsVisible(event.currentTarget.checked)}
+          />
+          <span>Beschriftung</span>
         </label>
         {writable && (
           <>
