@@ -81,8 +81,26 @@ function areaFromLayer(
   };
 }
 
-function tooltipText(feature: MapFeature): string | undefined {
-  return feature.description || feature.label;
+// Build the hover tooltip: label as a bold heading, description as body below —
+// both shown when set. DOM built with textContent (not innerHTML) so user text
+// can never inject markup.
+function buildTooltip(feature: MapFeature): HTMLElement | null {
+  const title = feature.label?.trim();
+  const body = feature.description?.trim();
+  if (!title && !body) return null;
+
+  const el = document.createElement("div");
+  if (title) {
+    const heading = document.createElement("b");
+    heading.textContent = title;
+    el.appendChild(heading);
+  }
+  if (body) {
+    const text = document.createElement("span");
+    text.textContent = body;
+    el.appendChild(text);
+  }
+  return el;
 }
 
 function createLayer(
@@ -130,8 +148,14 @@ function createLayer(
     }
   }
 
-  const tooltip = tooltipText(feature);
-  if (tooltip) layer.bindTooltip(tooltip);
+  const tip = buildTooltip(feature);
+  if (tip) {
+    layer.bindTooltip(tip, {
+      className: "lagekarte-tip",
+      direction: "top",
+      sticky: feature.kind === "area",
+    });
+  }
   return layer;
 }
 
