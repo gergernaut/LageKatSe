@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Superseded Läufe auf demselben Ref abbrechen (spart Actions-Minuten).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: typecheck & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # pnpm zuerst — actions/setup-node braucht es für den pnpm-Store-Cache.
+      - uses: pnpm/action-setup@v4 # Version aus package.json "packageManager"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm build
+
+  smoke:
+    name: smoke tests (memory store)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      # Node 22: die y-websocket-Smoke-Clients brauchen ein globales WebSocket
+      # (in Node erst ab v22 vorhanden). Der App-Server nutzt das ws-Paket direkt.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Backend im Hintergrund (Default = Memory-Store, keine DB nötig).
+      # Output in eine Datei, damit der Step nicht auf die Pipe wartet.
+      - name: Backend starten (memory store)
+        run: pnpm --filter @lagekatse/server exec tsx src/index.ts > /tmp/server.log 2>&1 &
+      - name: Auf Backend-Health warten
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/api/health > /dev/null; then
+              echo "backend healthy"; exit 0
+            fi
+            sleep 1
+          done
+          echo "backend did not become healthy"; exit 1
+      - name: Smoke-Tests
+        run: |
+          node packages/web/scripts/e2e.mjs
+          node packages/web/scripts/lagekarte-e2e.mjs
+      - name: Backend-Log (bei Fehler)
+        if: failure()
+        run: cat /tmp/server.log || true
