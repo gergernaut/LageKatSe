@@ -208,6 +208,15 @@ export class RoomHub {
     if (md.conns.size === 0) this.snapshotNow(md);
   }
 
+  /** Flush a final snapshot for every live doc and drain its persist queue.
+   *  Call after clients are disconnected so no new updates race the drain. */
+  async closeAll(): Promise<void> {
+    for (const md of this.docs.values()) {
+      this.snapshotNow(md);
+      await md.persistQueue;
+    }
+  }
+
   // Append and snapshot both run through md.persistQueue, so they never
   // interleave. The snapshot is encoded *inside* its queued task — after every
   // previously-enqueued append has landed — and only then is the log truncated.

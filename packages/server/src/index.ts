@@ -19,18 +19,26 @@ async function main(): Promise<void> {
   registerRoutes(app, { rooms, config });
 
   // WebSocket gateway shares the same HTTP server.
-  attachGateway(app.server, { hub, rooms, config });
+  const wss = attachGateway(app.server, { hub, rooms, config });
 
   await app.listen({ port: config.port, host: "0.0.0.0" });
   app.log.info(
     `LageKatSe backend listening on :${config.port} — store: ${config.databaseUrl ? "postgres" : "memory"}`,
   );
 
+  let closing = false;
   const shutdown = async (signal: string) => {
+    if (closing) return;
+    closing = true;
     app.log.info(`received ${signal}, shutting down…`);
     try {
+      wss.close();
+      for (const ws of wss.clients) ws.terminate();
+      await hub.closeAll();
       await app.close();
       await store.close();
+    } catch (err) {
+      app.log.error(err, "shutdown failed");
     } finally {
       process.exit(0);
     }
