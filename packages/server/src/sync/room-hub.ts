@@ -13,6 +13,7 @@ export const MSG_AWARENESS = 1;
 /** Origin marker for updates replayed from persistence (never re-persisted). */
 const LOAD_ORIGIN = Symbol("lagekatse:load");
 
+const ROOM_TOUCH_THROTTLE_MS = 60_000;
 const SNAPSHOT_DEBOUNCE_MS = 4000;
 const SNAPSHOT_EVERY_N_UPDATES = 200;
 
@@ -60,6 +61,7 @@ function send(conn: Conn, data: Uint8Array): void {
 export class RoomHub {
   private docs = new Map<string, ManagedDoc>();
   private loading = new Map<string, Promise<ManagedDoc>>();
+  private roomLastTouchedAt = new Map<string, number>();
 
   constructor(private readonly store: Store) {}
 
@@ -141,6 +143,7 @@ export class RoomHub {
 
   addConn(md: ManagedDoc, conn: Conn): void {
     md.conns.add(conn);
+    this.markRoomActive(md.roomId);
 
     // Step 1 of the sync handshake: offer our state vector.
     const syncEncoder = encoding.createEncoder();
@@ -223,7 +226,18 @@ export class RoomHub {
   // An update arriving mid-snapshot enqueues *after* it and therefore survives
   // (worst case it is replayed once on top of the snapshot; applyUpdate is
   // idempotent). This closes the "compaction deletes an un-captured update" race.
+  private markRoomActive(roomId: string): void {
+    const now = Date.now();
+    const lastTouchedAt = this.roomLastTouchedAt.get(roomId);
+    if (lastTouchedAt !== undefined && now - lastTouchedAt < ROOM_TOUCH_THROTTLE_MS) return;
+    this.roomLastTouchedAt.set(roomId, now);
+    this.store
+      .touchRoom(roomId, new Date().toISOString())
+      .catch((err) => console.error(`[hub] touchRoom failed for ${roomId}`, err));
+  }
+
   private persistUpdate(md: ManagedDoc, update: Uint8Array): void {
+    this.markRoomActive(md.roomId);
     md.updatesSinceSnapshot += 1;
     md.persistQueue = md.persistQueue
       .then(() => this.store.appendUpdate(md.roomId, md.module, update))
