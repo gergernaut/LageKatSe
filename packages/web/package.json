@@ -10,13 +10,16 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@geoman-io/leaflet-geoman-free": "^2.17.0",
     "@lagekatse/shared": "workspace:*",
+    "leaflet": "^1.9.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "y-websocket": "^2.0.4",
     "yjs": "^13.6.20"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.12",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",

@@ -30,7 +30,15 @@ function hhmm(iso: string): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function Uebersicht({ session, onLeave }: { session: Session; onLeave: () => void }) {
+export function Uebersicht({
+  session,
+  onOpenModule,
+  onLeave,
+}: {
+  session: Session;
+  onOpenModule: (module: Module) => void;
+  onLeave: () => void;
+}) {
   const { messages, online, connected, canChat, send } = useRoomChat(session);
   const [draft, setDraft] = useState("");
 
@@ -64,16 +72,26 @@ export function Uebersicht({ session, onLeave }: { session: Session; onLeave: ()
           <p className="sub">Willkommen, {session.name}. Alle Inhalte werden live im Stabsraum synchronisiert.</p>
 
           <div className="modules">
-            {MODULE_CARDS.map((m) => (
-              <div className="module" key={m.key}>
-                <div className="ic" style={{ background: m.tint }}>
-                  {m.icon}
+            {MODULE_CARDS.map((m) =>
+              m.key === "lagekarte" ? (
+                <button className="module" key={m.key} type="button" onClick={() => onOpenModule("lagekarte")}>
+                  <div className="ic" style={{ background: m.tint }}>
+                    {m.icon}
+                  </div>
+                  <b>{MODULE_LABELS[m.key]}</b>
+                  <p>{m.desc}</p>
+                </button>
+              ) : (
+                <div className="module" key={m.key}>
+                  <div className="ic" style={{ background: m.tint }}>
+                    {m.icon}
+                  </div>
+                  <b>{MODULE_LABELS[m.key]}</b>
+                  <p>{m.desc}</p>
+                  <span className="soon">In Kürze · M1–M3</span>
                 </div>
-                <b>{MODULE_LABELS[m.key]}</b>
-                <p>{m.desc}</p>
-                <span className="soon">In Kürze · M1–M3</span>
-              </div>
-            ))}
+              ),
+            )}
           </div>
 
           <div className="cols">
