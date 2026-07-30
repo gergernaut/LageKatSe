@@ -31,6 +31,14 @@ const AREA_COLORS = [
   { color: "#2e9e5b", label: "Grün" },
 ];
 
+const SYMBOL_SIZE_KEY = "lagekatse.symbolSize";
+const SYMBOL_SIZE_MIN = 0.6;
+const SYMBOL_SIZE_MAX = 2;
+
+function clampSymbolSize(value: number): number {
+  return Math.min(SYMBOL_SIZE_MAX, Math.max(SYMBOL_SIZE_MIN, value));
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -140,6 +148,7 @@ function createLayer(
   feature: MapFeature,
   symbolFiles: Map<string, string>,
   writable: boolean,
+  symbolSize: number,
 ): L.Layer | null {
   let layer: L.Layer;
 
@@ -147,8 +156,7 @@ function createLayer(
     const file = symbolFiles.get(feature.symbolId);
     if (!file) return null;
 
-    const scale = Number.isFinite(feature.scale) && feature.scale > 0 ? feature.scale : 1;
-    const size = 40 * scale;
+    const size = 40 * symbolSize;
     const image = document.createElement("img");
     image.src = `/taktische-zeichen/${encodeURI(file)}`;
     image.alt = "";
@@ -201,6 +209,7 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
   const activeDrawRef = useRef<ActiveDraw | null>(null);
   const writableRef = useRef(false);
   const renderForRightsRef = useRef<(() => void) | null>(null);
+  const refreshSymbolsRef = useRef<(() => void) | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const [connected, setConnected] = useState(false);
   const [symbols, setSymbols] = useState<PaletteSymbol[]>([]);
@@ -214,6 +223,15 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
   const [areaOpacity, setAreaOpacity] = useState(0.3);
   const [label, setLabel] = useState("");
   const [description, setDescription] = useState("");
+  const [symbolSize, setSymbolSize] = useState(() => {
+    try {
+      const stored = Number.parseFloat(localStorage.getItem(SYMBOL_SIZE_KEY) ?? "");
+      return Number.isFinite(stored) && stored > 0 ? clampSymbolSize(stored) : 1;
+    } catch {
+      return 1;
+    }
+  });
+  const symbolSizeRef = useRef(symbolSize);
   const writable = canWrite(session.roles, "lagekarte", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
   });
@@ -221,6 +239,16 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
   useEffect(() => {
     selectedSymbolRef.current = selectedSymbol;
   }, [selectedSymbol]);
+
+  useEffect(() => {
+    symbolSizeRef.current = symbolSize;
+    try {
+      localStorage.setItem(SYMBOL_SIZE_KEY, String(symbolSize));
+    } catch {
+      // The preference remains active for this session when storage is unavailable.
+    }
+    refreshSymbolsRef.current?.();
+  }, [symbolSize]);
 
   useEffect(() => {
     writableRef.current = writable;
@@ -456,7 +484,12 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
 
       const feature = features.get(id);
       if (!feature) return;
-      const layer = createLayer(feature, symbolFiles, writableRef.current);
+      const layer = createLayer(
+        feature,
+        symbolFiles,
+        writableRef.current,
+        symbolSizeRef.current,
+      );
       if (!layer) return;
       if (feature.kind === "symbol" && layer instanceof L.Marker) {
         layer.on("dragend", () => {
@@ -496,7 +529,13 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
       const ids = new Set([...layers.keys(), ...features.keys()]);
       for (const id of ids) renderFeature(id);
     };
+    const refreshSymbols = () => {
+      for (const [id, feature] of features) {
+        if (feature.kind === "symbol") renderFeature(id);
+      }
+    };
     renderForRightsRef.current = renderAll;
+    refreshSymbolsRef.current = refreshSymbols;
 
     const abortController = new AbortController();
     void fetch("/taktische-zeichen/index.json", { signal: abortController.signal })
@@ -545,7 +584,6 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
         symbolId: symbol.id,
         position: [event.latlng.lat, event.latlng.lng],
         rotation: 0,
-        scale: 1,
         label: symbol.label,
         description: "",
         createdBy: session.name,
@@ -581,6 +619,7 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
       if (featuresMapRef.current === featuresMap) featuresMapRef.current = null;
       if (mapRef.current === map) mapRef.current = null;
       if (renderForRightsRef.current === renderAll) renderForRightsRef.current = null;
+      if (refreshSymbolsRef.current === refreshSymbols) refreshSymbolsRef.current = null;
       conn.destroy();
       map.remove();
       layers.clear();
@@ -605,6 +644,19 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
         <button className="btn btn--ghost" type="button" onClick={exportMap}>
           Export
         </button>
+        <label className="lagekarte-symbol-size">
+          <span>Symbolgröße</span>
+          <input
+            type="range"
+            min={SYMBOL_SIZE_MIN}
+            max={SYMBOL_SIZE_MAX}
+            step="0.1"
+            value={symbolSize}
+            aria-label="Symbolgröße"
+            onChange={(event) => setSymbolSize(clampSymbolSize(event.currentTarget.valueAsNumber))}
+          />
+          <output>{Math.round(symbolSize * 100)} %</output>
+        </label>
         {writable && (
           <>
             <button
