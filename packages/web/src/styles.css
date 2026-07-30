@@ -1,5 +1,6 @@
 :root {
   --ground: #0e141b;
+  --rail: #0b1119;
   --ground-2: #131c26;
   --panel: #17222e;
   --line-dark: #263442;
@@ -95,12 +96,51 @@ input, select, textarea { font-family: inherit; }
 .toggle input { accent-color: var(--signal); width: 15px; height: 15px; }
 
 /* ---------- App shell ---------- */
-.app { height: 100%; display: grid; grid-template-rows: 54px 1fr; background: var(--canvas); }
-.topbar { background: var(--ground); color: var(--on-dark); display: flex; align-items: center; gap: 14px; padding: 0 18px; border-bottom: 1px solid var(--line-dark); }
+.app {
+  height: 100%; display: grid; grid-template-columns: 76px 1fr; grid-template-rows: 54px 1fr;
+  grid-template-areas: "rail top" "rail canvas"; background: var(--canvas);
+}
+.topbar {
+  grid-area: top; min-width: 0; background: var(--ground); color: var(--on-dark);
+  display: flex; align-items: center; gap: 14px; padding: 0 18px; border-bottom: 1px solid var(--line-dark);
+}
 .topbar .room b { font-size: 15px; }
 .chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line-dark); color: var(--on-dark-2); }
 .chip--code { color: var(--signal); border-color: rgba(247,168,27,.35); }
-.topbar .spacer { flex: 1; }
+.topbar .spacer, .lagekarte-bar .spacer { flex: 1; }
+.topbar__leave { padding: 6px 12px; }
+.rail {
+  grid-area: rail; min-height: 0; background: var(--rail); border-right: 1px solid var(--line-dark);
+  display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 6px;
+}
+.rail__mark {
+  width: 40px; height: 40px; border-radius: 11px; background: var(--signal); color: var(--signal-ink);
+  display: grid; place-items: center; font-weight: 800; font-size: 20px; margin-bottom: 10px;
+  box-shadow: 0 6px 18px rgba(247,168,27,.25);
+}
+.rail__item {
+  width: 56px; height: 56px; flex: none; border: 1px solid transparent; background: transparent; border-radius: 12px;
+  color: var(--on-dark-3); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  padding: 4px 2px; transition: color .15s, background .15s;
+}
+.rail__item svg { width: 21px; height: 21px; flex: none; }
+.rail__item span {
+  max-width: 50px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 9.5px; font-family: var(--mono); letter-spacing: .03em;
+}
+.rail__item:hover { color: var(--on-dark); background: var(--ground-2); }
+.rail__item.is-active { color: var(--signal); background: rgba(247,168,27,.1); border-color: rgba(247,168,27,.24); }
+.rail__spacer { flex: 1; }
+.rail__user {
+  width: 56px; text-align: center; color: var(--on-dark-3); font-family: var(--mono); font-size: 9px; line-height: 1.3;
+  border-top: 1px solid var(--line-dark); padding-top: 10px;
+}
+.rail__user > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail__avatar {
+  width: 30px; height: 30px; border-radius: 50%; background: var(--forces); color: #fff;
+  display: grid; place-items: center; font-size: 12px; font-weight: 700; margin: 0 auto 5px; font-family: var(--sans);
+}
+.rail__exit { margin-top: 6px; }
 .lagekarte-symbol-size { display: inline-flex; align-items: center; gap: 7px; color: var(--on-dark-2); font-family: var(--mono); font-size: 11px; white-space: nowrap; }
 .lagekarte-symbol-size input { width: 90px; accent-color: var(--signal); }
 .lagekarte-symbol-size output { min-width: 42px; color: var(--on-dark); }
@@ -112,7 +152,8 @@ input, select, textarea { font-family: inherit; }
 .dot--off { background: var(--ink-3); }
 .role-badge { font-size: 12px; padding: 4px 9px; border-radius: 999px; background: rgba(247,168,27,.12); border: 1px solid rgba(247,168,27,.3); color: var(--signal); }
 
-.canvas { overflow: auto; padding: 28px clamp(16px, 4vw, 44px) 44px; }
+.canvas { grid-area: canvas; min-width: 0; min-height: 0; overflow: auto; padding: 28px clamp(16px, 4vw, 44px) 44px; }
+.canvas--lagekarte { overflow: hidden; padding: 0; }
 .wrap { max-width: 1040px; margin: 0 auto; }
 .canvas h1 { font-size: 22px; margin: 0 0 4px; }
 .canvas .sub { color: var(--ink-2); font-size: 14px; margin: 0 0 24px; }
@@ -152,6 +193,22 @@ input, select, textarea { font-family: inherit; }
 .rolechip { font-family: var(--mono); font-size: 10px; padding: 2px 6px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); }
 
 /* ---------- Lagekarte ---------- */
+.lagekarte-view { height: 100%; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.lagekarte-bar {
+  min-width: 0; min-height: 48px; padding: 7px 12px; background: var(--ground-2); color: var(--on-dark);
+  border-bottom: 1px solid var(--line-dark); display: flex; align-items: center; gap: 12px; overflow-x: auto;
+}
+.lagekarte-bar .btn { padding: 7px 11px; }
+.shell-loading {
+  height: 100%; display: grid; place-items: center; color: var(--ink-3);
+  font-family: var(--mono); font-size: 13px;
+}
+.shell-placeholder {
+  min-height: 260px; display: grid; place-content: center; justify-items: center;
+  background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; text-align: center;
+}
+.shell-placeholder h1 { margin: 6px 0; }
+.shell-placeholder p { margin: 0; color: var(--ink-3); font-family: var(--mono); font-size: 13px; }
 .lagekarte-stage { min-height: 0; position: relative; overflow: hidden; }
 .lagekarte-map { height: 100%; min-height: 0; position: relative; }
 .lagekarte-map--placing, .lagekarte-map--placing.leaflet-grab { cursor: crosshair; }
@@ -282,4 +339,13 @@ input, select, textarea { font-family: inherit; }
   .lagekarte-palette { width: min(290px, calc(100% - 24px)); }
   .lagekarte-editor { top: auto; bottom: 12px; }
   .lagekarte-draw { top: auto; bottom: 12px; max-width: calc(100% - 24px); flex-wrap: wrap; }
+}
+
+@media (max-width: 640px) {
+  .app { grid-template-columns: 64px 1fr; }
+  .rail__item, .rail__user { width: 50px; }
+  .topbar { gap: 8px; padding: 0 10px; }
+  .topbar .role-badge { display: none; }
+  .topbar .room { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar .live { font-size: 0; }
 }

@@ -247,7 +247,7 @@ function createLayer(
   return layer;
 }
 
-export function Lagekarte({ session, onBack }: { session: Session; onBack: () => void }) {
+export function Lagekarte({ session }: { session: Session }) {
   const mapElementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const featuresMapRef = useRef<YMap<MapFeature> | null>(null);
@@ -258,7 +258,6 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
   const renderForRightsRef = useRef<(() => void) | null>(null);
   const refreshSymbolsRef = useRef<(() => void) | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
-  const [connected, setConnected] = useState(false);
   const [symbols, setSymbols] = useState<PaletteSymbol[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<PaletteSymbol | null>(null);
   const [selectedFeature, setSelectedFeature] = useState<MapFeature | null>(null);
@@ -524,7 +523,6 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
     const mapElement = mapElementRef.current;
     if (!mapElement) return;
 
-    setConnected(false);
     const map = L.map(mapElement).setView([51.16, 10.45], 6);
     mapRef.current = map;
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -673,15 +671,11 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
     };
     map.on("pm:create", onCreate);
 
-    const onStatus = (event: { status: string }) => setConnected(event.status === "connected");
-    conn.provider.on("status", onStatus);
-
     return () => {
       abortController.abort();
       map.off("click", onMapClick);
       map.off("pm:create", onCreate);
       featuresMap.unobserve(refresh);
-      conn.provider.off("status", onStatus);
       if (featuresMapRef.current === featuresMap) featuresMapRef.current = null;
       if (mapRef.current === map) mapRef.current = null;
       if (renderForRightsRef.current === renderAll) renderForRightsRef.current = null;
@@ -693,20 +687,9 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
   }, [session.room.id, session.sid, session.token, session.name]);
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <button className="btn btn--ghost" type="button" onClick={onBack}>
-          ← Übersicht
-        </button>
-        <div className="room">
-          <b>{session.room.name}</b>
-        </div>
-        <span className="chip chip--code">⬡ {session.room.joinCode}</span>
+    <div className="lagekarte-view">
+      <div className="lagekarte-bar">
         <div className="spacer" />
-        <span className="live">
-          <span className={`dot ${connected ? "dot--ok" : "dot--off"}`} />
-          {connected ? "Live synchronisiert" : "Verbinde…"}
-        </span>
         <button className="btn btn--ghost" type="button" onClick={exportMap}>
           Export
         </button>
@@ -756,7 +739,7 @@ export function Lagekarte({ session, onBack }: { session: Session; onBack: () =>
           </span>
         )}
         <span className="chip">{writable ? "Bearbeiten" : "Nur Lesen"}</span>
-      </header>
+      </div>
       <div className="lagekarte-stage">
         <div
           className={`lagekarte-map ${selectedSymbol || activeDraw ? "lagekarte-map--placing" : ""}`}
