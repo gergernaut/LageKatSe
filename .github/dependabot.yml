@@ -14,6 +14,11 @@ updates:
       # für react-Pakete vor der Minor/Patch-Gruppe.
       react:
         patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+      # vite + @vitejs/plugin-react sind ebenfalls ein Paar: der Plugin-Major
+      # folgt dem Vite-Major (plugin-react 6 braucht Vite >= 7, sonst fehlt der
+      # vite/internal-Export und der Build bricht). Also zusammen anheben.
+      vite:
+        patterns: ["vite", "@vitejs/plugin-react"]
       # Minor/Patch gebündelt in einen PR (majors einzeln zum Reviewen).
       minor-and-patch:
         patterns: ["*"]
