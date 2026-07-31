@@ -1,7 +1,9 @@
 // Smoke test for the M0 sync engine + authoritative rights enforcement.
-// Runs three real Yjs clients against a running backend (default :8080):
+// Runs real Yjs clients against a running backend (default :8080):
 //   1) a writer (S3) posts a chat message  -> observer must receive it
 //   2) a monitor posts, in a room with allowMonitorChat=false -> must be DROPPED
+//   3) ETB: server-authoritative POST /etb/entries -> monotonic lfdNr, MONITOR 403,
+//      and the entries sync to a fresh etb client (hot-join of the server push).
 // Node 22+ provides a global WebSocket, which y-websocket uses automatically.
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
@@ -43,14 +45,23 @@ async function join(code, name, roles) {
   return r.json();
 }
 
-function connect(roomId, token) {
+async function postEtb(code, token, body = {}) {
+  return fetch(`${API}/api/rooms/${code}/etb/entries`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+}
+
+function connectDoc(roomId, token, module, key) {
   const doc = new Y.Doc();
-  const provider = new WebsocketProvider(`${WS}/sync/${roomId}`, "chat", doc, {
+  const provider = new WebsocketProvider(`${WS}/sync/${roomId}`, module, doc, {
     params: { token },
     disableBc: true, // force all sync through the server (see provider.ts)
   });
-  return { doc, provider, arr: doc.getArray("messages") };
+  return { doc, provider, arr: doc.getArray(key) };
 }
+const connect = (roomId, token) => connectDoc(roomId, token, "chat", "messages");
 
 function waitConnected(provider, ms = 5000) {
   return new Promise((resolve) => {
@@ -112,13 +123,35 @@ async function main() {
   const test3 = lateSeen.includes("hello from S3") && !lateSeen.includes("monitor blocked");
   console.log(`[${test3 ? "PASS" : "FAIL"}] hot-join receives existing history`);
 
+  // 4) ETB: server-authoritative entry creation + read-only enforcement on the new HTTP path.
+  const e1 = await postEtb(room.joinCode, writer.token, { von: "Leitstelle", richtung: "E", inhalt: "Pegel steigt" });
+  const e1body = await e1.json().catch(() => ({}));
+  const e2 = await postEtb(room.joinCode, writer.token);
+  const e2body = await e2.json().catch(() => ({}));
+  const mBlocked = await postEtb(room.joinCode, monitor.token);
+  const test4 =
+    e1.status === 201 && e1body.entry?.lfdNr === 1 && e2.status === 201 && e2body.entry?.lfdNr === 2;
+  const test5 = mBlocked.status === 403;
+  console.log(`[${test4 ? "PASS" : "FAIL"}] ETB entries created with monotonic lfdNr (server-authoritative)`);
+  console.log(`[${test5 ? "PASS" : "FAIL"}] ETB write blocked for MONITOR (403)`);
+
+  // entries must reach a fresh etb client (WS fan-out + hot-join of the server-authored pushes).
+  const ETB = connectDoc(room.id, observer.token, "etb", "entries");
+  await waitConnected(ETB.provider);
+  await sleep(900);
+  const lfdNrs = ETB.arr.toArray().map((m) => m.get("lfdNr")).sort((a, b) => a - b);
+  console.log("etb client sees lfdNr:", lfdNrs);
+  const test6 = lfdNrs.length === 2 && lfdNrs[0] === 1 && lfdNrs[1] === 2;
+  console.log(`[${test6 ? "PASS" : "FAIL"}] ETB entries sync to a fresh client (hot-join)`);
+  ETB.provider.destroy();
+
   W.provider.destroy();
   M.provider.destroy();
   O.provider.destroy();
   L.provider.destroy();
   await sleep(150);
 
-  process.exit(test1 && test2 && test3 ? 0 : 1);
+  process.exit(test1 && test2 && test3 && test4 && test5 && test6 ? 0 : 1);
 }
 
 main().catch((err) => {
