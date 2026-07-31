@@ -5,7 +5,15 @@ import * as decoding from "lib0/decoding";
 import * as syncProtocol from "y-protocols/sync";
 import * as awarenessProtocol from "y-protocols/awareness";
 import { WebSocket } from "ws";
-import { ETB_ENTRIES, type LogEntry, type Module, type NewEtbEntryInput } from "@lagekatse/shared";
+import {
+  ACTIVITY_CHANNEL,
+  ACTIVITY_COUNTERS,
+  ETB_ENTRIES,
+  type LogEntry,
+  type Module,
+  type NewEtbEntryInput,
+  type SyncChannel,
+} from "@lagekatse/shared";
 import type { Store } from "../store";
 
 export const MSG_SYNC = 0;
@@ -16,6 +24,7 @@ const LOAD_ORIGIN = Symbol("lagekatse:load");
 const SERVER_ORIGIN = Symbol("lagekatse:server");
 
 const ROOM_TOUCH_THROTTLE_MS = 60_000;
+const ACTIVITY_BUMP_THROTTLE_MS = 750;
 const SNAPSHOT_DEBOUNCE_MS = 4000;
 const SNAPSHOT_EVERY_N_UPDATES = 200;
 
@@ -26,7 +35,7 @@ export interface Conn {
   ws: WebSocket;
   sid: string;
   roomId: string;
-  module: Module;
+  module: SyncChannel;
   /** May this connection write to its module? (authoritative gate) */
   canWrite: boolean;
   /** awareness client-ids this connection currently controls (for cleanup). */
@@ -36,7 +45,7 @@ export interface Conn {
 interface ManagedDoc {
   key: string;
   roomId: string;
-  module: Module;
+  module: SyncChannel;
   doc: Y.Doc;
   awareness: awarenessProtocol.Awareness;
   conns: Set<Conn>;
@@ -64,10 +73,11 @@ export class RoomHub {
   private docs = new Map<string, ManagedDoc>();
   private loading = new Map<string, Promise<ManagedDoc>>();
   private roomLastTouchedAt = new Map<string, number>();
+  private activityLastBumpedAt = new Map<string, number>();
 
   constructor(private readonly store: Store) {}
 
-  async getDoc(roomId: string, module: Module): Promise<ManagedDoc> {
+  async getDoc(roomId: string, module: SyncChannel): Promise<ManagedDoc> {
     const k = docKey(roomId, module);
     const existing = this.docs.get(k);
     if (existing) return existing;
@@ -125,13 +135,33 @@ export class RoomHub {
     return entry;
   }
 
-  private async load(roomId: string, module: Module, k: string): Promise<ManagedDoc> {
+  async bumpActivity(roomId: string, module: Module): Promise<void> {
+    const key = docKey(roomId, module);
+    const now = Date.now();
+    const lastBumpedAt = this.activityLastBumpedAt.get(key);
+    if (lastBumpedAt !== undefined && now - lastBumpedAt < ACTIVITY_BUMP_THROTTLE_MS) return;
+    this.activityLastBumpedAt.set(key, now);
+
+    try {
+      const md = await this.getDoc(roomId, ACTIVITY_CHANNEL);
+      const counters = md.doc.getMap(ACTIVITY_COUNTERS);
+      md.doc.transact(() => {
+        counters.set(module, ((counters.get(module) as number | undefined) ?? 0) + 1);
+      }, SERVER_ORIGIN);
+    } catch (err) {
+      console.error(`[hub] activity bump failed for ${key}`, err);
+    }
+  }
+
+  private async load(roomId: string, module: SyncChannel, k: string): Promise<ManagedDoc> {
     const doc = new Y.Doc();
-    const state = await this.store.loadDoc(roomId, module);
-    // Replay persisted state BEFORE wiring the update handler, so the replay
-    // itself is never re-persisted or broadcast.
-    if (state.snapshot) Y.applyUpdate(doc, state.snapshot, LOAD_ORIGIN);
-    for (const update of state.updates) Y.applyUpdate(doc, update, LOAD_ORIGIN);
+    if (module !== ACTIVITY_CHANNEL) {
+      const state = await this.store.loadDoc(roomId, module);
+      // Replay persisted state BEFORE wiring the update handler, so the replay
+      // itself is never re-persisted or broadcast.
+      if (state.snapshot) Y.applyUpdate(doc, state.snapshot, LOAD_ORIGIN);
+      for (const update of state.updates) Y.applyUpdate(doc, update, LOAD_ORIGIN);
+    }
 
     const awareness = new awarenessProtocol.Awareness(doc);
     awareness.setLocalState(null); // the server itself is not "present"
@@ -158,7 +188,12 @@ export class RoomHub {
         if (conn !== origin) send(conn, message);
       }
       // Durably log everything a client produced (not our own replays).
-      if (origin !== LOAD_ORIGIN) this.persistUpdate(md, update);
+      if (origin !== LOAD_ORIGIN && md.module !== ACTIVITY_CHANNEL) {
+        this.persistUpdate(md, update);
+      }
+      if (origin !== LOAD_ORIGIN && md.module !== ACTIVITY_CHANNEL) {
+        void this.bumpActivity(md.roomId, md.module);
+      }
     });
 
     awareness.on(
@@ -279,6 +314,7 @@ export class RoomHub {
   }
 
   private persistUpdate(md: ManagedDoc, update: Uint8Array): void {
+    if (md.module === ACTIVITY_CHANNEL) return;
     this.markRoomActive(md.roomId);
     md.updatesSinceSnapshot += 1;
     md.persistQueue = md.persistQueue
@@ -293,6 +329,7 @@ export class RoomHub {
   }
 
   private snapshotNow(md: ManagedDoc): void {
+    if (md.module === ACTIVITY_CHANNEL) return;
     if (md.snapshotTimer) {
       clearTimeout(md.snapshotTimer);
       md.snapshotTimer = null;
