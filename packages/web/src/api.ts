@@ -1,6 +1,8 @@
 import type {
   CreateRoomRequest,
   JoinRoomRequest,
+  LogEntry,
+  NewEtbEntryInput,
   RoomPublic,
   SessionResponse,
 } from "@lagekatse/shared";
@@ -32,6 +34,12 @@ export const api = {
     request<SessionResponse>(`/api/rooms/${encodeURIComponent(code)}/join`, {
       method: "POST",
       body: JSON.stringify(body),
+    }),
+  createEtbEntry: (code: string, token: string, body: NewEtbEntryInput = {}) =>
+    request<{ entry: LogEntry }>(`/api/rooms/${encodeURIComponent(code)}/etb/entries`, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { authorization: `Bearer ${token}` },
     }),
 };
 

@@ -3,7 +3,7 @@ import { MODULE_LABELS, type Module } from "@lagekatse/shared";
 import type { Session } from "../session";
 import type { RoomChat } from "../sync/useRoomChat";
 
-const MODULE_CARDS: { key: Module; icon: string; tint: string; desc: string }[] = [
+const MODULE_CARDS: { key: Exclude<Module, "chat">; icon: string; tint: string; desc: string }[] = [
   { key: "lagekarte", icon: "🗺️", tint: "rgba(47,107,216,.12)", desc: "Taktische Zeichen (DV 102) & Bereiche auf OpenStreetMap." },
   { key: "etb", icon: "📓", tint: "rgba(46,158,91,.12)", desc: "Fortlaufendes Einsatztagebuch, Lfd-Nr. & Zeit automatisch." },
   { key: "arbeitsblatt", icon: "📋", tint: "rgba(247,168,27,.14)", desc: "Taktisches Arbeitsblatt mit eingebettetem Lagebild." },
@@ -56,8 +56,8 @@ export function Uebersicht({
 
       <div className="modules">
         {MODULE_CARDS.map((m) =>
-          m.key === "lagekarte" ? (
-            <button className="module" key={m.key} type="button" onClick={() => onOpenModule("lagekarte")}>
+          m.key === "lagekarte" || m.key === "etb" ? (
+            <button className="module" key={m.key} type="button" onClick={() => onOpenModule(m.key)}>
               <div className="ic" style={{ background: m.tint }}>
                 {m.icon}
               </div>
