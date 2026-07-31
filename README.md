@@ -9,7 +9,8 @@ Fach- und Architekturkonzept: **[architecture.md](./architecture.md)**.
 > kollaborative **Lagekarte** (M1 — Leaflet + OSM, taktische Zeichen DV 102,
 > Flächen, Tooltips, JSON-Im-/Export) und das **Einsatztagebuch** (M2 — Tabelle mit
 > server-vergebener, lückenloser Lfd-Nr. und Serverzeit, Live-Feld-Edits, Storno,
-> CSV-Export). Das taktische Arbeitsblatt folgt in M3.
+> CSV-Export). Das taktische Arbeitsblatt folgt in M3. Modulübergreifend zeigt der Rail
+> einen kleinen **Aktivitäts-Punkt**, wenn sich in einem gerade nicht geöffneten Modul etwas tut.
 
 ## Schnellstart
 
