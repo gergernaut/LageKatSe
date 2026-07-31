@@ -3,3 +3,4 @@ export * from "./roles";
 export * from "./protocol";
 export * from "./types";
 export * from "./lagekarte";
+export * from "./etb";
