@@ -21,7 +21,9 @@ const joinSchema = z.object({
     .trim()
     .min(1, "Bitte einen Anzeigenamen angeben.")
     .max(80, "Anzeigename ist zu lang (max. 80 Zeichen)."),
-  roles: z.array(z.enum(ROLES)).min(1, "Bitte mindestens eine Rolle wählen."),
+  roles: z
+    .array(z.enum(ROLES), { error: "Bitte mindestens eine Rolle wählen." })
+    .min(1, "Bitte mindestens eine Rolle wählen."),
   password: z.string().max(200).optional(),
 });
 
