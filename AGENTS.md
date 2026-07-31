@@ -19,6 +19,10 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   `store/` (`memory` | `postgres`).
 - `packages/web` — `@lagekatse/web`: React/Vite-SPA. `lobby/`, `uebersicht/`, `lagekarte/`,
   `etb/`, `sync/provider.ts` (`connectModule`).
+- **Aktivitäts-Dots (#32):** server-authored, nicht-persistierter **`activity`**-Kanal
+  (`shared/src/activity.ts`) signalisiert Modul-Änderungen; `RoomHub.bumpActivity` (gedrosselt)
+  zählt hoch, das Gateway führt ihn **read-only**, `useRoomActivity` zeigt Dots am Rail. Der
+  „gesehen"-Stand ist client-lokal (localStorage, s. Invariante #4).
 
 ## Bauen & Prüfen
 - **`pnpm typecheck`** (tsc über alle Pakete) und **`pnpm build`** (Web-Prod-Build) müssen
