@@ -4,6 +4,8 @@
 //   2) a monitor posts, in a room with allowMonitorChat=false -> must be DROPPED
 //   3) ETB: server-authoritative POST /etb/entries -> monotonic lfdNr, MONITOR 403,
 //      and the entries sync to a fresh etb client (hot-join of the server push).
+//   4) Activity channel: the server bumps a per-module counter on changes and fans
+//      it out read-only (drives the rail dots); client writes are dropped.
 // Node 22+ provides a global WebSocket, which y-websocket uses automatically.
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
@@ -62,6 +64,15 @@ function connectDoc(roomId, token, module, key) {
   return { doc, provider, arr: doc.getArray(key) };
 }
 const connect = (roomId, token) => connectDoc(roomId, token, "chat", "messages");
+
+function connectActivity(roomId, token) {
+  const doc = new Y.Doc();
+  const provider = new WebsocketProvider(`${WS}/sync/${roomId}`, "activity", doc, {
+    params: { token },
+    disableBc: true,
+  });
+  return { doc, provider, counters: doc.getMap("counters") };
+}
 
 function waitConnected(provider, ms = 5000) {
   return new Promise((resolve) => {
@@ -145,13 +156,40 @@ async function main() {
   console.log(`[${test6 ? "PASS" : "FAIL"}] ETB entries sync to a fresh client (hot-join)`);
   ETB.provider.destroy();
 
+  // 5) Activity channel: the server bumps a per-module counter on every change and
+  // fans it out to read-only subscribers (drives the rail activity dots).
+  await sleep(800); // clear the per-module bump throttle window
+  const ACT = connectActivity(room.id, writer.token);
+  await waitConnected(ACT.provider);
+  await sleep(900); // hot-join the current counters
+  const etbBefore = ACT.counters.get("etb") ?? 0;
+  const chatSeen = (ACT.counters.get("chat") ?? 0) >= 1;
+  await postEtb(room.joinCode, writer.token); // a fresh change -> bump
+  await sleep(900);
+  const etbAfter = ACT.counters.get("etb") ?? 0;
+  console.log("activity counters:", JSON.stringify(ACT.counters.toJSON()));
+  const test7 = chatSeen && etbAfter > etbBefore;
+  console.log(`[${test7 ? "PASS" : "FAIL"}] activity channel bumps + syncs (chat seen=${chatSeen}, etb ${etbBefore}->${etbAfter})`);
+
+  // Read-only: a client write to the activity channel must be dropped server-side.
+  ACT.counters.set("etb", 9999);
+  await sleep(700);
+  const FRESH = connectActivity(room.id, writer.token);
+  await waitConnected(FRESH.provider);
+  await sleep(900);
+  const freshEtb = FRESH.counters.get("etb") ?? 0;
+  const test8 = freshEtb !== 9999;
+  console.log(`[${test8 ? "PASS" : "FAIL"}] activity channel is read-only for clients (fresh reader etb=${freshEtb})`);
+  ACT.provider.destroy();
+  FRESH.provider.destroy();
+
   W.provider.destroy();
   M.provider.destroy();
   O.provider.destroy();
   L.provider.destroy();
   await sleep(150);
 
-  process.exit(test1 && test2 && test3 && test4 && test5 && test6 ? 0 : 1);
+  process.exit(test1 && test2 && test3 && test4 && test5 && test6 && test7 && test8 ? 0 : 1);
 }
 
 main().catch((err) => {
