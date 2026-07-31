@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { MODULE_LABELS, type ActivityCounters, type Module } from "@lagekatse/shared";
 import type { Session } from "../session";
-import { useActivityNotifications } from "../sync/useActivityNotifications";
+import { useActivityTitle } from "../sync/useActivityTitle";
 import { useRoomActivity } from "../sync/useRoomActivity";
 import { useRoomChat } from "../sync/useRoomChat";
 import { Uebersicht } from "../uebersicht/Uebersicht";
@@ -171,7 +171,7 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
   const [seen, setSeen] = useState<ActivityCounters>(() => loadActivitySeen(session.room.id));
   const [notificationsEnabled, setNotificationsEnabled] = useState(loadNotificationsEnabled);
   const chat = useRoomChat(session);
-  const { counters: activity, summaries, synced } = useRoomActivity(session);
+  const { counters: activity, synced } = useRoomActivity(session);
   // Baseline "seen" to the server's current counters on the first sync of a fresh
   // join (no prior seen) so pre-existing activity does not dot.
   const hadStoredSeenRef = useRef<boolean | null>(null);
@@ -219,46 +219,21 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
     if (baselineApplied) saveActivitySeen(session.room.id, seen);
   }, [seen, baselineApplied, session.room.id]);
 
-  useActivityNotifications({
-    session,
-    messages: chat.messages,
-    counters: activity,
-    summaries,
-    activeView,
-    setActiveView,
-    enabled: notificationsEnabled,
-    ready: synced && baselineApplied,
-  });
+  // Tab-title activity indicator — a count of unseen changes in the browser tab.
+  // Works over plain http (no secure context / Notification permission, which the
+  // LAN deployment cannot use); the OS Notification API is undefined there.
+  useActivityTitle(activity, seen, notificationsEnabled);
 
-  const notificationsSupported = typeof Notification !== "undefined";
-  const notificationPermission = notificationsSupported ? Notification.permission : null;
-  const notificationsActive = notificationsEnabled && notificationPermission === "granted";
-  const notificationTitle = !notificationsSupported
-    ? "Browser-Benachrichtigungen nicht verfügbar"
-    : notificationPermission === "denied"
-      ? "Im Browser blockiert"
-      : notificationsActive
-        ? "Browser-Benachrichtigungen ausschalten"
-        : "Browser-Benachrichtigungen einschalten";
-
-  const toggleNotifications = async () => {
-    if (!notificationsSupported) return;
-    if (notificationsActive) {
-      setNotificationsEnabled(false);
-      saveNotificationsEnabled(false);
-      return;
-    }
-
-    let permission = Notification.permission;
-    try {
-      if (permission === "default") permission = await Notification.requestPermission();
-    } catch {
-      permission = "denied";
-    }
-    const enabled = permission === "granted";
-    setNotificationsEnabled(enabled);
-    saveNotificationsEnabled(enabled);
+  const toggleNotifications = () => {
+    setNotificationsEnabled((on) => {
+      const next = !on;
+      saveNotificationsEnabled(next);
+      return next;
+    });
   };
+  const notificationTitle = notificationsEnabled
+    ? "Aktivität im Browser-Tab: an — zum Ausschalten klicken"
+    : "Neue Aktivität im Browser-Tab anzeigen (Zähler im Titel)";
 
   return (
     <div className="app">
@@ -294,15 +269,14 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
           <span>{session.roles.join(" · ")}</span>
         </div>
         <button
-          className={`rail__item rail__notifications ${notificationsActive ? "is-enabled" : ""}`}
+          className={`rail__item rail__notifications ${notificationsEnabled ? "is-enabled" : ""}`}
           type="button"
           title={notificationTitle}
           aria-label={notificationTitle}
-          aria-pressed={notificationsActive}
-          disabled={!notificationsSupported}
+          aria-pressed={notificationsEnabled}
           onClick={toggleNotifications}
         >
-          <NotificationIcon enabled={notificationsActive} />
+          <NotificationIcon enabled={notificationsEnabled} />
           <span>Meldungen</span>
         </button>
         <button className="rail__item rail__exit" type="button" title="Stabsraum verlassen" onClick={onLeave}>
