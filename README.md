@@ -11,7 +11,7 @@ Fach- und Architekturkonzept: **[architecture.md](./architecture.md)**.
 > server-vergebener, lückenloser Lfd-Nr. und Serverzeit, Live-Feld-Edits, Storno,
 > CSV-Export). Das taktische Arbeitsblatt folgt in M3. Modulübergreifend zeigt der Rail
 > einen kleinen **Aktivitäts-Punkt**, wenn sich in einem gerade nicht geöffneten Modul etwas tut
-> — optional auch als **Browser-Benachrichtigung** (pro Nutzer aktivierbar).
+> — optional auch als **Zähler im Browser-Tab-Titel** (pro Nutzer aktivierbar, funktioniert über http).
 
 ## Schnellstart
 

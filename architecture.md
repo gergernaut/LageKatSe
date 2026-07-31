@@ -700,7 +700,7 @@ schlankes, **server-authored, nicht-persistiertes** Signal:
 
 - **`activity`-Kanal** (ein Yjs-Dokument pro Raum, **kein** Rechte-Scope): eine `Y.Map`
   `counters` (`modul → monotoner Zähler`) und eine `Y.Map` `summaries` (`modul → kurzer
-  Änderungstext`, für die Notifications, s. u.). Der Server erhöht den Zähler im
+  Änderungstext`, Groundwork für optionale OS-Notifications, s. u.). Der Server erhöht den Zähler im
   `doc.on("update")`-Handler jeder echten Modul-Änderung (`RoomHub.bumpActivity`, gedrosselt,
   `SERVER_ORIGIN`); das Gateway bindet den Kanal für Clients **read-only**.
 - **„gesehen"-Stand pro Betrachter** (`localStorage` pro Raum, **nicht** im CRDT — wie die
@@ -709,14 +709,18 @@ schlankes, **server-authored, nicht-persistiertes** Signal:
   Draufschauen macht, dotten nie). Beim Beitritt wird auf den aktuellen Serverstand
   ge-baselined, damit vorbestehende Aktivität nicht dottet.
 
-**Phase 2 (umgesetzt, #32):** pro Nutzer aktivierbare **Browser-Notifications** auf demselben
-Signal (Glocken-Toggle im Rail, `localStorage` + `Notification.permission`). Sie feuern nur, wenn
-der Tab **im Hintergrund** ist (`document.hidden`) — im Vordergrund reicht der Dot — und erst
-**nach dem Baseline** (kein Feuern für vorbestehende Aktivität). **Chat** zeigt den vollen
-Nachrichtentext (die Shell hält den Chat ohnehin); **ETB-Anlegen** den Server-Summary „Neuer
-Eintrag · Lfd. N"; sonst generisch „Neue Aktivität: ‹Modul›". Klick fokussiert den Tab und öffnet
-das Modul. Präzisere Karten-Summaries (Symbol ergänzt/verschoben/gelöscht) wären ein Folgeschritt
-(bräuchten server-seitige Inhaltsinspektion).
+**Phase 2 (umgesetzt, #32):** ein pro Nutzer aktivierbarer **Tab-Titel-Indikator** (Glocken-Toggle
+im Rail, `localStorage`) — der Browser-Tab trägt einen Zähler ungesehener Änderungen
+(`(3) LageKatSe`), der sich leert, sobald die Module angesehen werden (nutzt dieselben
+`counters`/`seen` wie die Dots; das aktive Modul zählt nie mit). Das läuft über **reines http**
+ohne „secure context" und ohne Berechtigung — anders als die **OS-Notification-API**, die im
+LAN/http-Deployment **nicht** verfügbar ist (gleicher Grund wie `uid()` statt `crypto.randomUUID`,
+Invariante #3). Der Zähler zeigt nur eine Anzahl, keinen Inhalt.
+
+> **Groundwork für secure-context-Deployments:** Der Server pflegt bereits pro Modul den kurzen
+> `summaries`-Text (ETB-Anlegen: „Neuer Eintrag · Lfd. N"). Wo ein secure context vorhanden ist
+> (HTTPS/`localhost`), ließen sich daraus optional **inhaltsreiche OS-Notifications** (voller
+> Chat-Text) machen — derzeit nicht verdrahtet, da das Ziel-Deployment http/LAN ist.
 
 ---
 
