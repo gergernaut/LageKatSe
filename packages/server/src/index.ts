@@ -16,7 +16,7 @@ async function main(): Promise<void> {
 
   const app = Fastify({ logger: { transport: undefined } });
   await app.register(cors, { origin: config.corsOrigin, credentials: true });
-  registerRoutes(app, { rooms, config });
+  registerRoutes(app, { rooms, config, hub });
 
   // WebSocket gateway shares the same HTTP server.
   const wss = attachGateway(app.server, { hub, rooms, config });

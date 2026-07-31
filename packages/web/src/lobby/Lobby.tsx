@@ -113,8 +113,8 @@ export function Lobby({ onEnter }: { onEnter: (session: Session) => void }) {
           Ein Stab. Ein <span>Lagebild</span>. In Echtzeit.
         </h1>
         <p>
-          Stabsraum beitreten oder neu erstellen. Chat und Präsenz laufen sofort live — die
-          Fachmodule (Lagekarte, Einsatztagebuch, Arbeitsblatt) folgen in M1–M3.
+          Stabsraum beitreten oder neu erstellen. Chat, Präsenz, Lagekarte und
+          Einsatztagebuch laufen live — das taktische Arbeitsblatt folgt.
         </p>
       </div>
 
