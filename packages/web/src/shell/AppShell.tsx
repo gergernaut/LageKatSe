@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect, useState } from "react";
-import { MODULE_LABELS } from "@lagekatse/shared";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { MODULE_LABELS, type ActivityCounters, type Module } from "@lagekatse/shared";
 import type { Session } from "../session";
+import { useRoomActivity } from "../sync/useRoomActivity";
 import { useRoomChat } from "../sync/useRoomChat";
 import { Uebersicht } from "../uebersicht/Uebersicht";
 
@@ -12,6 +13,53 @@ const ACTIVE_VIEW_KEY = "lagekatse.activeView";
 export type ActiveView = "uebersicht" | "lagekarte" | "etb" | "arbeitsblatt";
 
 const VIEWS: ActiveView[] = ["uebersicht", "lagekarte", "etb", "arbeitsblatt"];
+
+const RAIL_ACTIVITY: Record<ActiveView, Module> = {
+  uebersicht: "chat",
+  lagekarte: "lagekarte",
+  etb: "etb",
+  arbeitsblatt: "arbeitsblatt",
+};
+
+function activitySeenKey(roomId: string): string {
+  return `lagekatse.activitySeen.${roomId}`;
+}
+
+function loadActivitySeen(roomId: string): ActivityCounters {
+  try {
+    const raw = localStorage.getItem(activitySeenKey(roomId));
+    if (!raw) return {};
+    const stored = JSON.parse(raw) as unknown;
+    if (!stored || typeof stored !== "object" || Array.isArray(stored)) return {};
+
+    const counters: ActivityCounters = {};
+    for (const module of Object.values(RAIL_ACTIVITY)) {
+      const value = (stored as Record<string, unknown>)[module];
+      if (typeof value === "number" && Number.isFinite(value)) counters[module] = value;
+    }
+    return counters;
+  } catch {
+    return {};
+  }
+}
+
+function saveActivitySeen(roomId: string, seen: ActivityCounters): void {
+  try {
+    localStorage.setItem(activitySeenKey(roomId), JSON.stringify(seen));
+  } catch {
+    /* storage unavailable — keep seen counters in memory only */
+  }
+}
+
+/** Whether this room already has a persisted "seen" state (the user has been here
+ *  before) — decides whether to baseline on a fresh join. */
+function hasStoredSeen(roomId: string): boolean {
+  try {
+    return localStorage.getItem(activitySeenKey(roomId)) !== null;
+  } catch {
+    return false;
+  }
+}
 
 function loadActiveView(): ActiveView {
   try {
@@ -87,7 +135,15 @@ function Placeholder({ view }: { view: "arbeitsblatt" }) {
 
 export function AppShell({ session, onLeave }: { session: Session; onLeave: () => void }) {
   const [activeView, setActiveView] = useState<ActiveView>(loadActiveView);
+  const [seen, setSeen] = useState<ActivityCounters>(() => loadActivitySeen(session.room.id));
   const chat = useRoomChat(session);
+  const { counters: activity, synced } = useRoomActivity(session);
+  // Baseline "seen" to the server's current counters on the first sync of a fresh
+  // join (no prior seen) so pre-existing activity does not dot.
+  const hadStoredSeenRef = useRef<boolean | null>(null);
+  if (hadStoredSeenRef.current === null) hadStoredSeenRef.current = hasStoredSeen(session.room.id);
+  const baselinedRef = useRef(false);
+  const [baselineApplied, setBaselineApplied] = useState(false);
 
   useEffect(() => {
     try {
@@ -97,6 +153,38 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
     }
   }, [activeView]);
 
+  useEffect(() => {
+    // Only touch "seen" once the counters are authoritative. Before the initial
+    // sync (and during a reconnect) `activity` is a transient {} — clamping seen
+    // against it would wrongly resurrect dots.
+    if (!synced) return;
+    // Baseline once on a fresh join: adopt the current server counters so
+    // pre-existing activity does not dot. Returning users keep their stored seen.
+    // Side effects (ref, baselineApplied) stay OUT of the updater so it is pure
+    // under StrictMode's double-invoke.
+    const baseline = !baselinedRef.current && !hadStoredSeenRef.current;
+    baselinedRef.current = true;
+    setSeen((current) => {
+      const next = baseline ? { ...activity } : { ...current };
+      // Counter regression (server restart resets counters) — clamp seen down.
+      for (const module of Object.values(RAIL_ACTIVITY)) {
+        const count = activity[module] ?? 0;
+        if (count < (next[module] ?? 0)) next[module] = count;
+      }
+      // Active module always counts as seen (clears its dot on open; own edits
+      // made while viewing never dot).
+      next[RAIL_ACTIVITY[activeView]] = activity[RAIL_ACTIVITY[activeView]] ?? 0;
+      return next;
+    });
+    setBaselineApplied(true);
+  }, [activeView, activity, synced, session.room.id]);
+
+  // Persist "seen" whenever it changes — kept out of the updater above so that
+  // stays pure. Only after baseline, so a fresh join never writes an empty {}.
+  useEffect(() => {
+    if (baselineApplied) saveActivitySeen(session.room.id, seen);
+  }, [seen, baselineApplied, session.room.id]);
+
   return (
     <div className="app">
       <nav className="rail" aria-label="Module">
@@ -105,17 +193,22 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
         </div>
         {VIEWS.map((view) => {
           const full = viewLabel(view);
+          const module = RAIL_ACTIVITY[view];
+          const hasActivity =
+            baselineApplied && view !== activeView && (activity[module] ?? 0) > (seen[module] ?? 0);
+          const accessibleLabel = hasActivity ? `${full} · neue Aktivität` : full;
           return (
             <button
               className={`rail__item ${activeView === view ? "is-active" : ""}`}
               type="button"
               key={view}
-              title={full}
-              aria-label={full}
+              title={accessibleLabel}
+              aria-label={accessibleLabel}
               aria-current={activeView === view ? "page" : undefined}
               onClick={() => setActiveView(view)}
             >
               <ViewIcon view={view} />
+              {hasActivity && <span className="rail__dot" aria-hidden="true" />}
               <span>{RAIL_LABELS[view]}</span>
             </button>
           );

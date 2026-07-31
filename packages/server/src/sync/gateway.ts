@@ -1,7 +1,7 @@
 import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
 import { WebSocket, WebSocketServer } from "ws";
-import { canWrite, isModule } from "@lagekatse/shared";
+import { ACTIVITY_CHANNEL, canWrite, isSyncChannel } from "@lagekatse/shared";
 import { verifySession } from "../auth";
 import type { Config } from "../config";
 import type { RoomService } from "../rooms";
@@ -58,7 +58,7 @@ export function attachGateway(
     const token = url.searchParams.get("token") ?? "";
 
     const claims = await verifySession(token, config.jwtSecret);
-    if (!claims || !roomId || !isModule(moduleParam)) {
+    if (!claims || !roomId || !isSyncChannel(moduleParam)) {
       ws.close(4401, "unauthorized");
       return;
     }
@@ -72,9 +72,12 @@ export function attachGateway(
       return;
     }
 
-    const writable = canWrite(claims.roles, moduleParam, {
-      allowMonitorChat: room.settings.allowMonitorChat,
-    });
+    const writable =
+      moduleParam === ACTIVITY_CHANNEL
+        ? false
+        : canWrite(claims.roles, moduleParam, {
+            allowMonitorChat: room.settings.allowMonitorChat,
+          });
     const loaded = await hub.getDoc(roomId, moduleParam);
 
     // The socket may have closed while we were setting up.

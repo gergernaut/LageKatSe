@@ -4,3 +4,4 @@ export * from "./protocol";
 export * from "./types";
 export * from "./lagekarte";
 export * from "./etb";
+export * from "./activity";
