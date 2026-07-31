@@ -688,6 +688,28 @@ interface ChatMessage {
 
 Anzeige auf der Übersichtsseite unter den Modul-Buttons (siehe Mockup).
 
+### 11.3 Aktivitäts-Indikatoren (Rail-Dots)
+
+Damit man sieht, wenn sich in einem Modul etwas tut, das man **nicht** offen hat (neue
+Chat-Nachricht, ETB-Eintrag, Kartenänderung), zeigt der Rail einen kleinen **Aktivitäts-Dot**
+am Modul-Symbol (umgesetzt, #32 Phase 1).
+
+Die Shell ist dauerhaft nur mit dem `chat`-Dokument verbunden — die u. U. großen Modul-Docs
+(v. a. Lagekarte) sollen ruhende Clients nicht mitsynchronisieren müssen. Deshalb ein
+schlankes, **server-authored, nicht-persistiertes** Signal:
+
+- **`activity`-Kanal** (ein Yjs-Dokument pro Raum, **kein** Rechte-Scope): eine `Y.Map`
+  `counters` (`modul → monotoner Zähler`). Der Server erhöht den Zähler im
+  `doc.on("update")`-Handler jeder echten Modul-Änderung (`RoomHub.bumpActivity`, gedrosselt,
+  `SERVER_ORIGIN`); das Gateway bindet den Kanal für Clients **read-only**.
+- **„gesehen"-Stand pro Betrachter** (`localStorage` pro Raum, **nicht** im CRDT — wie die
+  Anzeige-Optionen E9): ein Dot erscheint, wenn `activity[modul] > seen[modul]` und das Modul
+  nicht die aktive Ansicht ist; das Öffnen führt es als gesehen (eigene Edits, die man beim
+  Draufschauen macht, dotten nie). Beim Beitritt wird auf den aktuellen Serverstand
+  ge-baselined, damit vorbestehende Aktivität nicht dottet.
+
+**Phase 2 (geplant):** pro Nutzer aktivierbare Browser-Notifications auf demselben Signal.
+
 ---
 
 ## 12. Import & Export
