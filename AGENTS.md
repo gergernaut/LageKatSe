@@ -14,10 +14,11 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   `effectiveWriteScopes`, `WRITE_SCOPES`), Module (`modules.ts`), Protokoll, Datenmodelle
   (`lagekarte.ts`). Von Client **und** Server genutzt — die gemeinsame Quelle der Wahrheit.
 - `packages/server` — `@lagekatse/server`: Fastify HTTP-API + WebSocket-Sync-Gateway.
-  `index.ts` (Bootstrap + Shutdown), `sync/gateway.ts` (Auth + WS-Upgrade),
-  `sync/room-hub.ts` (Yjs-Docs, Persistenz, Fan-out), `store/` (`memory` | `postgres`).
+  `index.ts` (Bootstrap + Shutdown), `http.ts` (REST: Räume, Join, autoritatives ETB-Anlegen),
+  `sync/gateway.ts` (Auth + WS-Upgrade), `sync/room-hub.ts` (Yjs-Docs, Persistenz, Fan-out),
+  `store/` (`memory` | `postgres`).
 - `packages/web` — `@lagekatse/web`: React/Vite-SPA. `lobby/`, `uebersicht/`, `lagekarte/`,
-  `sync/provider.ts` (`connectModule`).
+  `etb/`, `sync/provider.ts` (`connectModule`).
 
 ## Bauen & Prüfen
 - **`pnpm typecheck`** (tsc über alle Pakete) und **`pnpm build`** (Web-Prod-Build) müssen
@@ -51,6 +52,11 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
 5. **Persistenz = Snapshot + Append-Log (WAL).** Jedes Update wird sofort geloggt; Snapshots sind
    nur Kompaktion, keine Durability-Grenze. Sauberer Shutdown trennt WS-Clients und flusht
    (`RoomHub.closeAll`) **vor** `app.close()`.
+6. **ETB-Einträge werden server-autoritativ angelegt.** Ein neuer Eintrag läuft über
+   `POST /api/rooms/:code/etb/entries` (`RoomHub.appendEtbEntry`): der Server vergibt `lfdNr`
+   (monoton, **lückenlos**) und `zeit` (Serveruhr) und pusht ihn ins CRDT — der Client legt
+   **keine** Einträge direkt an. Feld-Edits danach sind normale `Y.Map.set` pro Entry-`Y.Map`
+   (**Feld-Level-Merge**, nicht Whole-Value-LWW wie die Karte).
 
 ## Workflow
 - Feature-Code entsteht i. d. R. via Codex, in kleinen Schritten (je Schritt ein Commit).

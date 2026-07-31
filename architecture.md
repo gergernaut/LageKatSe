@@ -1,7 +1,7 @@
 # LageKatSe – Architektur- und Fachkonzept
 
 > Modulare, browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz.
-> Version 0.2 · Stand: 2026-07-30 · Konzept + Umsetzungsstand bis **M1 (Lagekarte)**
+> Version 0.2 · Stand: 2026-07-31 · Konzept + Umsetzungsstand bis **M2 (Einsatztagebuch)**
 
 Dieses Dokument überführt das Brainstorming (`LageKatSe.txt`) in ein tragfähiges technisches Konzept.
 Es beschreibt Zielbild, Architektur, Datenmodell, Rechtemodell und einen Umsetzungsfahrplan.
@@ -497,6 +497,9 @@ Zielgruppe validieren; feldweises Merge wäre eine spätere Ausbaustufe).
 Ein kollaboratives, tabellarisches Einsatztagebuch (ETB) in Anlehnung an die Vorlage
 **FM-A-31 (KFV Bayreuth)** und übliche FwDV-Praxis.
 
+> **In M2 umgesetzt** (PR #31): Anlegen (server-autoritativ), Feld-Edits, Storno und
+> CSV-Export. Änderungshistorie, CSV-Import und PDF sind zurückgestellt (§9.4).
+
 ### 9.1 Funktionsumfang
 
 - **Fortlaufende Tabelle** von Einträgen; neue Zeile per Klick.
@@ -522,12 +525,13 @@ Ein kollaboratives, tabellarisches Einsatztagebuch (ETB) in Anlehnung an die Vor
 
 ### 9.3 Datenstruktur (Yjs-Dokument `einsatztagebuch`)
 
-`Y.Array` `entries`, jeder Eintrag ein `Y.Map`:
+`Y.Array` `entries`, jeder Eintrag ein `Y.Map` (so mergen konkurrierende Edits an
+**verschiedenen** Feldern derselben Zeile feldweise — kein Whole-Value-LWW wie bei der Karte):
 
 ```ts
 interface LogEntry {
-  id: string;              // uuid
-  lfdNr: number;           // serverseitig monoton
+  id: string;              // uid, serverseitig vergeben
+  lfdNr: number;           // serverseitig monoton, lückenlos
   zeit: string;            // ISO-8601, Vorbelegung = Serverzeit, editierbar
   richtung: "E" | "A" | "";
   von: string;
@@ -536,11 +540,18 @@ interface LogEntry {
   inhalt: string;
   veranlassung: string;
   erledigt: boolean;
-  bearbeiter: string;
-  // Nachvollziehbarkeit (siehe unten):
-  history?: { at: string; by: string; field: string; from: string; to: string }[];
+  bearbeiter: string;      // Vorbelegung = Anzeigename
+  storniert?: boolean;     // §9.4: Storno statt Löschen (hält die Lfd-Nr.-Kette)
+  // Zurückgestellt (§9.4): history?: { at; by; field; from; to }[] — Änderungsspur.
 }
 ```
+
+**Autoritatives Anlegen (umgesetzt):** `lfdNr` und die initiale `zeit` dürfen nicht vom
+Client stammen (sonst racen zwei Clients auf dieselbe Nummer / nehmen ihre lokale Uhr).
+Ein neuer Eintrag läuft daher über `POST /api/rooms/:code/etb/entries`
+(`RoomHub.appendEtbEntry`): der Server prüft Token + Scope `etb`, vergibt `lfdNr = max+1`
+(atomar) und `zeit` aus der Serveruhr und pusht den Eintrag ins CRDT. Alle **weiteren**
+Feld-Änderungen sind normale CRDT-Writes pro Entry-`Y.Map`.
 
 ### 9.4 Fachliche Besonderheit: Nachvollziehbarkeit
 
@@ -551,6 +562,9 @@ im Export ausgewiesen. Löschen ersetzen wir durch „stornieren" (Eintrag bleib
 markiert). So bleibt die lückenlose Lfd.-Nr.-Kette erhalten. **⚠️ mit Zielgruppe abstimmen**, ob das
 gewünscht/nötig ist.
 
+> **Stand M2:** **Storno umgesetzt** (Eintrag bleibt, wird durchgestrichen). Die volle
+> **Änderungshistorie** ist zurückgestellt, bis der Bedarf mit der Zielgruppe geklärt ist.
+
 ### 9.5 CSV-Export (Beispielkopf)
 
 ```csv
@@ -559,6 +573,9 @@ Lfd.Nr;Zeit;Richtung;Von;An;Weg;Inhalt;Veranlassung;Erledigt;Bearbeiter
 ```
 
 > Trennzeichen `;` und UTF-8-BOM für reibungsloses Öffnen in deutschem Excel.
+
+> **Stand M2:** **Export umgesetzt** (`;`, UTF-8-BOM, Feld-Quoting, voller Zeitstempel,
+> Storno-Kennzeichnung). **CSV-Import** ist zurückgestellt.
 
 ---
 
@@ -779,7 +796,7 @@ Stand der Entscheidungen (2026-07-29  geklärt) — ✅ = entschieden, ▫ = Def
 | # | Frage | Entscheidung |
 |---|-------|--------------|
 | E1 | Darf der Monitor chatten? | ✅ Konfigurierbar je Raum, **Standard: an** (Koordination ≠ Lageänderung) |
-| E2 | ETB frei editierbar oder Historie/Storno? | ▫ Historie + Storno — im Datenmodell vorgesehen, greift in M2 |
+| E2 | ETB frei editierbar oder Historie/Storno? | ✅ Umgesetzt (M2): frei editierbar + **Storno** (Eintrag bleibt, durchgestrichen; hält die Lfd-Nr.-Kette). Volle **Änderungshistorie** zurückgestellt, bis Bedarf mit Zielgruppe geklärt (§9.4) |
 | E3 | Auth-Modell / -Stärke | ✅ **M0:** Lobby-Code + optionales Raum-Passwort, selbst deklarierter Name, Session-Token (JWT). Token-/Session-Schicht so gebaut, dass SSO/Accounts später andockbar sind. Produktiv weiterhin Auth-Proxy/geschlossenes Netz empfohlen |
 | E4 | Lizenz DV-102-SVG-Bibliothek | ✅ Geklärt (M1): [jonas-koeritz/Taktische-Zeichen](https://github.com/jonas-koeritz/Taktische-Zeichen) v2.0.0, **CC0/gemeinfrei** (s. §8.2) |
 | E5 | Konflikt beim Verschieben | ✅ Umgesetzt (M1): **Whole-Value-LWW pro Feature** (§8.3); feldweises Merge ggf. später, Nutzer-Test offen |
@@ -811,12 +828,13 @@ Iterativ, jede Stufe für sich lauffähig und demonstrierbar.
 - Live-Sync, Hot-Join, JSON-Import/-Export
 - **Ergebnis:** Das zentrale Lagebild funktioniert kollaborativ.
 
-### M2 – Gemeinsames Einsatztagebuch — ⟵ nächster Schritt
-- Tabelle, Auto-Lfd.-Nr., Auto-Zeit (Serverzeit, editierbar)
-- Live-Sync, Hot-Join, CSV-Import/-Export, Änderungshistorie/Storno
+### M2 – Gemeinsames Einsatztagebuch — ✅ umgesetzt (PR #31)
+- Tabelle, Auto-Lfd.-Nr. (server-autoritativ, lückenlos), Auto-Zeit (Serverzeit, editierbar)
+- Live-Sync (Feld-Level-Merge), Hot-Join, **CSV-Export**, **Storno**
+- Zurückgestellt: CSV-Import, volle Änderungshistorie, PDF (→ M4)
 - **Ergebnis:** Lückenloses, kollaboratives ETB.
 
-### M3 – Taktisches Arbeitsblatt (Vorderseite)
+### M3 – Taktisches Arbeitsblatt (Vorderseite) — ⟵ nächster Schritt
 - Felder A, C, D, E, F synchronisiert; Feld B = eingebettete Live-Lagekarte (read-only)
 - JSON-Export
 - **Ergebnis:** Alle drei Kern-Module vollständig.
@@ -852,7 +870,8 @@ lagekatse/
 │           ├── lobby/               # Frontpage, Raum anlegen/beitreten
 │           ├── uebersicht/          # Modulauswahl + Chat + Online-Liste
 │           ├── lagekarte/           # M1: Leaflet, Symbol-Palette, Flächen
-│           │                        #   (später ergänzt um etb/, arbeitsblatt/)
+│           ├── etb/                 # M2: Einsatztagebuch (Tabelle, autoritatives Anlegen)
+│           │                        #   (später ergänzt um arbeitsblatt/)
 │           └── sync/                # Yjs-Provider, Awareness-Bindung
 └── README.md
 ```
