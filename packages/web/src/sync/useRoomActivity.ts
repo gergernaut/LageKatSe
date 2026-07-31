@@ -3,21 +3,44 @@ import { ACTIVITY_CHANNEL, ACTIVITY_COUNTERS, type ActivityCounters } from "@lag
 import type { Session } from "../session";
 import { connectModule } from "./provider";
 
-export function useRoomActivity(session: Session): ActivityCounters {
-  const [activity, setActivity] = useState<ActivityCounters>({});
+export interface RoomActivity {
+  /** module -> monotonic change counter, as broadcast by the server. */
+  counters: ActivityCounters;
+  /**
+   * True once the initial sync with the server completed. The counters are then
+   * the authoritative baseline for a freshly joined client (used to avoid
+   * dotting pre-existing activity on first join).
+   */
+  synced: boolean;
+}
+
+export function useRoomActivity(session: Session): RoomActivity {
+  const [counters, setCounters] = useState<ActivityCounters>({});
+  const [synced, setSynced] = useState(false);
 
   useEffect(() => {
+    setSynced(false);
     const conn = connectModule(session.room.id, ACTIVITY_CHANNEL, session.token);
-    const counters = conn.doc.getMap(ACTIVITY_COUNTERS);
-    const refresh = () => setActivity(counters.toJSON() as ActivityCounters);
-    counters.observe(refresh);
+    const map = conn.doc.getMap(ACTIVITY_COUNTERS);
+    const refresh = () => setCounters(map.toJSON() as ActivityCounters);
+    map.observe(refresh);
     refresh();
 
+    // Refresh in the same handler so the counters are guaranteed current in the
+    // render where `synced` flips true (the baseline reads them there).
+    const onSync = (isSynced: boolean) => {
+      if (!isSynced) return;
+      refresh();
+      setSynced(true);
+    };
+    conn.provider.on("sync", onSync);
+
     return () => {
-      counters.unobserve(refresh);
+      map.unobserve(refresh);
+      conn.provider.off("sync", onSync);
       conn.destroy();
     };
   }, [session.room.id, session.token]);
 
-  return activity;
+  return { counters, synced };
 }

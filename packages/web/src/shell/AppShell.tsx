@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { MODULE_LABELS, type ActivityCounters, type Module } from "@lagekatse/shared";
 import type { Session } from "../session";
 import { useRoomActivity } from "../sync/useRoomActivity";
@@ -48,6 +48,16 @@ function saveActivitySeen(roomId: string, seen: ActivityCounters): void {
     localStorage.setItem(activitySeenKey(roomId), JSON.stringify(seen));
   } catch {
     /* storage unavailable — keep seen counters in memory only */
+  }
+}
+
+/** Whether this room already has a persisted "seen" state (the user has been here
+ *  before) — decides whether to baseline on a fresh join. */
+function hasStoredSeen(roomId: string): boolean {
+  try {
+    return localStorage.getItem(activitySeenKey(roomId)) !== null;
+  } catch {
+    return false;
   }
 }
 
@@ -127,7 +137,13 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
   const [activeView, setActiveView] = useState<ActiveView>(loadActiveView);
   const [seen, setSeen] = useState<ActivityCounters>(() => loadActivitySeen(session.room.id));
   const chat = useRoomChat(session);
-  const activity = useRoomActivity(session);
+  const { counters: activity, synced } = useRoomActivity(session);
+  // Baseline "seen" to the server's current counters on the first sync of a fresh
+  // join (no prior seen) so pre-existing activity does not dot.
+  const hadStoredSeenRef = useRef<boolean | null>(null);
+  if (hadStoredSeenRef.current === null) hadStoredSeenRef.current = hasStoredSeen(session.room.id);
+  const baselinedRef = useRef(false);
+  const [baselineApplied, setBaselineApplied] = useState(false);
 
   useEffect(() => {
     try {
@@ -138,29 +154,36 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
   }, [activeView]);
 
   useEffect(() => {
+    // Only touch "seen" once the counters are authoritative. Before the initial
+    // sync (and during a reconnect) `activity` is a transient {} — clamping seen
+    // against it would wrongly resurrect dots.
+    if (!synced) return;
+    // Baseline once on a fresh join: adopt the current server counters so
+    // pre-existing activity does not dot. Returning users keep their stored seen.
+    // Side effects (ref, baselineApplied) stay OUT of the updater so it is pure
+    // under StrictMode's double-invoke.
+    const baseline = !baselinedRef.current && !hadStoredSeenRef.current;
+    baselinedRef.current = true;
     setSeen((current) => {
-      const next = { ...current };
-      let changed = false;
-
+      const next = baseline ? { ...activity } : { ...current };
+      // Counter regression (server restart resets counters) — clamp seen down.
       for (const module of Object.values(RAIL_ACTIVITY)) {
         const count = activity[module] ?? 0;
-        if (count < (next[module] ?? 0)) {
-          next[module] = count;
-          changed = true;
-        }
+        if (count < (next[module] ?? 0)) next[module] = count;
       }
-
-      const activeModule = RAIL_ACTIVITY[activeView];
-      const activeCount = activity[activeModule] ?? 0;
-      if ((next[activeModule] ?? 0) !== activeCount) {
-        next[activeModule] = activeCount;
-        changed = true;
-      }
-
-      if (changed) saveActivitySeen(session.room.id, next);
-      return changed ? next : current;
+      // Active module always counts as seen (clears its dot on open; own edits
+      // made while viewing never dot).
+      next[RAIL_ACTIVITY[activeView]] = activity[RAIL_ACTIVITY[activeView]] ?? 0;
+      return next;
     });
-  }, [activeView, activity, session.room.id]);
+    setBaselineApplied(true);
+  }, [activeView, activity, synced, session.room.id]);
+
+  // Persist "seen" whenever it changes — kept out of the updater above so that
+  // stays pure. Only after baseline, so a fresh join never writes an empty {}.
+  useEffect(() => {
+    if (baselineApplied) saveActivitySeen(session.room.id, seen);
+  }, [seen, baselineApplied, session.room.id]);
 
   return (
     <div className="app">
@@ -171,7 +194,8 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
         {VIEWS.map((view) => {
           const full = viewLabel(view);
           const module = RAIL_ACTIVITY[view];
-          const hasActivity = view !== activeView && (activity[module] ?? 0) > (seen[module] ?? 0);
+          const hasActivity =
+            baselineApplied && view !== activeView && (activity[module] ?? 0) > (seen[module] ?? 0);
           const accessibleLabel = hasActivity ? `${full} · neue Aktivität` : full;
           return (
             <button
