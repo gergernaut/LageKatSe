@@ -21,6 +21,17 @@ export const ACTIVITY_COUNTERS = "counters" as const;
 export type ActivityCounters = Partial<Record<Module, number>>;
 
 /**
+ * Y.Map inside the activity doc: module -> a short human summary of the latest
+ * change (e.g. "Neuer Eintrag · Lfd. 15"). Empty when there is nothing more
+ * specific to say than "the module changed" — the client then falls back to a
+ * generic label. Drives the opt-in notification text, NOT the dots.
+ */
+export const ACTIVITY_SUMMARIES = "summaries" as const;
+
+/** Snapshot of the per-module change summaries. */
+export type ActivitySummaries = Partial<Record<Module, string>>;
+
+/**
  * A y-websocket sync target: either a real (permission-scoped) module or the
  * activity channel. Used by the client provider and the server gateway, which
  * accept both but treat `activity` as always read-only.
