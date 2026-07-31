@@ -121,12 +121,17 @@ input, select, textarea { font-family: inherit; }
 .rail__item {
   width: 74px; height: 60px; flex: none; border: 1px solid transparent; background: transparent; border-radius: 12px;
   color: var(--on-dark-3); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  padding: 4px 2px; transition: color .15s, background .15s;
+  position: relative; padding: 4px 2px; transition: color .15s, background .15s;
 }
 .rail__item svg { width: 21px; height: 21px; flex: none; }
 .rail__item span {
   max-width: 68px; text-align: center; line-height: 1.12; overflow-wrap: break-word;
   font-size: 8.5px; font-family: var(--mono); letter-spacing: .02em;
+}
+.rail__item .rail__dot {
+  position: absolute; top: 8px; right: 12px; display: block; width: 8px; height: 8px;
+  border: 1px solid var(--rail); border-radius: 50%; background: var(--signal);
+  box-shadow: 0 0 0 2px rgba(247,168,27,.18);
 }
 .rail__item:hover { color: var(--on-dark); background: var(--ground-2); }
 .rail__item.is-active { color: var(--signal); background: rgba(247,168,27,.1); border-color: rgba(247,168,27,.24); }
