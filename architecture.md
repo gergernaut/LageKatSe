@@ -699,7 +699,8 @@ Die Shell ist dauerhaft nur mit dem `chat`-Dokument verbunden — die u. U. gro�
 schlankes, **server-authored, nicht-persistiertes** Signal:
 
 - **`activity`-Kanal** (ein Yjs-Dokument pro Raum, **kein** Rechte-Scope): eine `Y.Map`
-  `counters` (`modul → monotoner Zähler`). Der Server erhöht den Zähler im
+  `counters` (`modul → monotoner Zähler`) und eine `Y.Map` `summaries` (`modul → kurzer
+  Änderungstext`, für die Notifications, s. u.). Der Server erhöht den Zähler im
   `doc.on("update")`-Handler jeder echten Modul-Änderung (`RoomHub.bumpActivity`, gedrosselt,
   `SERVER_ORIGIN`); das Gateway bindet den Kanal für Clients **read-only**.
 - **„gesehen"-Stand pro Betrachter** (`localStorage` pro Raum, **nicht** im CRDT — wie die
@@ -708,7 +709,14 @@ schlankes, **server-authored, nicht-persistiertes** Signal:
   Draufschauen macht, dotten nie). Beim Beitritt wird auf den aktuellen Serverstand
   ge-baselined, damit vorbestehende Aktivität nicht dottet.
 
-**Phase 2 (geplant):** pro Nutzer aktivierbare Browser-Notifications auf demselben Signal.
+**Phase 2 (umgesetzt, #32):** pro Nutzer aktivierbare **Browser-Notifications** auf demselben
+Signal (Glocken-Toggle im Rail, `localStorage` + `Notification.permission`). Sie feuern nur, wenn
+der Tab **im Hintergrund** ist (`document.hidden`) — im Vordergrund reicht der Dot — und erst
+**nach dem Baseline** (kein Feuern für vorbestehende Aktivität). **Chat** zeigt den vollen
+Nachrichtentext (die Shell hält den Chat ohnehin); **ETB-Anlegen** den Server-Summary „Neuer
+Eintrag · Lfd. N"; sonst generisch „Neue Aktivität: ‹Modul›". Klick fokussiert den Tab und öffnet
+das Modul. Präzisere Karten-Summaries (Symbol ergänzt/verschoben/gelöscht) wären ein Folgeschritt
+(bräuchten server-seitige Inhaltsinspektion).
 
 ---
 

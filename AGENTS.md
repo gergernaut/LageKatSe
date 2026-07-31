@@ -22,7 +22,9 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
 - **Aktivitäts-Dots (#32):** server-authored, nicht-persistierter **`activity`**-Kanal
   (`shared/src/activity.ts`) signalisiert Modul-Änderungen; `RoomHub.bumpActivity` (gedrosselt)
   zählt hoch, das Gateway führt ihn **read-only**, `useRoomActivity` zeigt Dots am Rail. Der
-  „gesehen"-Stand ist client-lokal (localStorage, s. Invariante #4).
+  „gesehen"-Stand ist client-lokal (localStorage, s. Invariante #4). **Phase 2:** opt-in
+  Browser-Notifications (`useActivityNotifications`, nur bei `document.hidden`) — Chat voller
+  Text, ETB/Karte via `summaries`-Map am selben Kanal.
 
 ## Bauen & Prüfen
 - **`pnpm typecheck`** (tsc über alle Pakete) und **`pnpm build`** (Web-Prod-Build) müssen
