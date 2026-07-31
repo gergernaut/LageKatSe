@@ -5,6 +5,7 @@ import { useRoomChat } from "../sync/useRoomChat";
 import { Uebersicht } from "../uebersicht/Uebersicht";
 
 const Lagekarte = lazy(() => import("../lagekarte/Lagekarte").then((m) => ({ default: m.Lagekarte })));
+const Etb = lazy(() => import("../etb/Etb").then((m) => ({ default: m.Etb })));
 
 const ACTIVE_VIEW_KEY = "lagekatse.activeView";
 
@@ -74,7 +75,7 @@ const RAIL_LABELS: Record<ActiveView, string> = {
   arbeitsblatt: "takt. Arbeitsblatt",
 };
 
-function Placeholder({ view }: { view: "etb" | "arbeitsblatt" }) {
+function Placeholder({ view }: { view: "arbeitsblatt" }) {
   return (
     <div className="shell-placeholder">
       <span className="eyebrow">Modul</span>
@@ -148,7 +149,11 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
         </button>
       </header>
 
-      <main className={`canvas ${activeView === "lagekarte" ? "canvas--lagekarte" : ""}`}>
+      <main
+        className={`canvas ${
+          activeView === "lagekarte" ? "canvas--lagekarte" : activeView === "etb" ? "canvas--work" : ""
+        }`}
+      >
         {activeView === "uebersicht" && (
           <Uebersicht
             session={session}
@@ -165,7 +170,11 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
             <Lagekarte session={session} />
           </Suspense>
         )}
-        {activeView === "etb" && <Placeholder view="etb" />}
+        {activeView === "etb" && (
+          <Suspense fallback={<div className="shell-loading">Einsatztagebuch wird geladen…</div>}>
+            <Etb session={session} />
+          </Suspense>
+        )}
         {activeView === "arbeitsblatt" && <Placeholder view="arbeitsblatt" />}
       </main>
     </div>

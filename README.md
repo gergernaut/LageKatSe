@@ -3,12 +3,13 @@
 Modulare, browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz.
 Fach- und Architekturkonzept: **[architecture.md](./architecture.md)**.
 
-> **Status: M1 — Gemeinsame Lagekarte.** Auf dem M0-Fundament (Stabsräume
+> **Status: M2 — Gemeinsames Einsatztagebuch.** Auf dem M0-Fundament (Stabsräume
 > anlegen/beitreten, Rollen & Rechte, Live-Präsenz & Chat, autoritative
-> Echtzeit-Sync-Engine mit Persistenz) läuft jetzt das erste Fachmodul: eine
-> kollaborative Lagekarte (Leaflet + OSM) mit taktischen Zeichen (DV 102),
-> Flächen, Tooltips und JSON-Im-/Export. Die weiteren Fachmodule
-> (Einsatztagebuch, Arbeitsblatt) folgen in M2–M3.
+> Echtzeit-Sync-Engine mit Persistenz) laufen jetzt zwei Fachmodule: die
+> kollaborative **Lagekarte** (M1 — Leaflet + OSM, taktische Zeichen DV 102,
+> Flächen, Tooltips, JSON-Im-/Export) und das **Einsatztagebuch** (M2 — Tabelle mit
+> server-vergebener, lückenloser Lfd-Nr. und Serverzeit, Live-Feld-Edits, Storno,
+> CSV-Export). Das taktische Arbeitsblatt folgt in M3.
 
 ## Schnellstart
 
@@ -68,14 +69,14 @@ bindet dank `host: true` auf alle Interfaces.
 packages/
   shared/   @lagekatse/shared — Rollen, Rechte-Logik, Protokoll-/Datentypen (Client+Server)
   server/   @lagekatse/server — Fastify HTTP-API + WebSocket-Sync-Gateway (Yjs) + Persistenz
-  web/      @lagekatse/web    — React/Vite SPA (Lobby, Übersicht, Chat, Präsenz, Lagekarte)
+  web/      @lagekatse/web    — React/Vite SPA (Lobby, Übersicht, Chat, Präsenz, Lagekarte, Einsatztagebuch)
 ```
 
 ## Wie M0 funktioniert
 
 - **Ein Yjs-Dokument pro Raum × Modul.** Die Dokumentgrenze ist die Rechtegrenze.
-  Real existieren die Dokumente `chat` (M0) und `lagekarte` (M1); die Sync-Engine
-  ist modul-agnostisch und trägt die weiteren Module (M2–M3) ohne Änderung.
+  Real existieren die Dokumente `chat` (M0), `lagekarte` (M1) und `etb` (M2); die
+  Sync-Engine ist modul-agnostisch und trägt das letzte Modul (M3) ohne Änderung.
 - **Autoritativer Server, kein P2P.** Jede WebSocket-Verbindung wird pro Dokument
   als *read-write* oder *read-only* gebunden (`packages/server/src/sync/gateway.ts`).
   Schreibversuche einer RO-Verbindung werden verworfen und der Client resynchronisiert
@@ -118,10 +119,33 @@ Lagekarte, in die der Stab die Lage grafisch führt.
 Sync und Rechte-Durchsetzung der Karte deckt ein Smoke-Test ab:
 `node packages/web/scripts/lagekarte-e2e.mjs`.
 
+## Wie M2 funktioniert (Einsatztagebuch)
+
+Das zweite Fachmodul (`packages/web/src/etb/`): ein fortlaufendes, tabellarisches
+Einsatztagebuch (ETB), in das der Stab ein- und ausgehende Meldungen führt.
+
+- **Server-autoritatives Anlegen.** Lfd-Nr. (monoton, **lückenlos**) und Zeit
+  (Serveruhr) dürfen nicht vom Client kommen — ein neuer Eintrag wird über
+  `POST /api/rooms/:code/etb/entries` angelegt; der Server prüft Token + Scope,
+  vergibt Nummer und Zeit und pusht den Eintrag ins `etb`-Yjs-Dokument, das per
+  Sync bei allen ankommt.
+- **Feld-genaues Editieren.** Jeder Eintrag ist ein `Y.Map` in der `Y.Array`
+  `entries`; Zellen (Von/An/Weg/Inhalt/…) werden feldweise gesetzt — zwei Personen
+  an verschiedenen Spalten derselben Zeile kollidieren nicht.
+- **Storno statt Löschen.** Ein Eintrag wird als storniert markiert (bleibt sichtbar,
+  durchgestrichen), damit die Lfd-Nr.-Kette lückenlos bleibt.
+- **Rechte.** Schreiben darf, wer den Scope `etb` hat (Einsatztagebuchführer/S-Rollen);
+  Nur-Lese-Rollen sehen die Tabelle ohne Editier-Steuerelemente (serverseitig erzwungen).
+- **CSV-Export.** Excel-tauglich (`;`-getrennt, UTF-8-BOM), inkl. vollem Zeitstempel
+  und Storno-Kennzeichnung.
+
+Der ETB-Pfad (autoritatives Anlegen, RO-Sperre, Hot-Join) ist Teil des Sync-Smoke-Tests:
+`node packages/web/scripts/e2e.mjs`.
+
 ## Nächste Schritte
 
 - ~~**M1** Gemeinsame Lagekarte~~ ✅ umgesetzt (PR #2)
-- **M2** Einsatztagebuch (Tabelle, Auto-Lfd-Nr./Zeit, CSV) ⟵ als Nächstes
-- **M3** Taktisches Arbeitsblatt (Felder A–F, eingebettetes Live-Lagebild)
+- ~~**M2** Einsatztagebuch (Tabelle, Auto-Lfd-Nr./Zeit, Storno, CSV-Export)~~ ✅ umgesetzt (PR #31)
+- **M3** Taktisches Arbeitsblatt (Felder A–F, eingebettetes Live-Lagebild) ⟵ als Nächstes
 
 Offene Punkte mit ⚠️ in [architecture.md §17](./architecture.md).
