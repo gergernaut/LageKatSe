@@ -1,6 +1,6 @@
 import { WebsocketProvider } from "y-websocket";
 import * as Y from "yjs";
-import type { Module } from "@lagekatse/shared";
+import type { SyncChannel } from "@lagekatse/shared";
 import { wsBase } from "../api";
 
 export interface ModuleConnection {
@@ -15,7 +15,7 @@ export interface ModuleConnection {
  * the "room name" — landing on the server route /sync/:roomId/:module — and
  * pass the session token as a query param.
  */
-export function connectModule(roomId: string, module: Module, token: string): ModuleConnection {
+export function connectModule(roomId: string, module: SyncChannel, token: string): ModuleConnection {
   const doc = new Y.Doc();
   const provider = new WebsocketProvider(`${wsBase()}/sync/${roomId}`, module, doc, {
     params: { token },
