@@ -1,9 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { ROLES } from "@lagekatse/shared";
-import { signSession } from "./auth";
+import { canWrite, ROLES } from "@lagekatse/shared";
+import { signSession, verifySession } from "./auth";
 import type { Config } from "./config";
 import { HttpError, RoomService, toPublic } from "./rooms";
+import type { RoomHub } from "./sync/room-hub";
 
 const createSchema = z.object({
   name: z
@@ -25,8 +26,20 @@ const joinSchema = z.object({
   password: z.string().max(200).optional(),
 });
 
-export function registerRoutes(app: FastifyInstance, deps: { rooms: RoomService; config: Config }): void {
-  const { rooms, config } = deps;
+const newEtbEntrySchema = z.object({
+  richtung: z.enum(["E", "A", ""]).optional(),
+  von: z.string().max(200, "Absender ist zu lang (max. 200 Zeichen).").optional(),
+  an: z.string().max(200, "Empfänger ist zu lang (max. 200 Zeichen).").optional(),
+  weg: z.enum(["Funk", "Telefon", "Fax", "persönlich", "E-Mail", ""]).optional(),
+  inhalt: z.string().max(4000, "Inhalt ist zu lang (max. 4000 Zeichen).").optional(),
+  veranlassung: z.string().max(4000, "Veranlassung ist zu lang (max. 4000 Zeichen).").optional(),
+});
+
+export function registerRoutes(
+  app: FastifyInstance,
+  deps: { rooms: RoomService; config: Config; hub: RoomHub },
+): void {
+  const { rooms, config, hub } = deps;
 
   app.get("/api/health", async () => ({ ok: true, ts: new Date().toISOString() }));
 
@@ -53,6 +66,30 @@ export function registerRoutes(app: FastifyInstance, deps: { rooms: RoomService;
       session: { sid: claims.sid, name: claims.name, roles: claims.roles },
       room: toPublic(room),
     });
+  });
+
+  app.post<{ Params: { code: string } }>("/api/rooms/:code/etb/entries", async (req, reply) => {
+    const authorization = req.headers.authorization ?? "";
+    const token = authorization.startsWith("Bearer ") ? authorization.slice("Bearer ".length) : "";
+    const claims = await verifySession(token, config.jwtSecret);
+    if (!claims) throw new HttpError(401, "unauthorized", "Ungültige oder fehlende Anmeldung.");
+
+    const rec = await rooms.getByCode(req.params.code);
+    if (!rec) throw new HttpError(404, "room_not_found", "Kein Stabsraum mit diesem Lobby-Code.");
+    if (claims.room !== rec.id) {
+      throw new HttpError(403, "room_mismatch", "Die Anmeldung gehört nicht zu diesem Stabsraum.");
+    }
+    if (
+      !canWrite(claims.roles, "etb", {
+        allowMonitorChat: rec.settings.allowMonitorChat,
+      })
+    ) {
+      throw new HttpError(403, "forbidden", "Keine Schreibberechtigung für das Einsatztagebuch.");
+    }
+
+    const body = newEtbEntrySchema.parse(req.body ?? {});
+    const entry = await hub.appendEtbEntry(rec.id, claims.name, body);
+    return reply.code(201).send({ entry });
   });
 
   app.setErrorHandler((err, _req, reply) => {

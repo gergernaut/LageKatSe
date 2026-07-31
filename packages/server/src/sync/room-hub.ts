@@ -1,10 +1,11 @@
+import { randomUUID } from "node:crypto";
 import * as Y from "yjs";
 import * as encoding from "lib0/encoding";
 import * as decoding from "lib0/decoding";
 import * as syncProtocol from "y-protocols/sync";
 import * as awarenessProtocol from "y-protocols/awareness";
 import { WebSocket } from "ws";
-import type { Module } from "@lagekatse/shared";
+import { ETB_ENTRIES, type LogEntry, type Module, type NewEtbEntryInput } from "@lagekatse/shared";
 import type { Store } from "../store";
 
 export const MSG_SYNC = 0;
@@ -12,6 +13,7 @@ export const MSG_AWARENESS = 1;
 
 /** Origin marker for updates replayed from persistence (never re-persisted). */
 const LOAD_ORIGIN = Symbol("lagekatse:load");
+const SERVER_ORIGIN = Symbol("lagekatse:server");
 
 const ROOM_TOUCH_THROTTLE_MS = 60_000;
 const SNAPSHOT_DEBOUNCE_MS = 4000;
@@ -81,6 +83,46 @@ export class RoomHub {
     } finally {
       this.loading.delete(k);
     }
+  }
+
+  async appendEtbEntry(
+    roomId: string,
+    bearbeiter: string,
+    input: NewEtbEntryInput,
+  ): Promise<LogEntry> {
+    const md = await this.getDoc(roomId, "etb");
+    const entries = md.doc.getArray<Y.Map<unknown>>(ETB_ENTRIES);
+    let entry!: LogEntry;
+
+    md.doc.transact(() => {
+      let maxLfdNr = 0;
+      for (const existing of entries) {
+        const lfdNr = existing.get("lfdNr");
+        if (typeof lfdNr === "number" && Number.isFinite(lfdNr)) {
+          maxLfdNr = Math.max(maxLfdNr, lfdNr);
+        }
+      }
+
+      entry = {
+        id: randomUUID(),
+        lfdNr: maxLfdNr + 1,
+        zeit: new Date().toISOString(),
+        richtung: input.richtung ?? "",
+        von: input.von ?? "",
+        an: input.an ?? "",
+        weg: input.weg ?? "",
+        inhalt: input.inhalt ?? "",
+        veranlassung: input.veranlassung ?? "",
+        erledigt: false,
+        bearbeiter,
+      };
+
+      const yEntry = new Y.Map<unknown>();
+      for (const [key, value] of Object.entries(entry)) yEntry.set(key, value);
+      entries.push([yEntry]);
+    }, SERVER_ORIGIN);
+
+    return entry;
   }
 
   private async load(roomId: string, module: Module, k: string): Promise<ManagedDoc> {
