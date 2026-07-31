@@ -7,7 +7,7 @@ import { HttpError, RoomService, toPublic } from "./rooms";
 
 const createSchema = z.object({
   name: z
-    .string({ required_error: "Bitte eine Bezeichnung der Lage angeben." })
+    .string({ error: "Bitte eine Bezeichnung der Lage angeben." })
     .trim()
     .min(1, "Bitte eine Bezeichnung der Lage angeben.")
     .max(120, "Bezeichnung ist zu lang (max. 120 Zeichen)."),
@@ -17,7 +17,7 @@ const createSchema = z.object({
 
 const joinSchema = z.object({
   name: z
-    .string({ required_error: "Bitte einen Anzeigenamen angeben." })
+    .string({ error: "Bitte einen Anzeigenamen angeben." })
     .trim()
     .min(1, "Bitte einen Anzeigenamen angeben.")
     .max(80, "Anzeigename ist zu lang (max. 80 Zeichen)."),
