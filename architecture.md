@@ -585,9 +585,9 @@ Digitale Abbildung des **Taktischen Arbeitsblatts (IdF NRW, DIN A4)** – ein st
 rund um ein eingebettetes Lagebild. Alle Felder werden zwischen den Teilnehmern synchronisiert.
 
 > **In M3 umgesetzt** (Vorderseite): Felder A, C, D, E, F live-synchron (Feld-/Zeilen-Level-Merge),
-> Feld B als eingebettete read-only Lagekarte, JSON-Export. Zurückgestellt (Phase 2): JSON-Import,
-> die „Randfelder für Gefahren" an Feld B, Bearbeiten der Karte direkt aus dem Arbeitsblatt,
-> PDF-Export und die Rückseite (E7).
+> Feld B als eingebettete read-only Lagekarte **plus Gefahren-Randfelder (4 A – 1 C – 4 E)**,
+> JSON-Export. Zurückgestellt (Phase 2): JSON-Import & Karte aus dem Arbeitsblatt bearbeiten (#41),
+> PDF-Export, Rückseite (#42, E7).
 
 ### 10.1 Feldaufteilung (Vorderseite, gemäß IdF-Vorlage)
 
@@ -627,6 +627,7 @@ ETB, §9.3). Definiert in `packages/shared/src/arbeitsblatt.ts`.
 | Top-level Typ (Key) | Feld | Inhalt |
 |---|:--:|---|
 | `kopf` (`Y.Map`) | A | Kopf-Skalare (einsatzstichwort, einsatzort, meldender, objektnr, datumUhrzeitgruppe) |
+| `gefahren` (`Y.Map`) | B | Gefahren-Randfelder, key → `{ betroffen, notiz? }` (4 A · 1 C · 4 E) |
 | `fuehrungsvorgang` (`Y.Array<Y.Map>`) | C | Zeilen des Führungsvorgangs |
 | `rueckmeldungen` (`Y.Array<Y.Map>`) | D | Notiz-/Checklisten-Einträge |
 | `eigeneLage` (`Y.Map`) | E | auftragMr/auftragBb (bool), auftragText, kraefteuebersicht |
@@ -634,13 +635,15 @@ ETB, §9.3). Definiert in `packages/shared/src/arbeitsblatt.ts`.
 | `organisation` (`Y.Map`) | F | Funkkanäle-Skalare + eigeneFunktion |
 | `organigramm` (`Y.Array<Y.Map>`) | F | Zeilen des Führungs-Organigramms |
 
-Feld **B** trägt keine eigenen Daten – es referenziert `lagekarte` read-only (§10.2).
+Feld **B** referenziert die `lagekarte` read-only (§10.2); die **Gefahren-Randfelder** (`gefahren`,
+9 feste Gefahren nach dem Merkschema 4 A – 1 C – 4 E) sind seine einzigen eigenen Daten.
 
 ```ts
 // Zusammengesetzter Snapshot (so via toJSON gelesen, u. a. für den JSON-Export):
 interface Arbeitsblatt {
   kopf: { einsatzstichwort: string; einsatzort: string; meldender: string;   // A
           objektnr: string; datumUhrzeitgruppe: string };
+  gefahren: Record<string, { betroffen: boolean; notiz?: string }>;          // B (4 A · 1 C · 4 E)
   fuehrungsvorgang: {                                                        // C (Y.Array<Y.Map>)
     id: string; bedrohtesObjekt: string; wirkung: string;
     prioritaet: 1 | 2 | 3 | ""; massnahmen: string; erledigt: boolean;
@@ -655,7 +658,7 @@ interface Arbeitsblatt {
   };
   organigramm: { id: string; rolle: string; auftrag: string;               // F (Y.Array<Y.Map>)
                  fuehrer: string; rufname: string }[];
-  // Feld B: nur read-only-Referenz auf `lagekarte` – keine eigenen Daten
+  // Feld B: gefahren = Gefahren-Randfelder; das Lagebild selbst ist read-only-Referenz auf `lagekarte`
 }
 ```
 
