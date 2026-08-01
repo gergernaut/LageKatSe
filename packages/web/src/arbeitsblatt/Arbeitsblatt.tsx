@@ -6,7 +6,10 @@ import {
   AB_KOPF,
   AB_KOPF_FIELDS,
   AB_KOPF_LABELS,
+  AB_KANAL_FIELDS,
+  AB_KANAL_LABELS,
   AB_NACHFORDERUNG,
+  AB_NACHFORDERUNG_KATEGORIEN,
   AB_ORGANIGRAMM,
   AB_ORGANISATION,
   AB_RUECKMELD,
@@ -18,6 +21,7 @@ import {
   type AbNachforderungPosten,
   type AbNotiz,
   type AbOrganigrammzeile,
+  type AbPrioritaet,
   type Arbeitsblatt as ArbeitsblattState,
   type ArbeitsblattExport,
 } from "@lagekatse/shared";
@@ -25,6 +29,7 @@ import * as Y from "yjs";
 import { Lagekarte } from "../lagekarte/Lagekarte";
 import type { Session } from "../session";
 import { connectModule } from "../sync/provider";
+import { uid } from "../uid";
 
 const EMPTY_SHEET: ArbeitsblattState = {
   kopf: {
@@ -155,6 +160,118 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     kopfRef.current?.set(field, value);
   };
 
+  const setFuehrungField = (
+    id: string,
+    field: keyof Omit<AbFuehrungszeile, "id">,
+    value: unknown,
+  ) => {
+    if (!writable) return;
+    const row = fuehrungRef.current?.toArray().find((item) => item.get("id") === id);
+    row?.set(field, value);
+  };
+
+  const addFuehrungRow = () => {
+    if (!writable) return;
+    const rows = fuehrungRef.current;
+    if (!rows) return;
+    const value: AbFuehrungszeile = {
+      id: uid(),
+      bedrohtesObjekt: "",
+      wirkung: "",
+      prioritaet: "",
+      massnahmen: "",
+      erledigt: false,
+    };
+    const row = new Y.Map<unknown>();
+    Object.entries(value).forEach(([field, fieldValue]) => row.set(field, fieldValue));
+    rows.push([row]);
+  };
+
+  const deleteFuehrungRow = (id: string) => {
+    if (!writable) return;
+    const rows = fuehrungRef.current;
+    if (!rows) return;
+    const index = rows.toArray().findIndex((row) => row.get("id") === id);
+    if (index >= 0) rows.delete(index, 1);
+  };
+
+  const setRueckmeldungField = (
+    id: string,
+    field: keyof Omit<AbNotiz, "id">,
+    value: unknown,
+  ) => {
+    if (!writable) return;
+    const row = rueckmeldRef.current?.toArray().find((item) => item.get("id") === id);
+    row?.set(field, value);
+  };
+
+  const addRueckmeldung = () => {
+    if (!writable) return;
+    const rows = rueckmeldRef.current;
+    if (!rows) return;
+    const value: AbNotiz = { id: uid(), text: "", erledigt: false };
+    const row = new Y.Map<unknown>();
+    Object.entries(value).forEach(([field, fieldValue]) => row.set(field, fieldValue));
+    rows.push([row]);
+  };
+
+  const deleteRueckmeldung = (id: string) => {
+    if (!writable) return;
+    const rows = rueckmeldRef.current;
+    if (!rows) return;
+    const index = rows.toArray().findIndex((row) => row.get("id") === id);
+    if (index >= 0) rows.delete(index, 1);
+  };
+
+  const setEigeneLage = (field: keyof ArbeitsblattState["eigeneLage"], value: unknown) => {
+    if (!writable) return;
+    eigeneLageRef.current?.set(field, value);
+  };
+
+  const setNachforderung = (key: AbNachforderungKey, value: AbNachforderungPosten) => {
+    if (!writable) return;
+    nachforderungRef.current?.set(key, value);
+  };
+
+  const setOrganisation = (field: keyof ArbeitsblattState["organisation"], value: string) => {
+    if (!writable) return;
+    organisationRef.current?.set(field, value);
+  };
+
+  const setOrganigrammField = (
+    id: string,
+    field: keyof Omit<AbOrganigrammzeile, "id">,
+    value: string,
+  ) => {
+    if (!writable) return;
+    const row = organigrammRef.current?.toArray().find((item) => item.get("id") === id);
+    row?.set(field, value);
+  };
+
+  const addOrganigrammRow = () => {
+    if (!writable) return;
+    const rows = organigrammRef.current;
+    if (!rows) return;
+    const value: AbOrganigrammzeile = {
+      id: uid(),
+      rolle: "",
+      auftrag: "",
+      fuehrer: "",
+      rufname: "",
+    };
+    const row = new Y.Map<unknown>();
+    Object.entries(value).forEach(([field, fieldValue]) => row.set(field, fieldValue));
+    rows.push([row]);
+  };
+
+  const deleteOrganigrammRow = (id: string) => {
+    if (!writable) return;
+    const rows = organigrammRef.current;
+    if (!rows) return;
+    const index = rows.toArray().findIndex((row) => row.get("id") === id);
+    if (index >= 0) rows.delete(index, 1);
+  };
+
   const exportJson = () => {
     const payload: ArbeitsblattExport = {
       format: AB_EXPORT_FORMAT,
@@ -234,6 +351,393 @@ export function Arbeitsblatt({ session }: { session: Session }) {
         </div>
         <div className="arbeitsblatt-lagebild">
           <Lagekarte session={session} embedded readOnly />
+        </div>
+      </section>
+
+      <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-fuehrung-title">
+        <div className="arbeitsblatt-panel__head">
+          <h3 id="arbeitsblatt-fuehrung-title">
+            <span className="arbeitsblatt-panel__letter">C</span>
+            <span aria-hidden="true">·</span> Führungsvorgang
+          </h3>
+        </div>
+        <div className="table-scroll">
+          <table className="arbeitsblatt-table">
+            <thead>
+              <tr>
+                <th>Bedrohtes Objekt/Subjekt</th>
+                <th>Wirkung</th>
+                <th>Priorität</th>
+                <th>Maßnahmen</th>
+                <th>Erledigt</th>
+                {writable && <th>Aktion</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {sheet.fuehrungsvorgang.map((row) => (
+                <tr key={row.id} className={row.erledigt ? "arbeitsblatt-row--done" : undefined}>
+                  <td>
+                    <input
+                      className="arbeitsblatt-table__input"
+                      type="text"
+                      value={row.bedrohtesObjekt}
+                      readOnly={!writable}
+                      onChange={(event) =>
+                        setFuehrungField(row.id, "bedrohtesObjekt", event.currentTarget.value)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="arbeitsblatt-table__input"
+                      type="text"
+                      value={row.wirkung}
+                      readOnly={!writable}
+                      onChange={(event) =>
+                        setFuehrungField(row.id, "wirkung", event.currentTarget.value)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <select
+                      className="arbeitsblatt-table__input arbeitsblatt-table__select"
+                      value={row.prioritaet}
+                      disabled={!writable}
+                      aria-label="Priorität"
+                      onChange={(event) => {
+                        const value = event.currentTarget.value;
+                        setFuehrungField(
+                          row.id,
+                          "prioritaet",
+                          value === "" ? "" : (Number(value) as AbPrioritaet),
+                        );
+                      }}
+                    >
+                      <option value="">–</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                    </select>
+                  </td>
+                  <td>
+                    <textarea
+                      className="arbeitsblatt-table__input arbeitsblatt-table__textarea"
+                      rows={2}
+                      value={row.massnahmen}
+                      readOnly={!writable}
+                      onChange={(event) =>
+                        setFuehrungField(row.id, "massnahmen", event.currentTarget.value)
+                      }
+                    />
+                  </td>
+                  <td className="arbeitsblatt-table__check">
+                    <input
+                      type="checkbox"
+                      checked={row.erledigt}
+                      disabled={!writable}
+                      aria-label="Führungszeile erledigt"
+                      onChange={(event) =>
+                        setFuehrungField(row.id, "erledigt", event.currentTarget.checked)
+                      }
+                    />
+                  </td>
+                  {writable && (
+                    <td>
+                      <button
+                        className="arbeitsblatt-delete"
+                        type="button"
+                        onClick={() => deleteFuehrungRow(row.id)}
+                      >
+                        Löschen
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {sheet.fuehrungsvorgang.length === 0 && !writable && (
+                <tr>
+                  <td className="arbeitsblatt-table__empty" colSpan={5}>
+                    Noch keine Zeilen
+                  </td>
+                </tr>
+              )}
+              {writable && (
+                <tr className="arbeitsblatt-table__new-row">
+                  <td colSpan={6}>
+                    <button className="etb-add" type="button" onClick={addFuehrungRow}>
+                      Neue Zeile
+                    </button>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-rueckmeld-title">
+        <div className="arbeitsblatt-panel__head">
+          <h3 id="arbeitsblatt-rueckmeld-title">
+            <span className="arbeitsblatt-panel__letter">D</span>
+            <span aria-hidden="true">·</span> Rückmeldungen / Notizen
+          </h3>
+        </div>
+        <div className="arbeitsblatt-checklist">
+          {sheet.rueckmeldungen.map((note) => (
+            <div
+              className={`arbeitsblatt-checklist__row ${
+                note.erledigt ? "arbeitsblatt-checklist__row--done" : ""
+              }`}
+              key={note.id}
+            >
+              <input
+                type="checkbox"
+                checked={note.erledigt}
+                disabled={!writable}
+                aria-label="Notiz erledigt"
+                onChange={(event) =>
+                  setRueckmeldungField(note.id, "erledigt", event.currentTarget.checked)
+                }
+              />
+              <input
+                type="text"
+                value={note.text}
+                readOnly={!writable}
+                aria-label="Notiz"
+                onChange={(event) =>
+                  setRueckmeldungField(note.id, "text", event.currentTarget.value)
+                }
+              />
+              {writable && (
+                <button
+                  className="arbeitsblatt-delete"
+                  type="button"
+                  onClick={() => deleteRueckmeldung(note.id)}
+                >
+                  Löschen
+                </button>
+              )}
+            </div>
+          ))}
+          {sheet.rueckmeldungen.length === 0 && (
+            <p className="arbeitsblatt-empty">Noch keine Notizen</p>
+          )}
+          {writable && (
+            <button className="etb-add" type="button" onClick={addRueckmeldung}>
+              Notiz hinzufügen
+            </button>
+          )}
+        </div>
+      </section>
+
+      <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-lage-title">
+        <div className="arbeitsblatt-panel__head">
+          <h3 id="arbeitsblatt-lage-title">
+            <span className="arbeitsblatt-panel__letter">E</span>
+            <span aria-hidden="true">·</span> Eigene Lage / Nachforderung
+          </h3>
+        </div>
+        <div className="arbeitsblatt-section-grid">
+          <div className="arbeitsblatt-group">
+            <h4>Auftrag</h4>
+            <div className="arbeitsblatt-options">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={sheet.eigeneLage.auftragMr}
+                  disabled={!writable}
+                  onChange={(event) => setEigeneLage("auftragMr", event.currentTarget.checked)}
+                />
+                Menschenrettung (MR)
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={sheet.eigeneLage.auftragBb}
+                  disabled={!writable}
+                  onChange={(event) => setEigeneLage("auftragBb", event.currentTarget.checked)}
+                />
+                Brandbekämpfung (BB)
+              </label>
+            </div>
+            <label className="arbeitsblatt-field">
+              <span>Weiterer Auftrag</span>
+              <input
+                type="text"
+                value={sheet.eigeneLage.auftragText}
+                readOnly={!writable}
+                onChange={(event) => setEigeneLage("auftragText", event.currentTarget.value)}
+              />
+            </label>
+          </div>
+
+          <div className="arbeitsblatt-group">
+            <h4>Kräfteübersicht</h4>
+            <label className="arbeitsblatt-field">
+              <span>Stärke</span>
+              <input
+                type="text"
+                value={sheet.eigeneLage.kraefteuebersicht}
+                readOnly={!writable}
+                placeholder="z. B. 3 / 1 / 12 / 16"
+                onChange={(event) =>
+                  setEigeneLage("kraefteuebersicht", event.currentTarget.value)
+                }
+              />
+            </label>
+          </div>
+
+          <div className="arbeitsblatt-group arbeitsblatt-group--wide">
+            <h4>Nachforderung</h4>
+            <div className="arbeitsblatt-nachforderung">
+              {AB_NACHFORDERUNG_KATEGORIEN.map((kat) => {
+                const posten = sheet.nachforderung[kat.key] ?? { checked: false };
+                return (
+                  <div className="arbeitsblatt-nachforderung__row" key={kat.key}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={posten.checked}
+                        disabled={!writable}
+                        onChange={(event) =>
+                          setNachforderung(kat.key, {
+                            checked: event.currentTarget.checked,
+                            ...(posten.anzahl === undefined ? {} : { anzahl: posten.anzahl }),
+                          })
+                        }
+                      />
+                      {kat.label}
+                    </label>
+                    <label className="arbeitsblatt-number">
+                      <span>Anzahl</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={posten.anzahl ?? ""}
+                        readOnly={!writable}
+                        onChange={(event) => {
+                          const input = event.currentTarget.value;
+                          const anzahl = input === "" ? undefined : Number(input);
+                          setNachforderung(kat.key, {
+                            checked: posten.checked,
+                            ...(anzahl === undefined ? {} : { anzahl }),
+                          });
+                        }}
+                      />
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-organisation-title">
+        <div className="arbeitsblatt-panel__head">
+          <h3 id="arbeitsblatt-organisation-title">
+            <span className="arbeitsblatt-panel__letter">F</span>
+            <span aria-hidden="true">·</span> Organisation / Kommunikation
+          </h3>
+        </div>
+        <div className="arbeitsblatt-organisation">
+          <div className="arbeitsblatt-group">
+            <h4>Funkkanäle</h4>
+            <div className="arbeitsblatt-kanal-grid">
+              {AB_KANAL_FIELDS.map((field) => (
+                <label className="arbeitsblatt-field" key={field}>
+                  <span>{AB_KANAL_LABELS[field]}</span>
+                  <input
+                    type="text"
+                    value={sheet.organisation[field]}
+                    readOnly={!writable}
+                    onChange={(event) => setOrganisation(field, event.currentTarget.value)}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="arbeitsblatt-group arbeitsblatt-funktion">
+            <h4>Eigene Funktion</h4>
+            <label className="arbeitsblatt-field">
+              <span>Führungsfunktion</span>
+              <select
+                value={sheet.organisation.eigeneFunktion}
+                disabled={!writable}
+                onChange={(event) =>
+                  setOrganisation("eigeneFunktion", event.currentTarget.value as AbFunktion)
+                }
+              >
+                <option value="">–</option>
+                <option value="GF">GF</option>
+                <option value="ZF">ZF</option>
+                <option value="VF">VF</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="arbeitsblatt-organigramm">
+          <h4>Führungs-Organigramm</h4>
+          <div className="table-scroll">
+            <table className="arbeitsblatt-table arbeitsblatt-table--organigramm">
+              <thead>
+                <tr>
+                  <th>Rolle</th>
+                  <th>Auftrag</th>
+                  <th>Führer</th>
+                  <th>Rufname</th>
+                  {writable && <th>Aktion</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {sheet.organigramm.map((row) => (
+                  <tr key={row.id}>
+                    {(["rolle", "auftrag", "fuehrer", "rufname"] as const).map((field) => (
+                      <td key={field}>
+                        <input
+                          className="arbeitsblatt-table__input"
+                          type="text"
+                          value={row[field]}
+                          readOnly={!writable}
+                          onChange={(event) =>
+                            setOrganigrammField(row.id, field, event.currentTarget.value)
+                          }
+                        />
+                      </td>
+                    ))}
+                    {writable && (
+                      <td>
+                        <button
+                          className="arbeitsblatt-delete"
+                          type="button"
+                          onClick={() => deleteOrganigrammRow(row.id)}
+                        >
+                          Löschen
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+                {sheet.organigramm.length === 0 && !writable && (
+                  <tr>
+                    <td className="arbeitsblatt-table__empty" colSpan={4}>
+                      Noch keine Zeilen
+                    </td>
+                  </tr>
+                )}
+                {writable && (
+                  <tr className="arbeitsblatt-table__new-row">
+                    <td colSpan={5}>
+                      <button className="etb-add" type="button" onClick={addOrganigrammRow}>
+                        Zeile hinzufügen
+                      </button>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </div>
