@@ -13,6 +13,7 @@
  * like the Lagekarte (§8.3):
  *
  *   doc.getMap(AB_KOPF)          Feld A — header scalars (AbKopf)
+ *   doc.getMap(AB_GEFAHREN)      Feld B — Randfelder für Gefahren (Y.Map key -> AbGefahr)
  *   doc.getArray(AB_FUEHRUNG)    Feld C — Führungsvorgang rows (Y.Map per AbFuehrungszeile)
  *   doc.getArray(AB_RUECKMELD)   Feld D — Rückmeldungen/Notizen items (Y.Map per AbNotiz)
  *   doc.getMap(AB_EIGENELAGE)    Feld E — eigene Lage scalars + Auftrag flags (AbEigeneLage)
@@ -20,9 +21,9 @@
  *   doc.getMap(AB_ORGANISATION)  Feld F — Funkkanäle + eigene Funktion scalars (AbOrganisation)
  *   doc.getArray(AB_ORGANIGRAMM) Feld F — Führungs-Organigramm rows (Y.Map per AbOrganigrammzeile)
  *
- * Feld B (Lagebild) carries no data of its own — it embeds the `lagekarte`
- * document read-only (§10.2), so there stays exactly one source of truth for
- * the Lage.
+ * Feld B (Lagebild) bettet die `lagekarte` read-only ein (§10.2) — die Karte
+ * bleibt eine Referenz (eine Quelle der Wahrheit); die Gefahren-Randfelder
+ * (`gefahren`) sind die einzigen eigenen Daten von Feld B.
  */
 
 // ---- top-level shared-type keys inside the "arbeitsblatt" document ----
@@ -154,15 +155,50 @@ export interface AbOrganigrammzeile {
   rufname: string;
 }
 
+// ---- Feld B: Randfelder für Gefahren (Gefahrenmatrix) ----
+/**
+ * Die „neun Gefahren der Einsatzstelle" (Feuerwehr-Merkschema 4 A – 1 C – 4 E),
+ * neben der eingebetteten Lagekarte in Feld B beurteilt (§10.1/§10.2). Feste,
+ * geordnete Liste — jede Gefahr ein Key auf der AB_GEFAHREN Y.Map mit einem kleinen
+ * Whole-Value-Posten {betroffen, notiz?}. **Geteilter** Arbeitsblatt-Zustand (im
+ * CRDT), KEINE client-lokale Anzeige-Option (anders als Symbolgröße, Invariante #4).
+ */
+export const AB_GEFAHREN = "gefahren" as const;
+
+/** Gruppe im 4-A-1-C-4-E-Schema (nur zur optischen Gruppierung). */
+export type AbGefahrGruppe = "A" | "C" | "E";
+
+/** Fester Katalog der neun Gefahren, in Anzeigereihenfolge (4 A · 1 C · 4 E). */
+export const AB_GEFAHREN_KATALOG = [
+  { key: "atemgifte", gruppe: "A", label: "Atemgifte" },
+  { key: "angstreaktion", gruppe: "A", label: "Angstreaktion" },
+  { key: "ausbreitung", gruppe: "A", label: "Ausbreitung" },
+  { key: "atomar", gruppe: "A", label: "Atomare Gefahren" },
+  { key: "chemisch", gruppe: "C", label: "Chemische Stoffe" },
+  { key: "erkrankung", gruppe: "E", label: "Erkrankung / Verletzung" },
+  { key: "explosion", gruppe: "E", label: "Explosion" },
+  { key: "einsturz", gruppe: "E", label: "Einsturz" },
+  { key: "elektrizitaet", gruppe: "E", label: "Elektrizität" },
+] as const;
+
+export type AbGefahrKey = (typeof AB_GEFAHREN_KATALOG)[number]["key"];
+
+/** Ein Gefahren-Randfeld: an der Einsatzstelle betroffen? plus optionale Kurznotiz. */
+export interface AbGefahr {
+  betroffen: boolean;
+  notiz?: string;
+}
+
 // ---- assembled snapshot (read back via toJSON for the JSON export) ----
 /**
  * The whole worksheet as a plain object — the shape produced by reading every
  * top-level type back with toJSON(). Used for the JSON export (§10.4) and, later,
- * import. Feld B (Lagebild) is intentionally absent: it is a read-only reference
- * to the `lagekarte` document, not worksheet-owned data.
+ * import. Von Feld B fließen nur die Gefahren-Randfelder (`gefahren`) ein; das
+ * Lagebild selbst ist eine read-only Referenz auf `lagekarte`, keine eigenen Daten.
  */
 export interface Arbeitsblatt {
   kopf: AbKopf;
+  gefahren: Partial<Record<AbGefahrKey, AbGefahr>>;
   fuehrungsvorgang: AbFuehrungszeile[];
   rueckmeldungen: AbNotiz[];
   eigeneLage: AbEigeneLage;
