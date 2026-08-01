@@ -15,7 +15,7 @@
     "leaflet": "^1.9.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "y-websocket": "^2.0.4",
+    "y-websocket": "^3.0.0",
     "yjs": "^13.6.20"
   },
   "devDependencies": {
