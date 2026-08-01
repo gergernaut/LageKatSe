@@ -145,6 +145,11 @@ input, select, textarea { font-family: inherit; }
   width: 30px; height: 30px; border-radius: 50%; background: var(--forces); color: #fff;
   display: grid; place-items: center; font-size: 12px; font-weight: 700; margin: 0 auto 5px; font-family: var(--sans);
 }
+.rail__notifications { height: 48px; margin-top: 4px; }
+.rail__notifications.is-enabled {
+  color: var(--signal); background: rgba(247,168,27,.1); border-color: rgba(247,168,27,.24);
+}
+.rail__notifications:disabled { cursor: not-allowed; opacity: .45; }
 .rail__exit { margin-top: 6px; }
 .lagekarte-symbol-size { display: inline-flex; align-items: center; gap: 7px; color: var(--on-dark-2); font-family: var(--mono); font-size: 11px; white-space: nowrap; }
 .lagekarte-symbol-size input { width: 90px; accent-color: var(--signal); }
