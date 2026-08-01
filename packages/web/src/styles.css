@@ -318,6 +318,48 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .etb-add:disabled { opacity: .55; cursor: wait; }
 .etb-empty { padding: 36px !important; color: var(--ink-3); text-align: center; }
 
+/* ---------- Arbeitsblatt ---------- */
+.arbeitsblatt {
+  width: 100%; max-width: 1120px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.arbeitsblatt__bar {
+  border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(11,17,25,.05);
+}
+.arbeitsblatt__bar .chip { color: var(--ink-2); border-color: var(--line); }
+.arbeitsblatt-panel {
+  overflow: hidden; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: 0 1px 2px rgba(11,17,25,.05);
+}
+.arbeitsblatt-panel__head {
+  min-height: 52px; padding: 11px 16px; border-bottom: 1px solid var(--line-2);
+  display: flex; align-items: center; gap: 14px; background: var(--surface-2);
+}
+.arbeitsblatt-panel__head h3 {
+  margin: 0; display: flex; align-items: center; gap: 7px; font-size: 14px;
+}
+.arbeitsblatt-panel__head p {
+  margin: 0 0 0 auto; color: var(--ink-3); font-size: 12px; line-height: 1.4;
+}
+.arbeitsblatt-panel__letter {
+  width: 28px; height: 28px; border-radius: 7px; display: inline-grid; place-items: center;
+  background: var(--ground); color: var(--signal); font: 700 12px var(--mono);
+}
+.arbeitsblatt-fields {
+  padding: 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px 18px;
+}
+.arbeitsblatt-field { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.arbeitsblatt-field > span {
+  color: var(--ink-3); font: 10px var(--mono); letter-spacing: .1em; text-transform: uppercase;
+}
+.arbeitsblatt-field input {
+  width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 11px; background: var(--surface-2); color: var(--ink); font-size: 13px;
+}
+.arbeitsblatt-field input:read-only { color: var(--ink-2); cursor: default; }
+.arbeitsblatt-lagebild { height: 360px; min-height: 360px; }
+
 .lagekarte-stage { min-height: 0; position: relative; overflow: hidden; }
 .lagekarte-map { height: 100%; min-height: 0; position: relative; }
 .lagekarte-map--placing, .lagekarte-map--placing.leaflet-grab { cursor: crosshair; }
@@ -458,4 +500,7 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   .topbar .role-badge { display: none; }
   .topbar .room { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .topbar .live { font-size: 0; }
+  .arbeitsblatt-fields { grid-template-columns: 1fr; padding: 14px; }
+  .arbeitsblatt-panel__head { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .arbeitsblatt-panel__head p { margin-left: 0; }
 }
