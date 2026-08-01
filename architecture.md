@@ -1,7 +1,7 @@
 # LageKatSe – Architektur- und Fachkonzept
 
 > Modulare, browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz.
-> Version 0.2 · Stand: 2026-07-31 · Konzept + Umsetzungsstand bis **M2 (Einsatztagebuch)**
+> Version 0.3 · Stand: 2026-08-01 · Konzept + Umsetzungsstand bis **M3 (Taktisches Arbeitsblatt)**
 
 Dieses Dokument überführt das Brainstorming (`LageKatSe.txt`) in ein tragfähiges technisches Konzept.
 Es beschreibt Zielbild, Architektur, Datenmodell, Rechtemodell und einen Umsetzungsfahrplan.
@@ -182,7 +182,7 @@ Statt eines großen Dokuments pro Stabsraum verwenden wir **je Modul ein eigenes
 Stabsraum "ABC-123"
  ├── ydoc:lagekarte      (Y.Map "features")        → Rechte-Scope "lagekarte"
  ├── ydoc:einsatztagebuch(Y.Array "entries")       → Rechte-Scope "etb"
- ├── ydoc:arbeitsblatt   (Y.Map "sheet")           → Rechte-Scope "arbeitsblatt"
+ ├── ydoc:arbeitsblatt   (mehrere top-level Y.Map/Y.Array, Felder A/C/D/E/F) → Rechte-Scope "arbeitsblatt"
  └── ydoc:chat           (Y.Array "messages")      → Rechte-Scope "chat"
 ```
 
@@ -584,6 +584,11 @@ Lfd.Nr;Zeit;Richtung;Von;An;Weg;Inhalt;Veranlassung;Erledigt;Bearbeiter
 Digitale Abbildung des **Taktischen Arbeitsblatts (IdF NRW, DIN A4)** – ein strukturiertes Formular
 rund um ein eingebettetes Lagebild. Alle Felder werden zwischen den Teilnehmern synchronisiert.
 
+> **In M3 umgesetzt** (Vorderseite): Felder A, C, D, E, F live-synchron (Feld-/Zeilen-Level-Merge),
+> Feld B als eingebettete read-only Lagekarte, JSON-Export. Zurückgestellt (Phase 2): JSON-Import,
+> die „Randfelder für Gefahren" an Feld B, Bearbeiten der Karte direkt aus dem Arbeitsblatt,
+> PDF-Export und die Rückseite (E7).
+
 ### 10.1 Feldaufteilung (Vorderseite, gemäß IdF-Vorlage)
 
 Das Arbeitsblatt ist in feste Felder gegliedert (die Grundstruktur der Vorlage bleibt erhalten):
@@ -594,8 +599,8 @@ Das Arbeitsblatt ist in feste Felder gegliedert (die Grundstruktur der Vorlage b
 | **B** | **Lagebild** | **Eingebettete, live-synchrone Lagekarte** (Modul 1) + Randfelder für Gefahren |
 | **C** | Führungsvorgang | Tabelle: bedrohtes Objekt/Subjekt · Wirkung · Priorität · Maßnahmen · erledigt |
 | **D** | Rückmeldungen/Notizen | Freie Notiz-/Checkliste |
-| **E** | Eigene Lage / Nachforderung | Auftrag (MR/BB), Kräfteübersicht, Nachforderungs-Checklisten (LZ, Sonderfzg, Rettungsdienst) |
-| **F** | Organisation/Kommunikation | Funkkanäle (4m/2m/Fü/Geb), Führungs-Organigramm, eigene Funktion |
+| **E** | Eigene Lage / Nachforderung | Auftrag (MR/BB), Kräfteübersicht, Nachforderung (freie Einträge) |
+| **F** | Organisation/Kommunikation | Funkkanäle (TMO-/DMO-Gruppe, Führung, Gebäude), Führungs-Organigramm, eigene Funktion |
 
 > Die **Rückseite** (Checklisten für ABC-/Gefahrgut-Einsatz, Wetterdaten, Dekon, MANV/Rettungsdienst)
 > ist umfangreich und spezialisiert → **Phase 2** (siehe Roadmap). MVP fokussiert die Vorderseite.
@@ -608,46 +613,56 @@ an der Karte erscheinen sofort auch im Arbeitsblatt. So gibt es **eine** Quelle 
 Lage. (Wer in Modul 1 Schreibrechte hat, kann die Karte auch direkt aus dem Arbeitsblatt heraus
 bearbeiten – optionaler Komfort, Phase 2.)
 
+> **Umgesetzt (M3):** Feld B bindet die `Lagekarte`-Komponente read-only ein
+> (`<Lagekarte … embedded readOnly>`) — dieselbe Render-Pipeline wie Modul 1, kein Duplikat.
+
 ### 10.3 Datenstruktur (Yjs-Dokument `arbeitsblatt`)
 
-Ein `Y.Map` `sheet` mit den Feldgruppen A, C, D, E, F (B = Referenz auf `lagekarte`):
+Statt eines einzelnen verschachtelten `sheet`-Objekts hält das Dokument **mehrere top-level
+Yjs-Typen** (jeder vivifiziert bei erstem Zugriff, kein Seeding). So mergen konkurrierende Edits
+an *verschiedenen* Feldern/Zeilen feldweise (nie Whole-Value wie die Karte, §8.3). Es gibt **keine**
+server-autoritativen Felder → reine Client-CRDT-Writes, kein eigener HTTP-Endpoint (anders als das
+ETB, §9.3). Definiert in `packages/shared/src/arbeitsblatt.ts`.
+
+| Top-level Typ (Key) | Feld | Inhalt |
+|---|:--:|---|
+| `kopf` (`Y.Map`) | A | Kopf-Skalare (einsatzstichwort, einsatzort, meldender, objektnr, datumUhrzeitgruppe) |
+| `fuehrungsvorgang` (`Y.Array<Y.Map>`) | C | Zeilen des Führungsvorgangs |
+| `rueckmeldungen` (`Y.Array<Y.Map>`) | D | Notiz-/Checklisten-Einträge |
+| `eigeneLage` (`Y.Map`) | E | auftragMr/auftragBb (bool), auftragText, kraefteuebersicht |
+| `nachforderung` (`Y.Array<Y.Map>`) | E | freie Nachforderungs-Einträge |
+| `organisation` (`Y.Map`) | F | Funkkanäle-Skalare + eigeneFunktion |
+| `organigramm` (`Y.Array<Y.Map>`) | F | Zeilen des Führungs-Organigramms |
+
+Feld **B** trägt keine eigenen Daten – es referenziert `lagekarte` read-only (§10.2).
 
 ```ts
+// Zusammengesetzter Snapshot (so via toJSON gelesen, u. a. für den JSON-Export):
 interface Arbeitsblatt {
-  kopf: {                        // Feld A
-    einsatzstichwort: string;
-    einsatzort: string;
-    meldender: string;
-    objektnr: string;
-    datumUhrzeitgruppe: string;
-  };
-  fuehrungsvorgang: {            // Feld C (Y.Array)
-    id: string;
-    bedrohtesObjekt: string;
-    wirkung: string;
-    prioritaet: 1 | 2 | 3 | "";
-    massnahmen: string;
-    erledigt: boolean;
+  kopf: { einsatzstichwort: string; einsatzort: string; meldender: string;   // A
+          objektnr: string; datumUhrzeitgruppe: string };
+  fuehrungsvorgang: {                                                        // C (Y.Array<Y.Map>)
+    id: string; bedrohtesObjekt: string; wirkung: string;
+    prioritaet: 1 | 2 | 3 | ""; massnahmen: string; erledigt: boolean;
   }[];
-  rueckmeldungen: string[];      // Feld D (Y.Array von Zeilen)
-  eigeneLage: {                  // Feld E
-    auftrag: { mr: boolean; bb: boolean; text: string };
-    kraefteuebersicht: string;   // z. B. "3 / 1 / 12 / … ="
-    nachforderung: Record<string, { checked: boolean; anzahl?: number }>;
-  };
-  organisation: {                // Feld F
-    kanaele: { viererKanal: string; fuehrungsKanal: string; zweierKanal: string; gebFunk: string };
+  rueckmeldungen: { id: string; text: string; erledigt: boolean }[];        // D (Checkliste)
+  eigeneLage: { auftragMr: boolean; auftragBb: boolean;                     // E
+                auftragText: string; kraefteuebersicht: string };
+  nachforderung: { id: string; text: string }[];                           // E (freie Einträge)
+  organisation: {                                                           // F
+    tmoGruppe: string; fuehrungsKanal: string; dmoGruppe: string; gebFunk: string;
     eigeneFunktion: "GF" | "ZF" | "VF" | "";
-    organigramm: { rolle: string; auftrag: string; fuehrer: string; rufname: string }[];
   };
-  // Feld B: nur Referenz – die Lagekarte wird read-only eingebettet
-  lagebildRef: { module: "lagekarte" };
+  organigramm: { id: string; rolle: string; auftrag: string;               // F (Y.Array<Y.Map>)
+                 fuehrer: string; rufname: string }[];
+  // Feld B: nur read-only-Referenz auf `lagekarte` – keine eigenen Daten
 }
 ```
 
 ### 10.4 Export
 
-- **JSON** (vollständiger Formularzustand) für Sicherung/Weitergabe.
+- **JSON** (vollständiger Formularzustand) für Sicherung/Weitergabe. **(umgesetzt in M3)** –
+  Envelope `{ format: "lagekatse.arbeitsblatt", version: 1, exportedAt, sheet }`.
 - **PDF** (Phase 2): Ausfüllen der amtlichen AcroForm-Felder der Original-Vorlage für den Druck.
 
 ---
@@ -868,9 +883,9 @@ Iterativ, jede Stufe für sich lauffähig und demonstrierbar.
 - Zurückgestellt: CSV-Import, volle Änderungshistorie, PDF (→ M4)
 - **Ergebnis:** Lückenloses, kollaboratives ETB.
 
-### M3 – Taktisches Arbeitsblatt (Vorderseite) — ⟵ nächster Schritt
-- Felder A, C, D, E, F synchronisiert; Feld B = eingebettete Live-Lagekarte (read-only)
-- JSON-Export
+### M3 – Taktisches Arbeitsblatt (Vorderseite) — ✅ umgesetzt
+- Felder A, C, D, E, F synchronisiert (Feld-/Zeilen-Level-Merge); Feld B = eingebettete Live-Lagekarte (read-only)
+- JSON-Export; **keine** server-autoritativen Felder → reine Client-CRDT-Writes (kein eigener Endpoint)
 - **Ergebnis:** Alle drei Kern-Module vollständig.
 
 ### M4 – Härtung & Ausbau

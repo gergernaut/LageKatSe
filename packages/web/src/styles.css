@@ -205,6 +205,9 @@ input, select, textarea { font-family: inherit; }
 
 /* ---------- Lagekarte ---------- */
 .lagekarte-view { height: 100%; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.lagekarte-view--embedded { height: 100%; grid-template-rows: minmax(0, 1fr); }
+.lagekarte-view--embedded .lagekarte-stage,
+.lagekarte-view--embedded .lagekarte-map { height: 100%; }
 .lagekarte-bar {
   min-width: 0; min-height: 48px; padding: 7px 12px; background: var(--ground-2); color: var(--on-dark);
   border-bottom: 1px solid var(--line-dark); display: flex; align-items: center; gap: 12px; overflow-x: auto;
@@ -314,6 +317,157 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .etb-add:hover:not(:disabled) { border-color: var(--forces); background: rgba(47,107,216,.05); }
 .etb-add:disabled { opacity: .55; cursor: wait; }
 .etb-empty { padding: 36px !important; color: var(--ink-3); text-align: center; }
+
+/* ---------- Arbeitsblatt ---------- */
+.arbeitsblatt {
+  width: 100%; max-width: 1120px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.arbeitsblatt__bar {
+  border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(11,17,25,.05);
+}
+.arbeitsblatt__bar .chip { color: var(--ink-2); border-color: var(--line); }
+.arbeitsblatt-panel {
+  overflow: hidden; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: 0 1px 2px rgba(11,17,25,.05);
+}
+.arbeitsblatt-panel__head {
+  min-height: 52px; padding: 11px 16px; border-bottom: 1px solid var(--line-2);
+  display: flex; align-items: center; gap: 14px; background: var(--surface-2);
+}
+.arbeitsblatt-panel__head h3 {
+  margin: 0; display: flex; align-items: center; gap: 7px; font-size: 14px;
+}
+.arbeitsblatt-panel__head p {
+  margin: 0 0 0 auto; color: var(--ink-3); font-size: 12px; line-height: 1.4;
+}
+.arbeitsblatt-panel__letter {
+  width: 28px; height: 28px; border-radius: 7px; display: inline-grid; place-items: center;
+  background: var(--ground); color: var(--signal); font: 700 12px var(--mono);
+}
+.arbeitsblatt-fields {
+  padding: 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px 18px;
+}
+.arbeitsblatt-field { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.arbeitsblatt-field > span {
+  color: var(--ink-3); font: 10px var(--mono); letter-spacing: .1em; text-transform: uppercase;
+}
+.arbeitsblatt-field input {
+  width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 11px; background: var(--surface-2); color: var(--ink); font-size: 13px;
+}
+.arbeitsblatt-field input:read-only { color: var(--ink-2); cursor: default; }
+.arbeitsblatt-lagebild { height: 360px; min-height: 360px; }
+.arbeitsblatt-table {
+  width: 100%; min-width: 820px; border-collapse: collapse; font-size: 13px;
+}
+.arbeitsblatt-table--organigramm { min-width: 650px; }
+.arbeitsblatt-table th {
+  padding: 10px 12px; border-bottom: 1px solid var(--line);
+  background: var(--surface-2); color: var(--ink-2); text-align: left; white-space: nowrap;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+}
+.arbeitsblatt-table td {
+  padding: 9px 12px; border-bottom: 1px solid var(--line-2);
+  vertical-align: top; line-height: 1.4;
+}
+.arbeitsblatt-table tbody tr:hover td { background: var(--surface-2); }
+.arbeitsblatt-table__input {
+  width: 100%; min-width: 0; padding: 6px 7px; border: 1px solid transparent;
+  border-radius: 5px; background: transparent; color: var(--ink); font: inherit;
+}
+.arbeitsblatt-table__input:hover:not(:read-only):not(:disabled) {
+  border-color: var(--line); background: var(--surface);
+}
+.arbeitsblatt-table__input:focus {
+  border-color: var(--forces); outline: 2px solid rgba(47,107,216,.28);
+  outline-offset: 1px; background: var(--surface);
+}
+.arbeitsblatt-table__input:read-only,
+.arbeitsblatt-table__input:disabled { color: var(--ink-2); cursor: default; opacity: 1; }
+.arbeitsblatt-table__textarea { min-width: 180px; min-height: 50px; resize: vertical; line-height: 1.4; }
+.arbeitsblatt-table__select { min-width: 72px; }
+.arbeitsblatt-prio { font-weight: 700; }
+.arbeitsblatt-table__select.arbeitsblatt-prio--1 { background: rgba(213,55,43,.16); color: var(--danger); border-color: rgba(213,55,43,.42); }
+.arbeitsblatt-table__select.arbeitsblatt-prio--2 { background: rgba(247,168,27,.18); color: var(--signal-ink); border-color: rgba(247,168,27,.5); }
+.arbeitsblatt-table__select.arbeitsblatt-prio--3 { background: rgba(124,141,160,.2); color: var(--ink-2); border-color: rgba(124,141,160,.42); }
+.arbeitsblatt-table__check { text-align: center; }
+.arbeitsblatt-table input[type="checkbox"],
+.arbeitsblatt-checklist input[type="checkbox"],
+.arbeitsblatt-options input[type="checkbox"] {
+  width: 18px; height: 18px; margin: 0; accent-color: var(--ok);
+}
+.arbeitsblatt-table input[type="checkbox"]:disabled,
+.arbeitsblatt-checklist input[type="checkbox"]:disabled,
+.arbeitsblatt-options input[type="checkbox"]:disabled { cursor: default; }
+.arbeitsblatt-row--done td { color: var(--ink-3); }
+.arbeitsblatt-row--done .arbeitsblatt-table__input { text-decoration: line-through; }
+.arbeitsblatt-table__new-row td { padding: 12px; }
+.arbeitsblatt-table__empty {
+  padding: 28px !important; color: var(--ink-3); text-align: center;
+}
+.arbeitsblatt-delete {
+  padding: 5px 7px; border: 0; background: transparent;
+  color: var(--danger); font-size: 11px;
+}
+.arbeitsblatt-delete:hover { text-decoration: underline; }
+.arbeitsblatt-checklist {
+  padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 10px;
+}
+.arbeitsblatt-checklist__row {
+  min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center; gap: 11px;
+}
+.arbeitsblatt-checklist__row > input[type="text"] {
+  width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--surface-2); color: var(--ink); font-size: 13px;
+}
+.arbeitsblatt-checklist__row > input[type="text"]:read-only { color: var(--ink-2); cursor: default; }
+.arbeitsblatt-checklist__row--done > input[type="text"] {
+  color: var(--ink-3); text-decoration: line-through;
+}
+.arbeitsblatt-empty { margin: 2px 0; color: var(--ink-3); font-size: 13px; }
+.arbeitsblatt-section-grid {
+  padding: 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px;
+}
+.arbeitsblatt-group {
+  min-width: 0; padding: 15px; border: 1px solid var(--line-2);
+  border-radius: 10px; background: var(--surface);
+}
+.arbeitsblatt-group--wide { grid-column: 1 / -1; }
+.arbeitsblatt-group h4,
+.arbeitsblatt-organigramm > h4 {
+  margin: 0 0 13px; color: var(--ink-2);
+  font: 650 11px var(--mono); letter-spacing: .08em; text-transform: uppercase;
+}
+.arbeitsblatt-options { margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px 18px; }
+.arbeitsblatt-options label {
+  display: inline-flex; align-items: center; gap: 8px; color: var(--ink); font-size: 13px;
+}
+.arbeitsblatt-nachforderung { display: flex; flex-direction: column; gap: 10px; }
+.arbeitsblatt-nachforderung__row {
+  min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center; gap: 11px;
+}
+.arbeitsblatt-nachforderung__row > input[type="text"] {
+  width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--surface-2); color: var(--ink); font-size: 13px;
+}
+.arbeitsblatt-nachforderung__row > input[type="text"]:read-only { color: var(--ink-2); cursor: default; }
+.arbeitsblatt-organisation {
+  padding: 18px; display: grid; grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr); gap: 18px;
+}
+.arbeitsblatt-kanal-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px;
+}
+.arbeitsblatt-field select {
+  width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 11px; background: var(--surface-2); color: var(--ink); font-size: 13px;
+}
+.arbeitsblatt-field select:disabled { color: var(--ink-2); cursor: default; opacity: 1; }
+.arbeitsblatt-organigramm { border-top: 1px solid var(--line-2); }
+.arbeitsblatt-organigramm > h4 { margin: 0; padding: 16px 18px 12px; }
 
 .lagekarte-stage { min-height: 0; position: relative; overflow: hidden; }
 .lagekarte-map { height: 100%; min-height: 0; position: relative; }
@@ -455,4 +609,11 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   .topbar .role-badge { display: none; }
   .topbar .room { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .topbar .live { font-size: 0; }
+  .arbeitsblatt-fields { grid-template-columns: 1fr; padding: 14px; }
+  .arbeitsblatt-panel__head { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .arbeitsblatt-panel__head p { margin-left: 0; }
+  .arbeitsblatt-section-grid, .arbeitsblatt-organisation { grid-template-columns: 1fr; padding: 14px; }
+  .arbeitsblatt-group--wide { grid-column: auto; }
+  .arbeitsblatt-kanal-grid { grid-template-columns: 1fr; }
+  .arbeitsblatt-checklist { padding: 14px; }
 }
