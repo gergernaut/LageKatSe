@@ -61,6 +61,7 @@ jobs:
         run: |
           node packages/web/scripts/e2e.mjs
           node packages/web/scripts/lagekarte-e2e.mjs
+          node packages/web/scripts/arbeitsblatt-e2e.mjs
       - name: Backend-Log (bei Fehler)
         if: failure()
         run: cat /tmp/server.log || true
