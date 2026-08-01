@@ -16,7 +16,7 @@
  *   doc.getArray(AB_FUEHRUNG)    Feld C — Führungsvorgang rows (Y.Map per AbFuehrungszeile)
  *   doc.getArray(AB_RUECKMELD)   Feld D — Rückmeldungen/Notizen items (Y.Map per AbNotiz)
  *   doc.getMap(AB_EIGENELAGE)    Feld E — eigene Lage scalars + Auftrag flags (AbEigeneLage)
- *   doc.getMap(AB_NACHFORDERUNG) Feld E — reinforcement checklist (key -> AbNachforderungPosten)
+ *   doc.getArray(AB_NACHFORDERUNG) Feld E — freie Nachforderungs-Einträge (Y.Map per AbNachforderung)
  *   doc.getMap(AB_ORGANISATION)  Feld F — Funkkanäle + eigene Funktion scalars (AbOrganisation)
  *   doc.getArray(AB_ORGANIGRAMM) Feld F — Führungs-Organigramm rows (Y.Map per AbOrganigrammzeile)
  *
@@ -110,21 +110,14 @@ export const AB_EIGENELAGE_TEXT_FIELDS = ["auftragText", "kraefteuebersicht"] as
 export type AbEigeneLageTextField = (typeof AB_EIGENELAGE_TEXT_FIELDS)[number];
 
 /**
- * Fixed reinforcement (Nachforderung) categories (§10.1, Feld E). Each is a key
- * on the AB_NACHFORDERUNG Y.Map with a small whole-value posten — two people
- * editing the *same* category's count concurrently is last-write-wins, which is
- * fine for a single checkbox+number.
+ * One reinforcement (Nachforderung) request as a *free-text* entry, e.g.
+ * "2 Löschzüge" or "Rettungsdienst, 3 RTW". Stored as a Y.Map list item inside
+ * the AB_NACHFORDERUNG Y.Array so entries can be added/removed freely and merge
+ * per row (like the Führungsvorgang/Rückmeldungen rows) — no fixed categories.
  */
-export const AB_NACHFORDERUNG_KATEGORIEN = [
-  { key: "loeschzug", label: "Löschzug (LZ)" },
-  { key: "sonderfahrzeuge", label: "Sonderfahrzeuge" },
-  { key: "rettungsdienst", label: "Rettungsdienst" },
-] as const;
-export type AbNachforderungKey = (typeof AB_NACHFORDERUNG_KATEGORIEN)[number]["key"];
-
-export interface AbNachforderungPosten {
-  checked: boolean;
-  anzahl?: number;
+export interface AbNachforderung {
+  id: string;
+  text: string;
 }
 
 // ---- Feld F: Organisation / Kommunikation ----
@@ -133,19 +126,19 @@ export type AbFunktion = "GF" | "ZF" | "VF" | "";
 
 /** Scalar part of Feld F, stored as keys on the AB_ORGANISATION Y.Map. */
 export interface AbOrganisation {
-  viererKanal: string; // 4-m-Band
+  tmoGruppe: string; // Digitalfunk TMO (Netzbetrieb / Trunked Mode)
   fuehrungsKanal: string;
-  zweierKanal: string; // 2-m-Band
+  dmoGruppe: string; // Digitalfunk DMO (Direktbetrieb / Direct Mode)
   gebFunk: string; // Gebäudefunk / Objektfunk
   eigeneFunktion: AbFunktion;
 }
 
-export const AB_KANAL_FIELDS = ["viererKanal", "fuehrungsKanal", "zweierKanal", "gebFunk"] as const;
+export const AB_KANAL_FIELDS = ["tmoGruppe", "fuehrungsKanal", "dmoGruppe", "gebFunk"] as const;
 export type AbKanalField = (typeof AB_KANAL_FIELDS)[number];
 export const AB_KANAL_LABELS: Record<AbKanalField, string> = {
-  viererKanal: "4-m-Kanal",
+  tmoGruppe: "TMO-Gruppe",
   fuehrungsKanal: "Führungskanal",
-  zweierKanal: "2-m-Kanal",
+  dmoGruppe: "DMO-Gruppe",
   gebFunk: "Gebäudefunk",
 };
 
@@ -173,7 +166,7 @@ export interface Arbeitsblatt {
   fuehrungsvorgang: AbFuehrungszeile[];
   rueckmeldungen: AbNotiz[];
   eigeneLage: AbEigeneLage;
-  nachforderung: Partial<Record<AbNachforderungKey, AbNachforderungPosten>>;
+  nachforderung: AbNachforderung[];
   organisation: AbOrganisation;
   organigramm: AbOrganigrammzeile[];
 }

@@ -599,8 +599,8 @@ Das Arbeitsblatt ist in feste Felder gegliedert (die Grundstruktur der Vorlage b
 | **B** | **Lagebild** | **Eingebettete, live-synchrone Lagekarte** (Modul 1) + Randfelder für Gefahren |
 | **C** | Führungsvorgang | Tabelle: bedrohtes Objekt/Subjekt · Wirkung · Priorität · Maßnahmen · erledigt |
 | **D** | Rückmeldungen/Notizen | Freie Notiz-/Checkliste |
-| **E** | Eigene Lage / Nachforderung | Auftrag (MR/BB), Kräfteübersicht, Nachforderungs-Checklisten (LZ, Sonderfzg, Rettungsdienst) |
-| **F** | Organisation/Kommunikation | Funkkanäle (4m/2m/Fü/Geb), Führungs-Organigramm, eigene Funktion |
+| **E** | Eigene Lage / Nachforderung | Auftrag (MR/BB), Kräfteübersicht, Nachforderung (freie Einträge) |
+| **F** | Organisation/Kommunikation | Funkkanäle (TMO-/DMO-Gruppe, Führung, Gebäude), Führungs-Organigramm, eigene Funktion |
 
 > Die **Rückseite** (Checklisten für ABC-/Gefahrgut-Einsatz, Wetterdaten, Dekon, MANV/Rettungsdienst)
 > ist umfangreich und spezialisiert → **Phase 2** (siehe Roadmap). MVP fokussiert die Vorderseite.
@@ -630,7 +630,7 @@ ETB, §9.3). Definiert in `packages/shared/src/arbeitsblatt.ts`.
 | `fuehrungsvorgang` (`Y.Array<Y.Map>`) | C | Zeilen des Führungsvorgangs |
 | `rueckmeldungen` (`Y.Array<Y.Map>`) | D | Notiz-/Checklisten-Einträge |
 | `eigeneLage` (`Y.Map`) | E | auftragMr/auftragBb (bool), auftragText, kraefteuebersicht |
-| `nachforderung` (`Y.Map`) | E | je Kategorie → `{ checked, anzahl? }` |
+| `nachforderung` (`Y.Array<Y.Map>`) | E | freie Nachforderungs-Einträge |
 | `organisation` (`Y.Map`) | F | Funkkanäle-Skalare + eigeneFunktion |
 | `organigramm` (`Y.Array<Y.Map>`) | F | Zeilen des Führungs-Organigramms |
 
@@ -648,9 +648,9 @@ interface Arbeitsblatt {
   rueckmeldungen: { id: string; text: string; erledigt: boolean }[];        // D (Checkliste)
   eigeneLage: { auftragMr: boolean; auftragBb: boolean;                     // E
                 auftragText: string; kraefteuebersicht: string };
-  nachforderung: Record<string, { checked: boolean; anzahl?: number }>;     // E (LZ, Sonderfzg, RD)
+  nachforderung: { id: string; text: string }[];                           // E (freie Einträge)
   organisation: {                                                           // F
-    viererKanal: string; fuehrungsKanal: string; zweierKanal: string; gebFunk: string;
+    tmoGruppe: string; fuehrungsKanal: string; dmoGruppe: string; gebFunk: string;
     eigeneFunktion: "GF" | "ZF" | "VF" | "";
   };
   organigramm: { id: string; rolle: string; auftrag: string;               // F (Y.Array<Y.Map>)

@@ -9,7 +9,6 @@ import {
   AB_KANAL_FIELDS,
   AB_KANAL_LABELS,
   AB_NACHFORDERUNG,
-  AB_NACHFORDERUNG_KATEGORIEN,
   AB_ORGANIGRAMM,
   AB_ORGANISATION,
   AB_RUECKMELD,
@@ -17,8 +16,7 @@ import {
   type AbFunktion,
   type AbFuehrungszeile,
   type AbKopfField,
-  type AbNachforderungKey,
-  type AbNachforderungPosten,
+  type AbNachforderung,
   type AbNotiz,
   type AbOrganigrammzeile,
   type AbPrioritaet,
@@ -47,11 +45,11 @@ const EMPTY_SHEET: ArbeitsblattState = {
     auftragText: "",
     kraefteuebersicht: "",
   },
-  nachforderung: {},
+  nachforderung: [],
   organisation: {
-    viererKanal: "",
+    tmoGruppe: "",
     fuehrungsKanal: "",
-    zweierKanal: "",
+    dmoGruppe: "",
     gebFunk: "",
     eigeneFunktion: "",
   },
@@ -79,7 +77,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   const fuehrungRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const rueckmeldRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const eigeneLageRef = useRef<Y.Map<unknown> | null>(null);
-  const nachforderungRef = useRef<Y.Map<unknown> | null>(null);
+  const nachforderungRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const organisationRef = useRef<Y.Map<unknown> | null>(null);
   const organigrammRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const writable = canWrite(session.roles, "arbeitsblatt", {
@@ -93,7 +91,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     const fuehrung = doc.getArray<Y.Map<unknown>>(AB_FUEHRUNG);
     const rueckmeld = doc.getArray<Y.Map<unknown>>(AB_RUECKMELD);
     const eigeneLage = doc.getMap<unknown>(AB_EIGENELAGE);
-    const nachforderung = doc.getMap<unknown>(AB_NACHFORDERUNG);
+    const nachforderung = doc.getArray<Y.Map<unknown>>(AB_NACHFORDERUNG);
     const organisation = doc.getMap<unknown>(AB_ORGANISATION);
     const organigramm = doc.getArray<Y.Map<unknown>>(AB_ORGANIGRAMM);
 
@@ -123,13 +121,11 @@ export function Arbeitsblatt({ session }: { session: Session }) {
         auftragText: stringValue(eigeneLage, "auftragText"),
         kraefteuebersicht: stringValue(eigeneLage, "kraefteuebersicht"),
       },
-      nachforderung: nachforderung.toJSON() as Partial<
-        Record<AbNachforderungKey, AbNachforderungPosten>
-      >,
+      nachforderung: nachforderung.toArray().map((row) => row.toJSON() as AbNachforderung),
       organisation: {
-        viererKanal: stringValue(organisation, "viererKanal"),
+        tmoGruppe: stringValue(organisation, "tmoGruppe"),
         fuehrungsKanal: stringValue(organisation, "fuehrungsKanal"),
-        zweierKanal: stringValue(organisation, "zweierKanal"),
+        dmoGruppe: stringValue(organisation, "dmoGruppe"),
         gebFunk: stringValue(organisation, "gebFunk"),
         eigeneFunktion: funktionValue(organisation, "eigeneFunktion"),
       },
@@ -228,9 +224,32 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     eigeneLageRef.current?.set(field, value);
   };
 
-  const setNachforderung = (key: AbNachforderungKey, value: AbNachforderungPosten) => {
+  const setNachforderungField = (
+    id: string,
+    field: keyof Omit<AbNachforderung, "id">,
+    value: unknown,
+  ) => {
     if (!writable) return;
-    nachforderungRef.current?.set(key, value);
+    const row = nachforderungRef.current?.toArray().find((item) => item.get("id") === id);
+    row?.set(field, value);
+  };
+
+  const addNachforderung = () => {
+    if (!writable) return;
+    const rows = nachforderungRef.current;
+    if (!rows) return;
+    const value: AbNachforderung = { id: uid(), text: "" };
+    const row = new Y.Map<unknown>();
+    Object.entries(value).forEach(([field, fieldValue]) => row.set(field, fieldValue));
+    rows.push([row]);
+  };
+
+  const deleteNachforderung = (id: string) => {
+    if (!writable) return;
+    const rows = nachforderungRef.current;
+    if (!rows) return;
+    const index = rows.toArray().findIndex((row) => row.get("id") === id);
+    if (index >= 0) rows.delete(index, 1);
   };
 
   const setOrganisation = (field: keyof ArbeitsblattState["organisation"], value: string) => {
@@ -400,7 +419,9 @@ export function Arbeitsblatt({ session }: { session: Session }) {
                   </td>
                   <td>
                     <select
-                      className="arbeitsblatt-table__input arbeitsblatt-table__select"
+                      className={`arbeitsblatt-table__input arbeitsblatt-table__select arbeitsblatt-prio${
+                        row.prioritaet ? ` arbeitsblatt-prio--${row.prioritaet}` : ""
+                      }`}
                       value={row.prioritaet}
                       disabled={!writable}
                       aria-label="Priorität"
@@ -590,44 +611,37 @@ export function Arbeitsblatt({ session }: { session: Session }) {
           <div className="arbeitsblatt-group arbeitsblatt-group--wide">
             <h4>Nachforderung</h4>
             <div className="arbeitsblatt-nachforderung">
-              {AB_NACHFORDERUNG_KATEGORIEN.map((kat) => {
-                const posten = sheet.nachforderung[kat.key] ?? { checked: false };
-                return (
-                  <div className="arbeitsblatt-nachforderung__row" key={kat.key}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={posten.checked}
-                        disabled={!writable}
-                        onChange={(event) =>
-                          setNachforderung(kat.key, {
-                            checked: event.currentTarget.checked,
-                            ...(posten.anzahl === undefined ? {} : { anzahl: posten.anzahl }),
-                          })
-                        }
-                      />
-                      {kat.label}
-                    </label>
-                    <label className="arbeitsblatt-number">
-                      <span>Anzahl</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={posten.anzahl ?? ""}
-                        readOnly={!writable}
-                        onChange={(event) => {
-                          const input = event.currentTarget.value;
-                          const anzahl = input === "" ? undefined : Number(input);
-                          setNachforderung(kat.key, {
-                            checked: posten.checked,
-                            ...(anzahl === undefined ? {} : { anzahl }),
-                          });
-                        }}
-                      />
-                    </label>
-                  </div>
-                );
-              })}
+              {sheet.nachforderung.map((eintrag) => (
+                <div className="arbeitsblatt-nachforderung__row" key={eintrag.id}>
+                  <input
+                    type="text"
+                    value={eintrag.text}
+                    readOnly={!writable}
+                    aria-label="Nachforderung"
+                    placeholder="z. B. 2 Löschzüge, Rettungsdienst …"
+                    onChange={(event) =>
+                      setNachforderungField(eintrag.id, "text", event.currentTarget.value)
+                    }
+                  />
+                  {writable && (
+                    <button
+                      className="arbeitsblatt-delete"
+                      type="button"
+                      onClick={() => deleteNachforderung(eintrag.id)}
+                    >
+                      Löschen
+                    </button>
+                  )}
+                </div>
+              ))}
+              {sheet.nachforderung.length === 0 && (
+                <p className="arbeitsblatt-empty">Noch keine Nachforderung</p>
+              )}
+              {writable && (
+                <button className="etb-add" type="button" onClick={addNachforderung}>
+                  Nachforderung hinzufügen
+                </button>
+              )}
             </div>
           </div>
         </div>
