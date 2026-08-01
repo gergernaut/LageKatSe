@@ -3,6 +3,8 @@ import {
   AB_EIGENELAGE,
   AB_EXPORT_FORMAT,
   AB_FUEHRUNG,
+  AB_GEFAHREN,
+  AB_GEFAHREN_KATALOG,
   AB_KOPF,
   AB_KOPF_FIELDS,
   AB_KOPF_LABELS,
@@ -15,6 +17,8 @@ import {
   canWrite,
   type AbFunktion,
   type AbFuehrungszeile,
+  type AbGefahr,
+  type AbGefahrKey,
   type AbKopfField,
   type AbNachforderung,
   type AbNotiz,
@@ -37,6 +41,7 @@ const EMPTY_SHEET: ArbeitsblattState = {
     objektnr: "",
     datumUhrzeitgruppe: "",
   },
+  gefahren: {},
   fuehrungsvorgang: [],
   rueckmeldungen: [],
   eigeneLage: {
@@ -80,6 +85,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   const nachforderungRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const organisationRef = useRef<Y.Map<unknown> | null>(null);
   const organigrammRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
+  const gefahrenRef = useRef<Y.Map<unknown> | null>(null);
   const writable = canWrite(session.roles, "arbeitsblatt", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
   });
@@ -94,6 +100,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     const nachforderung = doc.getArray<Y.Map<unknown>>(AB_NACHFORDERUNG);
     const organisation = doc.getMap<unknown>(AB_ORGANISATION);
     const organigramm = doc.getArray<Y.Map<unknown>>(AB_ORGANIGRAMM);
+    const gefahren = doc.getMap<unknown>(AB_GEFAHREN);
 
     kopfRef.current = kopf;
     fuehrungRef.current = fuehrung;
@@ -102,6 +109,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     nachforderungRef.current = nachforderung;
     organisationRef.current = organisation;
     organigrammRef.current = organigramm;
+    gefahrenRef.current = gefahren;
 
     const readSheet = (): ArbeitsblattState => ({
       kopf: {
@@ -111,6 +119,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
         objektnr: stringValue(kopf, "objektnr"),
         datumUhrzeitgruppe: stringValue(kopf, "datumUhrzeitgruppe"),
       },
+      gefahren: gefahren.toJSON() as Partial<Record<AbGefahrKey, AbGefahr>>,
       fuehrungsvorgang: fuehrung
         .toArray()
         .map((row) => row.toJSON() as AbFuehrungszeile),
@@ -147,6 +156,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
       nachforderungRef.current = null;
       organisationRef.current = null;
       organigrammRef.current = null;
+      gefahrenRef.current = null;
       conn.destroy();
     };
   }, [session.room.id, session.token]);
@@ -154,6 +164,11 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   const setKopf = (field: AbKopfField, value: string) => {
     if (!writable) return;
     kopfRef.current?.set(field, value);
+  };
+
+  const setGefahr = (key: AbGefahrKey, posten: AbGefahr) => {
+    if (!writable) return;
+    gefahrenRef.current?.set(key, posten);
   };
 
   const setFuehrungField = (
@@ -366,10 +381,59 @@ export function Arbeitsblatt({ session }: { session: Session }) {
             <span className="arbeitsblatt-panel__letter">B</span>
             <span aria-hidden="true">·</span> Lagebild
           </h3>
-          <p>Zeigt die live-synchrone Lagekarte schreibgeschützt an.</p>
+          <p>Live-Lagekarte (read-only) und die Gefahren der Einsatzstelle.</p>
         </div>
-        <div className="arbeitsblatt-lagebild">
-          <Lagekarte session={session} embedded readOnly />
+        <div className="arbeitsblatt-lagebild-row">
+          <div className="arbeitsblatt-lagebild">
+            <Lagekarte session={session} embedded readOnly />
+          </div>
+          <div className="arbeitsblatt-gefahren">
+            <div className="arbeitsblatt-gefahren__head">
+              <span>Gefahren der Einsatzstelle</span>
+              <span className="arbeitsblatt-gefahren__scheme">4 A · 1 C · 4 E</span>
+            </div>
+            {AB_GEFAHREN_KATALOG.map((g) => {
+              const posten = sheet.gefahren[g.key] ?? { betroffen: false };
+              return (
+                <div className="arbeitsblatt-gefahr" key={g.key}>
+                  <label className="arbeitsblatt-gefahr__row">
+                    <span className={`arbeitsblatt-gefahr__tag arbeitsblatt-gefahr__tag--${g.gruppe}`}>
+                      {g.gruppe}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={posten.betroffen}
+                      disabled={!writable}
+                      aria-label={g.label}
+                      onChange={(event) =>
+                        setGefahr(g.key, {
+                          betroffen: event.currentTarget.checked,
+                          ...(posten.notiz ? { notiz: posten.notiz } : {}),
+                        })
+                      }
+                    />
+                    <span className="arbeitsblatt-gefahr__label">{g.label}</span>
+                  </label>
+                  {posten.betroffen && (
+                    <input
+                      className="arbeitsblatt-gefahr__notiz"
+                      type="text"
+                      value={posten.notiz ?? ""}
+                      readOnly={!writable}
+                      placeholder="Notiz (optional)"
+                      aria-label={`Notiz zu ${g.label}`}
+                      onChange={(event) =>
+                        setGefahr(g.key, {
+                          betroffen: true,
+                          ...(event.currentTarget.value ? { notiz: event.currentTarget.value } : {}),
+                        })
+                      }
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
 
