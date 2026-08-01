@@ -247,7 +247,15 @@ function createLayer(
   return layer;
 }
 
-export function Lagekarte({ session }: { session: Session }) {
+export function Lagekarte({
+  session,
+  readOnly = false,
+  embedded = false,
+}: {
+  session: Session;
+  readOnly?: boolean;
+  embedded?: boolean;
+}) {
   const mapElementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const featuresMapRef = useRef<YMap<MapFeature> | null>(null);
@@ -286,7 +294,7 @@ export function Lagekarte({ session }: { session: Session }) {
     }
   });
   const labelsVisibleRef = useRef(labelsVisible);
-  const writable = canWrite(session.roles, "lagekarte", {
+  const writable = !readOnly && canWrite(session.roles, "lagekarte", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
   });
 
@@ -687,59 +695,61 @@ export function Lagekarte({ session }: { session: Session }) {
   }, [session.room.id, session.sid, session.token, session.name]);
 
   return (
-    <div className="lagekarte-view">
-      <div className="lagekarte-bar">
-        <div className="spacer" />
-        <button className="btn btn--ghost" type="button" onClick={exportMap}>
-          Export
-        </button>
-        <label className="lagekarte-symbol-size">
-          <span>Symbolgröße</span>
-          <input
-            type="range"
-            min={SYMBOL_SIZE_MIN}
-            max={SYMBOL_SIZE_MAX}
-            step="0.1"
-            value={symbolSize}
-            aria-label="Symbolgröße"
-            onChange={(event) => setSymbolSize(clampSymbolSize(event.currentTarget.valueAsNumber))}
-          />
-          <output>{Math.round(symbolSize * 100)} %</output>
-        </label>
-        <label className="lagekarte-label-toggle">
-          <input
-            type="checkbox"
-            checked={labelsVisible}
-            aria-label="Beschriftung anzeigen"
-            onChange={(event) => setLabelsVisible(event.currentTarget.checked)}
-          />
-          <span>Beschriftung</span>
-        </label>
-        {writable && (
-          <>
-            <button
-              className="btn btn--ghost"
-              type="button"
-              onClick={() => importInputRef.current?.click()}
-            >
-              Import
-            </button>
+    <div className={`lagekarte-view ${embedded ? "lagekarte-view--embedded" : ""}`}>
+      {!embedded && (
+        <div className="lagekarte-bar">
+          <div className="spacer" />
+          <button className="btn btn--ghost" type="button" onClick={exportMap}>
+            Export
+          </button>
+          <label className="lagekarte-symbol-size">
+            <span>Symbolgröße</span>
             <input
-              ref={importInputRef}
-              type="file"
-              accept="application/json,.json"
-              hidden
-              onChange={importMap}
+              type="range"
+              min={SYMBOL_SIZE_MIN}
+              max={SYMBOL_SIZE_MAX}
+              step="0.1"
+              value={symbolSize}
+              aria-label="Symbolgröße"
+              onChange={(event) => setSymbolSize(clampSymbolSize(event.currentTarget.valueAsNumber))}
             />
-          </>
-        )}
-        {importMessage && (
-          <span className="chip" role="status" aria-live="polite">
-            {importMessage}
-          </span>
-        )}
-        <span className="chip">{writable ? "Bearbeiten" : "Nur Lesen"}</span>
-      </div>
+            <output>{Math.round(symbolSize * 100)} %</output>
+          </label>
+          <label className="lagekarte-label-toggle">
+            <input
+              type="checkbox"
+              checked={labelsVisible}
+              aria-label="Beschriftung anzeigen"
+              onChange={(event) => setLabelsVisible(event.currentTarget.checked)}
+            />
+            <span>Beschriftung</span>
+          </label>
+          {writable && (
+            <>
+              <button
+                className="btn btn--ghost"
+                type="button"
+                onClick={() => importInputRef.current?.click()}
+              >
+                Import
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="application/json,.json"
+                hidden
+                onChange={importMap}
+              />
+            </>
+          )}
+          {importMessage && (
+            <span className="chip" role="status" aria-live="polite">
+              {importMessage}
+            </span>
+          )}
+          <span className="chip">{writable ? "Bearbeiten" : "Nur Lesen"}</span>
+        </div>
+      )}
       <div className="lagekarte-stage">
         <div
           className={`lagekarte-map ${selectedSymbol || activeDraw ? "lagekarte-map--placing" : ""}`}
