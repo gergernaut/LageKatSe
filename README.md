@@ -10,7 +10,9 @@ Fach- und Architekturkonzept: **[architecture.md](./architecture.md)**.
 > Flächen, Tooltips, JSON-Im-/Export) und das **Einsatztagebuch** (M2 — Tabelle mit
 > server-vergebener, lückenloser Lfd-Nr. und Serverzeit, Live-Feld-Edits, Storno,
 > CSV-Export). Das taktische Arbeitsblatt folgt in M3. Modulübergreifend zeigt der Rail
-> einen kleinen **Aktivitäts-Punkt**, wenn sich in einem gerade nicht geöffneten Modul etwas tut.
+> einen kleinen **Aktivitäts-Punkt**, wenn sich in einem gerade nicht geöffneten Modul etwas tut
+> — und immer auch als **Zähler im Browser-Tab-Titel**. Wo HTTPS/localhost vorhanden ist, gibt es
+> zusätzlich optionale **Desktop-Benachrichtigungen** (pro Nutzer per Glocke aktivierbar).
 
 ## Schnellstart
 

@@ -71,7 +71,7 @@ function connectActivity(roomId, token) {
     params: { token },
     disableBc: true,
   });
-  return { doc, provider, counters: doc.getMap("counters") };
+  return { doc, provider, counters: doc.getMap("counters"), summaries: doc.getMap("summaries") };
 }
 
 function waitConnected(provider, ms = 5000) {
@@ -167,9 +167,12 @@ async function main() {
   await postEtb(room.joinCode, writer.token); // a fresh change -> bump
   await sleep(900);
   const etbAfter = ACT.counters.get("etb") ?? 0;
-  console.log("activity counters:", JSON.stringify(ACT.counters.toJSON()));
+  const etbSummary = ACT.summaries.get("etb");
+  console.log("activity counters:", JSON.stringify(ACT.counters.toJSON()), "· etb summary:", JSON.stringify(etbSummary));
   const test7 = chatSeen && etbAfter > etbBefore;
   console.log(`[${test7 ? "PASS" : "FAIL"}] activity channel bumps + syncs (chat seen=${chatSeen}, etb ${etbBefore}->${etbAfter})`);
+  const test9 = typeof etbSummary === "string" && etbSummary.startsWith("Neuer Eintrag · Lfd.");
+  console.log(`[${test9 ? "PASS" : "FAIL"}] activity summary carries the ETB change (drives notification text)`);
 
   // Read-only: a client write to the activity channel must be dropped server-side.
   ACT.counters.set("etb", 9999);
@@ -189,7 +192,7 @@ async function main() {
   L.provider.destroy();
   await sleep(150);
 
-  process.exit(test1 && test2 && test3 && test4 && test5 && test6 && test7 && test8 ? 0 : 1);
+  process.exit(test1 && test2 && test3 && test4 && test5 && test6 && test7 && test8 && test9 ? 0 : 1);
 }
 
 main().catch((err) => {

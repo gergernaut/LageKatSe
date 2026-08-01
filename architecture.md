@@ -699,7 +699,8 @@ Die Shell ist dauerhaft nur mit dem `chat`-Dokument verbunden — die u. U. gro�
 schlankes, **server-authored, nicht-persistiertes** Signal:
 
 - **`activity`-Kanal** (ein Yjs-Dokument pro Raum, **kein** Rechte-Scope): eine `Y.Map`
-  `counters` (`modul → monotoner Zähler`). Der Server erhöht den Zähler im
+  `counters` (`modul → monotoner Zähler`) und eine `Y.Map` `summaries` (`modul → kurzer
+  Änderungstext`, für die Desktop-Benachrichtigungen, s. u.). Der Server erhöht den Zähler im
   `doc.on("update")`-Handler jeder echten Modul-Änderung (`RoomHub.bumpActivity`, gedrosselt,
   `SERVER_ORIGIN`); das Gateway bindet den Kanal für Clients **read-only**.
 - **„gesehen"-Stand pro Betrachter** (`localStorage` pro Raum, **nicht** im CRDT — wie die
@@ -708,7 +709,18 @@ schlankes, **server-authored, nicht-persistiertes** Signal:
   Draufschauen macht, dotten nie). Beim Beitritt wird auf den aktuellen Serverstand
   ge-baselined, damit vorbestehende Aktivität nicht dottet.
 
-**Phase 2 (geplant):** pro Nutzer aktivierbare Browser-Notifications auf demselben Signal.
+**Phase 2 (umgesetzt, #32):** zwei Stufen auf demselben Signal:
+
+- **Tab-Titel-Indikator — immer an** (wie die Dots): der Browser-Tab trägt einen Zähler ungesehener
+  Änderungen (`(3) LageKatSe`), der sich leert, sobald die Module angesehen werden (nutzt dieselben
+  `counters`/`seen` wie die Dots; das aktive Modul zählt nie mit). Läuft über **reines http**, ohne
+  „secure context" und ohne Berechtigung (`useActivityTitle`) — der verlässliche Basis-Hinweis.
+- **Desktop-Benachrichtigungen — opt-in per Glocke, wo möglich** (`useActivityNotifications`): wo
+  ein **secure context** vorhanden ist (HTTPS/`localhost`), feuert die Shell echte OS-Notifications —
+  **Chat** mit vollem Text, **ETB-Anlegen** mit dem Server-`summaries`-Text „Neuer Eintrag · Lfd. N",
+  sonst generisch; nur bei `document.hidden` und nach dem Baseline, Klick öffnet das Modul. Über http
+  im LAN ist die Notification-API **nicht** verfügbar (gleicher Grund wie `uid()` statt
+  `crypto.randomUUID`, Invariante #3) → die Glocke ist dort deaktiviert; der Tab-Titel greift trotzdem.
 
 ---
 

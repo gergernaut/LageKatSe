@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { MODULE_LABELS, type ActivityCounters, type Module } from "@lagekatse/shared";
 import type { Session } from "../session";
+import { useActivityNotifications } from "../sync/useActivityNotifications";
+import { useActivityTitle } from "../sync/useActivityTitle";
 import { useRoomActivity } from "../sync/useRoomActivity";
 import { useRoomChat } from "../sync/useRoomChat";
 import { Uebersicht } from "../uebersicht/Uebersicht";
@@ -9,6 +11,7 @@ const Lagekarte = lazy(() => import("../lagekarte/Lagekarte").then((m) => ({ def
 const Etb = lazy(() => import("../etb/Etb").then((m) => ({ default: m.Etb })));
 
 const ACTIVE_VIEW_KEY = "lagekatse.activeView";
+const NOTIFICATIONS_KEY = "lagekatse.notifications";
 
 export type ActiveView = "uebersicht" | "lagekarte" | "etb" | "arbeitsblatt";
 
@@ -70,6 +73,22 @@ function loadActiveView(): ActiveView {
   }
 }
 
+function loadNotificationsEnabled(): boolean {
+  try {
+    return localStorage.getItem(NOTIFICATIONS_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function saveNotificationsEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(NOTIFICATIONS_KEY, String(enabled));
+  } catch {
+    /* storage unavailable — keep the notification preference in memory only */
+  }
+}
+
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
@@ -110,6 +129,21 @@ function ViewIcon({ view }: { view: ActiveView }) {
   );
 }
 
+function NotificationIcon({ enabled }: { enabled: boolean }) {
+  if (enabled) {
+    return (
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM9.8 20h4.4a2.5 2.5 0 0 1-4.4 0Z" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M13.7 3.2A6 6 0 0 0 6 8c0 2.1-.3 3.5-.8 4.6M4 17h17c0-2-3-2-3-9 0-.4 0-.8-.1-1.1M9.8 20h4.4a2.5 2.5 0 0 1-4.4 0ZM3 3l18 18" />
+    </svg>
+  );
+}
+
 function viewLabel(view: ActiveView): string {
   return view === "uebersicht" ? "Übersicht" : MODULE_LABELS[view];
 }
@@ -136,8 +170,9 @@ function Placeholder({ view }: { view: "arbeitsblatt" }) {
 export function AppShell({ session, onLeave }: { session: Session; onLeave: () => void }) {
   const [activeView, setActiveView] = useState<ActiveView>(loadActiveView);
   const [seen, setSeen] = useState<ActivityCounters>(() => loadActivitySeen(session.room.id));
+  const [notificationsEnabled, setNotificationsEnabled] = useState(loadNotificationsEnabled);
   const chat = useRoomChat(session);
-  const { counters: activity, synced } = useRoomActivity(session);
+  const { counters: activity, summaries, synced } = useRoomActivity(session);
   // Baseline "seen" to the server's current counters on the first sync of a fresh
   // join (no prior seen) so pre-existing activity does not dot.
   const hadStoredSeenRef = useRef<boolean | null>(null);
@@ -185,6 +220,51 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
     if (baselineApplied) saveActivitySeen(session.room.id, seen);
   }, [seen, baselineApplied, session.room.id]);
 
+  useActivityNotifications({
+    session,
+    messages: chat.messages,
+    counters: activity,
+    summaries,
+    activeView,
+    setActiveView,
+    enabled: notificationsEnabled,
+    ready: synced && baselineApplied,
+  });
+
+  // Tab-title activity indicator — always on (like the rail dots). Works over
+  // plain http; the opt-in OS notifications above only fire in a secure context.
+  useActivityTitle(activity, seen);
+
+  const notificationsSupported = typeof Notification !== "undefined";
+  const notificationPermission = notificationsSupported ? Notification.permission : null;
+  const notificationsActive = notificationsEnabled && notificationPermission === "granted";
+  const notificationTitle = !notificationsSupported
+    ? "Desktop-Benachrichtigungen brauchen HTTPS/localhost — die Aktivität siehst du im Tab-Titel"
+    : notificationPermission === "denied"
+      ? "Desktop-Benachrichtigungen im Browser blockiert"
+      : notificationsActive
+        ? "Desktop-Benachrichtigungen ausschalten"
+        : "Desktop-Benachrichtigungen einschalten";
+
+  const toggleNotifications = async () => {
+    if (!notificationsSupported) return;
+    if (notificationsActive) {
+      setNotificationsEnabled(false);
+      saveNotificationsEnabled(false);
+      return;
+    }
+
+    let permission = Notification.permission;
+    try {
+      if (permission === "default") permission = await Notification.requestPermission();
+    } catch {
+      permission = "denied";
+    }
+    const enabled = permission === "granted";
+    setNotificationsEnabled(enabled);
+    saveNotificationsEnabled(enabled);
+  };
+
   return (
     <div className="app">
       <nav className="rail" aria-label="Module">
@@ -218,6 +298,18 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
           <div className="rail__avatar">{initials(session.name)}</div>
           <span>{session.roles.join(" · ")}</span>
         </div>
+        <button
+          className={`rail__item rail__notifications ${notificationsActive ? "is-enabled" : ""}`}
+          type="button"
+          title={notificationTitle}
+          aria-label={notificationTitle}
+          aria-pressed={notificationsActive}
+          disabled={!notificationsSupported}
+          onClick={toggleNotifications}
+        >
+          <NotificationIcon enabled={notificationsActive} />
+          <span>Meldungen</span>
+        </button>
         <button className="rail__item rail__exit" type="button" title="Stabsraum verlassen" onClick={onLeave}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />

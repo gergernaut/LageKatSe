@@ -8,6 +8,7 @@ import { WebSocket } from "ws";
 import {
   ACTIVITY_CHANNEL,
   ACTIVITY_COUNTERS,
+  ACTIVITY_SUMMARIES,
   ETB_ENTRIES,
   type LogEntry,
   type Module,
@@ -132,10 +133,12 @@ export class RoomHub {
       entries.push([yEntry]);
     }, SERVER_ORIGIN);
 
+    void this.bumpActivity(roomId, "etb", `Neuer Eintrag · Lfd. ${entry.lfdNr}`);
+
     return entry;
   }
 
-  async bumpActivity(roomId: string, module: Module): Promise<void> {
+  async bumpActivity(roomId: string, module: Module, summary = ""): Promise<void> {
     const key = docKey(roomId, module);
     const now = Date.now();
     const lastBumpedAt = this.activityLastBumpedAt.get(key);
@@ -145,8 +148,10 @@ export class RoomHub {
     try {
       const md = await this.getDoc(roomId, ACTIVITY_CHANNEL);
       const counters = md.doc.getMap(ACTIVITY_COUNTERS);
+      const summaries = md.doc.getMap(ACTIVITY_SUMMARIES);
       md.doc.transact(() => {
         counters.set(module, ((counters.get(module) as number | undefined) ?? 0) + 1);
+        summaries.set(module, summary);
       }, SERVER_ORIGIN);
     } catch (err) {
       console.error(`[hub] activity bump failed for ${key}`, err);
@@ -191,7 +196,7 @@ export class RoomHub {
       if (origin !== LOAD_ORIGIN && md.module !== ACTIVITY_CHANNEL) {
         this.persistUpdate(md, update);
       }
-      if (origin !== LOAD_ORIGIN && md.module !== ACTIVITY_CHANNEL) {
+      if (origin !== LOAD_ORIGIN && origin !== SERVER_ORIGIN && md.module !== ACTIVITY_CHANNEL) {
         void this.bumpActivity(md.roomId, md.module);
       }
     });
