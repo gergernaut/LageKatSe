@@ -3,13 +3,15 @@
 Modulare, browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz.
 Fach- und Architekturkonzept: **[architecture.md](./architecture.md)**.
 
-> **Status: M2 — Gemeinsames Einsatztagebuch.** Auf dem M0-Fundament (Stabsräume
+> **Status: M3 — Taktisches Arbeitsblatt.** Auf dem M0-Fundament (Stabsräume
 > anlegen/beitreten, Rollen & Rechte, Live-Präsenz & Chat, autoritative
-> Echtzeit-Sync-Engine mit Persistenz) laufen jetzt zwei Fachmodule: die
+> Echtzeit-Sync-Engine mit Persistenz) laufen jetzt alle drei Fachmodule: die
 > kollaborative **Lagekarte** (M1 — Leaflet + OSM, taktische Zeichen DV 102,
-> Flächen, Tooltips, JSON-Im-/Export) und das **Einsatztagebuch** (M2 — Tabelle mit
+> Flächen, Tooltips, JSON-Im-/Export), das **Einsatztagebuch** (M2 — Tabelle mit
 > server-vergebener, lückenloser Lfd-Nr. und Serverzeit, Live-Feld-Edits, Storno,
-> CSV-Export). Das taktische Arbeitsblatt folgt in M3. Modulübergreifend zeigt der Rail
+> CSV-Export) und das **Taktische Arbeitsblatt** (M3 — IdF-Vorderseite Felder A–F
+> live-synchron, Feld B als eingebettete read-only Lagekarte, JSON-Export).
+> Modulübergreifend zeigt der Rail
 > einen kleinen **Aktivitäts-Punkt**, wenn sich in einem gerade nicht geöffneten Modul etwas tut
 > — und immer auch als **Zähler im Browser-Tab-Titel**. Wo HTTPS/localhost vorhanden ist, gibt es
 > zusätzlich optionale **Desktop-Benachrichtigungen** (pro Nutzer per Glocke aktivierbar).
@@ -72,7 +74,7 @@ bindet dank `host: true` auf alle Interfaces.
 packages/
   shared/   @lagekatse/shared — Rollen, Rechte-Logik, Protokoll-/Datentypen (Client+Server)
   server/   @lagekatse/server — Fastify HTTP-API + WebSocket-Sync-Gateway (Yjs) + Persistenz
-  web/      @lagekatse/web    — React/Vite SPA (Lobby, Übersicht, Chat, Präsenz, Lagekarte, Einsatztagebuch)
+  web/      @lagekatse/web    — React/Vite SPA (Lobby, Übersicht, Chat, Präsenz, Lagekarte, Einsatztagebuch, Arbeitsblatt)
 ```
 
 ## Wie M0 funktioniert
