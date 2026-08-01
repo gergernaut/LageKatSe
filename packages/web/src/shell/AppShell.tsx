@@ -9,6 +9,9 @@ import { Uebersicht } from "../uebersicht/Uebersicht";
 
 const Lagekarte = lazy(() => import("../lagekarte/Lagekarte").then((m) => ({ default: m.Lagekarte })));
 const Etb = lazy(() => import("../etb/Etb").then((m) => ({ default: m.Etb })));
+const Arbeitsblatt = lazy(() =>
+  import("../arbeitsblatt/Arbeitsblatt").then((m) => ({ default: m.Arbeitsblatt })),
+);
 
 const ACTIVE_VIEW_KEY = "lagekatse.activeView";
 const NOTIFICATIONS_KEY = "lagekatse.notifications";
@@ -156,16 +159,6 @@ const RAIL_LABELS: Record<ActiveView, string> = {
   etb: "ETB",
   arbeitsblatt: "takt. Arbeitsblatt",
 };
-
-function Placeholder({ view }: { view: "arbeitsblatt" }) {
-  return (
-    <div className="shell-placeholder">
-      <span className="eyebrow">Modul</span>
-      <h1>{MODULE_LABELS[view]}</h1>
-      <p>In Kürze</p>
-    </div>
-  );
-}
 
 export function AppShell({ session, onLeave }: { session: Session; onLeave: () => void }) {
   const [activeView, setActiveView] = useState<ActiveView>(loadActiveView);
@@ -360,7 +353,11 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
             <Etb session={session} />
           </Suspense>
         )}
-        {activeView === "arbeitsblatt" && <Placeholder view="arbeitsblatt" />}
+        {activeView === "arbeitsblatt" && (
+          <Suspense fallback={<div className="shell-loading">Arbeitsblatt wird geladen…</div>}>
+            <Arbeitsblatt session={session} />
+          </Suspense>
+        )}
       </main>
     </div>
   );
