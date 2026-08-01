@@ -50,7 +50,13 @@ function connect(roomId, token) {
     params: { token },
     disableBc: true, // force all sync through the server (rights enforcement)
   });
-  return { doc, provider, kopf: doc.getMap("kopf"), fuehrung: doc.getArray("fuehrungsvorgang") };
+  return {
+    doc,
+    provider,
+    kopf: doc.getMap("kopf"),
+    fuehrung: doc.getArray("fuehrungsvorgang"),
+    gefahren: doc.getMap("gefahren"),
+  };
 }
 
 function waitConnected(provider, ms = 5000) {
@@ -95,14 +101,21 @@ async function main() {
   row.set("massnahmen", "Menschenrettung");
   row.set("erledigt", false);
   W.fuehrung.push([row]);
+  // Feld B: mark a hazard (gefahren Y.Map, whole-value posten).
+  W.gefahren.set("atemgifte", { betroffen: true, notiz: "Rauchgas" });
   await sleep(900);
 
   const stichwort = O.kopf.get("einsatzstichwort");
   const firstRow = O.fuehrung.length > 0 ? O.fuehrung.get(0) : null;
   const bedroht = firstRow ? firstRow.get("bedrohtesObjekt") : null;
-  console.log("observer sieht:", { stichwort, rows: O.fuehrung.length, bedroht });
+  const gefahr = O.gefahren.get("atemgifte");
+  console.log("observer sieht:", { stichwort, rows: O.fuehrung.length, bedroht, gefahr });
   const test1 =
-    stichwort === "Wohnungsbrand B3" && O.fuehrung.length === 1 && bedroht === "Person im 2. OG";
+    stichwort === "Wohnungsbrand B3" &&
+    O.fuehrung.length === 1 &&
+    bedroht === "Person im 2. OG" &&
+    !!gefahr &&
+    gefahr.betroffen === true;
 
   // Monitor tries to overwrite the header field — must be dropped server-side.
   M.kopf.set("einsatzstichwort", "MONITOR HACK");
@@ -111,7 +124,7 @@ async function main() {
   console.log("nach Monitor-Write:", afterHack);
   const test2 = afterHack === "Wohnungsbrand B3";
 
-  console.log(`[${test1 ? "PASS" : "FAIL"}] S3 setzt Kopf-Feld + Führungsvorgang-Zeile → Observer sieht sie (Sync)`);
+  console.log(`[${test1 ? "PASS" : "FAIL"}] S3 setzt Kopf-Feld + Führungsvorgang-Zeile + Gefahr → Observer sieht sie (Sync)`);
   console.log(`[${test2 ? "PASS" : "FAIL"}] Monitor-Write auf arbeitsblatt blockiert (Rechte)`);
 
   W.provider.destroy();

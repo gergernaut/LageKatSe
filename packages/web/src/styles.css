@@ -358,7 +358,32 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   padding: 10px 11px; background: var(--surface-2); color: var(--ink); font-size: 13px;
 }
 .arbeitsblatt-field input:read-only { color: var(--ink-2); cursor: default; }
-.arbeitsblatt-lagebild { height: 360px; min-height: 360px; }
+.arbeitsblatt-lagebild-row { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+.arbeitsblatt-lagebild { flex: 1 1 320px; height: 360px; min-height: 360px; }
+.arbeitsblatt-gefahren {
+  flex: 1 1 250px; min-width: 0; padding: 12px 14px;
+  border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface);
+}
+.arbeitsblatt-gefahren__head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px;
+}
+.arbeitsblatt-gefahren__head > span:first-child { font-size: 13px; font-weight: 500; color: var(--ink); }
+.arbeitsblatt-gefahren__scheme { color: var(--ink-3); font: 10px var(--mono); letter-spacing: .06em; white-space: nowrap; }
+.arbeitsblatt-gefahr { padding: 3px 0; }
+.arbeitsblatt-gefahr__row { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--ink); }
+.arbeitsblatt-gefahr__tag {
+  width: 18px; height: 18px; flex: none; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 4px; font: 500 11px var(--mono);
+}
+.arbeitsblatt-gefahr__tag--A { background: rgba(47,107,216,.14); color: var(--forces); }
+.arbeitsblatt-gefahr__tag--C { background: rgba(247,168,27,.18); color: var(--signal-ink); }
+.arbeitsblatt-gefahr__tag--E { background: rgba(213,55,43,.16); color: var(--danger); }
+.arbeitsblatt-gefahr__notiz {
+  box-sizing: border-box; width: calc(100% - 27px); margin: 6px 0 2px 27px; padding: 7px 9px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2);
+  color: var(--ink); font-size: 12px;
+}
+.arbeitsblatt-gefahr__notiz:read-only { color: var(--ink-2); cursor: default; }
 .arbeitsblatt-table {
   width: 100%; min-width: 820px; border-collapse: collapse; font-size: 13px;
 }
@@ -395,12 +420,14 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .arbeitsblatt-table__check { text-align: center; }
 .arbeitsblatt-table input[type="checkbox"],
 .arbeitsblatt-checklist input[type="checkbox"],
-.arbeitsblatt-options input[type="checkbox"] {
+.arbeitsblatt-options input[type="checkbox"],
+.arbeitsblatt-gefahren input[type="checkbox"] {
   width: 18px; height: 18px; margin: 0; accent-color: var(--ok);
 }
 .arbeitsblatt-table input[type="checkbox"]:disabled,
 .arbeitsblatt-checklist input[type="checkbox"]:disabled,
-.arbeitsblatt-options input[type="checkbox"]:disabled { cursor: default; }
+.arbeitsblatt-options input[type="checkbox"]:disabled,
+.arbeitsblatt-gefahren input[type="checkbox"]:disabled { cursor: default; }
 .arbeitsblatt-row--done td { color: var(--ink-3); }
 .arbeitsblatt-row--done .arbeitsblatt-table__input { text-decoration: line-through; }
 .arbeitsblatt-table__new-row td { padding: 12px; }
