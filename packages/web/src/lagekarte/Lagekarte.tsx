@@ -660,6 +660,16 @@ export function Lagekarte({
     konradLayerRef.current = konradLayer;
     if (konradVisibleRef.current) konradLayer.addTo(map);
 
+    // DWD-WMS-Layer (Regenradar + KONRAD3D) periodisch aktualisieren.
+    // Der DWD liefert neue Zeitschritte ca. alle 5 Min. Wir setzen den
+    // time-Parameter per setParams — das traegt Leaflet ohne manuellen Zoom/Reload nach.
+    const refreshWmsLayers = () => {
+      const now = new Date().toISOString();
+      radarLayerRef.current?.setParams({ time: now });
+      konradLayerRef.current?.setParams({ time: now });
+    };
+    const wmsRefreshTimer = window.setInterval(refreshWmsLayers, 5 * 60 * 1000);
+
     map.pm.setGlobalOptions({ pathOptions: {} });
 
     const layers = new Map<string, L.Layer>();
@@ -819,6 +829,7 @@ export function Lagekarte({
       if (mapRef.current === map) mapRef.current = null;
       radarLayerRef.current = null;
       konradLayerRef.current = null;
+      window.clearInterval(wmsRefreshTimer);
       if (renderForRightsRef.current === renderAll) renderForRightsRef.current = null;
       if (refreshSymbolsRef.current === refreshSymbols) refreshSymbolsRef.current = null;
       conn.destroy();
