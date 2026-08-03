@@ -101,7 +101,7 @@ export function Lobby({ onEnter }: { onEnter: (session: Session) => void }) {
   return (
     <div className="lobby">
       <div className="brand">
-        <div className="brand__mark">L</div>
+        <img className="brand__mark" src="/lagekatse_logo.png" alt="LageKatSe Logo" />
         <div className="brand__name">
           Lage<b>KatSe</b>
         </div>

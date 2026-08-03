@@ -68,8 +68,7 @@ input, select, textarea { font-family: inherit; }
 }
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand__mark {
-  width: 34px; height: 34px; border-radius: 9px; background: var(--signal); color: var(--signal-ink);
-  display: grid; place-items: center; font-weight: 800; font-size: 18px;
+  width: 34px; height: 34px; border-radius: 9px; object-fit: contain;
 }
 .brand__name { font-weight: 800; font-size: 20px; }
 .brand__name b { color: var(--signal); }
@@ -114,9 +113,7 @@ input, select, textarea { font-family: inherit; }
   display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 6px;
 }
 .rail__mark {
-  width: 40px; height: 40px; border-radius: 11px; background: var(--signal); color: var(--signal-ink);
-  display: grid; place-items: center; font-weight: 800; font-size: 20px; margin-bottom: 10px;
-  box-shadow: 0 6px 18px rgba(247,168,27,.25);
+  width: 40px; height: 40px; border-radius: 11px; object-fit: contain; margin-bottom: 10px;
 }
 .rail__item {
   width: 74px; height: 60px; flex: none; border: 1px solid transparent; background: transparent; border-radius: 12px;
