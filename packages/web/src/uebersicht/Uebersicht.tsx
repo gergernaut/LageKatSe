@@ -2,6 +2,7 @@ import { type FormEvent, useState } from "react";
 import { MODULE_LABELS, type Module } from "@lagekatse/shared";
 import type { Session } from "../session";
 import type { RoomChat } from "../sync/useRoomChat";
+import { exportAll } from "../exportAll";
 
 const MODULE_CARDS: { key: Exclude<Module, "chat">; icon: string; tint: string; desc: string }[] = [
   { key: "lagekarte", icon: "🗺️", tint: "rgba(47,107,216,.12)", desc: "Taktische Zeichen (DV 102) & Bereiche auf OpenStreetMap." },
@@ -42,6 +43,7 @@ export function Uebersicht({
   onOpenModule: (module: Exclude<Module, "chat">) => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -49,32 +51,46 @@ export function Uebersicht({
     setDraft("");
   };
 
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await exportAll(session);
+    } catch (err) {
+      console.error("Export fehlgeschlagen", err);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="wrap">
-      <h1>Anwendungen</h1>
-      <p className="sub">Willkommen, {session.name}. Alle Inhalte werden live im Stabsraum synchronisiert.</p>
+      <div className="uebersicht-head">
+        <div>
+          <h1>Anwendungen</h1>
+          <p className="sub">Willkommen, {session.name}. Alle Inhalte werden live im Stabsraum synchronisiert.</p>
+        </div>
+        <button
+          className="btn btn--ghost"
+          type="button"
+          onClick={handleExport}
+          disabled={exporting}
+          title="Alle Module als ZIP exportieren"
+        >
+          {exporting ? "Exportiere…" : "Gesamt-Export"}
+        </button>
+      </div>
 
       <div className="modules">
-        {MODULE_CARDS.map((m) =>
-          m.key === "lagekarte" || m.key === "etb" ? (
-            <button className="module" key={m.key} type="button" onClick={() => onOpenModule(m.key)}>
-              <div className="ic" style={{ background: m.tint }}>
-                {m.icon}
-              </div>
-              <b>{MODULE_LABELS[m.key]}</b>
-              <p>{m.desc}</p>
-            </button>
-          ) : (
-            <div className="module" key={m.key}>
-              <div className="ic" style={{ background: m.tint }}>
-                {m.icon}
-              </div>
-              <b>{MODULE_LABELS[m.key]}</b>
-              <p>{m.desc}</p>
-              <span className="soon">In Kürze · M1–M3</span>
+        {MODULE_CARDS.map((m) => (
+          <button className="module" key={m.key} type="button" onClick={() => onOpenModule(m.key)}>
+            <div className="ic" style={{ background: m.tint }}>
+              {m.icon}
             </div>
-          ),
-        )}
+            <b>{MODULE_LABELS[m.key]}</b>
+            <p>{m.desc}</p>
+          </button>
+        ))}
       </div>
 
       <div className="cols">
