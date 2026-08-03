@@ -397,6 +397,12 @@ Das Herzstück: eine OpenStreetMap-Karte, auf der der Stab die Lage grafisch fü
   (`dwd:Niederschlagsradar`, `maps.dwd.de`), **client-lokaler Toggle** (localStorage, nicht im CRDT
   — wie die Symbolgröße, §8.3/E9; wirkt daher auch für den Nur-Lese-Monitor). Bild-Kacheln kommen
   direkt vom DWD (kein Server/CORS). Quelle: Deutscher Wetterdienst. Erster Teil von #44 (Wetterdaten).
+- **DWD-KONRAD3D (optional):** schaltbares WMS-Overlay des Deutschen Wetterdienstes
+  (`dwd:K3D_EVAL_current_cells` + `cell_info` + `cur_track_lines`, `maps.dwd.de`), das automatisch
+  erkannte konvektive Zellen (Gewitterzellen) als halbtransparente Polygone mit Zellinfo und
+  Zugbahn darstellt. Wie das Regenradar **client-lokal** (localStorage, nicht im CRDT; wirkt auch
+  für den Nur-Lese-Monitor). Bild-Kacheln direkt vom DWD (kein Server/CORS).
+  Quelle: Deutscher Wetterdienst.
 - **Taktische Zeichen (DV 102) platzieren:** aus einer durchsuchbaren Symbol-Palette per
   Klick auf die Karte setzen; verschieben (Drag), beschriften, löschen. *(Drehen ist im
   Datenmodell vorgesehen/gerendert, aber noch ohne Bearbeitungs-UI.)*

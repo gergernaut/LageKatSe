@@ -34,6 +34,7 @@ const AREA_COLORS = [
 const SYMBOL_SIZE_KEY = "lagekatse.symbolSize";
 const LABELS_VISIBLE_KEY = "lagekatse.labelsVisible";
 const RADAR_VISIBLE_KEY = "lagekatse.radarVisible";
+const KONRAD_VISIBLE_KEY = "lagekatse.konradVisible";
 const SYMBOL_SIZE_MIN = 0.6;
 const SYMBOL_SIZE_MAX = 2;
 
@@ -343,6 +344,17 @@ export function Lagekarte({
   });
   const radarVisibleRef = useRef(radarVisible);
   const radarLayerRef = useRef<L.TileLayer.WMS | null>(null);
+  // DWD-KONRAD3D-Overlay: client-lokale Anzeige-Option (localStorage, Invariante #4) —
+  // gilt für alle Rollen inkl. Nur-Lese-Monitor, geht nicht ins CRDT.
+  const [konradVisible, setKonradVisible] = useState(() => {
+    try {
+      return localStorage.getItem(KONRAD_VISIBLE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
+  const konradVisibleRef = useRef(konradVisible);
+  const konradLayerRef = useRef<L.TileLayer.WMS | null>(null);
   const writable = !readOnly && canWrite(session.roles, "lagekarte", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
   });
@@ -385,6 +397,21 @@ export function Lagekarte({
       else layer.remove();
     }
   }, [radarVisible]);
+
+  useEffect(() => {
+    konradVisibleRef.current = konradVisible;
+    try {
+      localStorage.setItem(KONRAD_VISIBLE_KEY, String(konradVisible));
+    } catch {
+      // The preference remains active for this session when storage is unavailable.
+    }
+    const map = mapRef.current;
+    const layer = konradLayerRef.current;
+    if (map && layer) {
+      if (konradVisible) layer.addTo(map);
+      else layer.remove();
+    }
+  }, [konradVisible]);
 
   useEffect(() => {
     writableRef.current = writable;
@@ -616,6 +643,21 @@ export function Lagekarte({
     radarLayerRef.current = radarLayer;
     if (radarVisibleRef.current) radarLayer.addTo(map);
 
+    // DWD-KONRAD3D (Konvektionserkennung) als optionales WMS-Overlay.
+    // Mehrere K3D-Layer kombiniert: Zellpolygone, Zellinfo, Track-Linien.
+    // Bild-Kacheln direkt vom DWD → kein CORS, kein Server.
+    const konradLayer = L.tileLayer.wms("https://maps.dwd.de/geoserver/ows?", {
+      layers: "dwd:K3D_EVAL_current_cells,dwd:K3D_EVAL_cell_info,dwd:K3D_EVAL_cur_track_lines",
+      styles: "k3d_eval_current_cells_halftransparent_polygons,,",
+      format: "image/png",
+      transparent: true,
+      version: "1.3.0",
+      opacity: 0.75,
+      attribution: "KONRAD3D: Deutscher Wetterdienst",
+    });
+    konradLayerRef.current = konradLayer;
+    if (konradVisibleRef.current) konradLayer.addTo(map);
+
     map.pm.setGlobalOptions({ pathOptions: {} });
 
     const layers = new Map<string, L.Layer>();
@@ -774,6 +816,7 @@ export function Lagekarte({
       if (featuresMapRef.current === featuresMap) featuresMapRef.current = null;
       if (mapRef.current === map) mapRef.current = null;
       radarLayerRef.current = null;
+      konradLayerRef.current = null;
       if (renderForRightsRef.current === renderAll) renderForRightsRef.current = null;
       if (refreshSymbolsRef.current === refreshSymbols) refreshSymbolsRef.current = null;
       conn.destroy();
@@ -820,6 +863,15 @@ export function Lagekarte({
               onChange={(event) => setRadarVisible(event.currentTarget.checked)}
             />
             <span>Regenradar</span>
+          </label>
+          <label className="lagekarte-radar-toggle">
+            <input
+              type="checkbox"
+              checked={konradVisible}
+              aria-label="KONRAD3D anzeigen"
+              onChange={(event) => setKonradVisible(event.currentTarget.checked)}
+            />
+            <span>KONRAD3D</span>
           </label>
           {writable && (
             <>
