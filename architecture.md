@@ -393,6 +393,10 @@ Das Herzstück: eine OpenStreetMap-Karte, auf der der Stab die Lage grafisch fü
 ### 8.1 Funktionsumfang
 
 - **OSM-Grundkarte** (Leaflet), frei verschieb-/zoombar.
+- **DWD-Regenradar (optional):** schaltbares WMS-Overlay des Deutschen Wetterdienstes
+  (`dwd:Niederschlagsradar`, `maps.dwd.de`), **client-lokaler Toggle** (localStorage, nicht im CRDT
+  — wie die Symbolgröße, §8.3/E9; wirkt daher auch für den Nur-Lese-Monitor). Bild-Kacheln kommen
+  direkt vom DWD (kein Server/CORS). Quelle: Deutscher Wetterdienst. Erster Teil von #44 (Wetterdaten).
 - **Taktische Zeichen (DV 102) platzieren:** aus einer durchsuchbaren Symbol-Palette per
   Klick auf die Karte setzen; verschieben (Drag), beschriften, löschen. *(Drehen ist im
   Datenmodell vorgesehen/gerendert, aber noch ohne Bearbeitungs-UI.)*
