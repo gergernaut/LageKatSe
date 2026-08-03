@@ -644,11 +644,13 @@ export function Lagekarte({
     if (radarVisibleRef.current) radarLayer.addTo(map);
 
     // DWD-KONRAD3D (Konvektionserkennung) als optionales WMS-Overlay.
-    // Mehrere K3D-Layer kombiniert: Zellpolygone, Zellinfo, Track-Linien.
-    // Bild-Kacheln direkt vom DWD → kein CORS, kein Server.
+    // current_cells: gefuellllte Zellpolygone (rot/gelb/gruen nach Schweregrad),
+    // cur_track_lines: schwarze Verbindungslinien vergangener Zellschwerpunkte.
+    // cell_info bewusst nicht kombiniert — uebermalt die Zellfarben mit eigenen
+    // Text-/Symbolfarben (teal/lila/gold). Bild-Kacheln direkt vom DWD → kein CORS.
     const konradLayer = L.tileLayer.wms("https://maps.dwd.de/geoserver/ows?", {
-      layers: "dwd:K3D_EVAL_current_cells,dwd:K3D_EVAL_cell_info,dwd:K3D_EVAL_cur_track_lines",
-      styles: "k3d_eval_current_cells_halftransparent_polygons,,",
+      layers: "dwd:K3D_EVAL_current_cells,dwd:K3D_EVAL_cur_track_lines",
+      styles: "",
       format: "image/png",
       transparent: true,
       version: "1.3.0",
