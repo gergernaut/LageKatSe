@@ -55,26 +55,15 @@ export function Uebersicht({
       <p className="sub">Willkommen, {session.name}. Alle Inhalte werden live im Stabsraum synchronisiert.</p>
 
       <div className="modules">
-        {MODULE_CARDS.map((m) =>
-          m.key === "lagekarte" || m.key === "etb" ? (
-            <button className="module" key={m.key} type="button" onClick={() => onOpenModule(m.key)}>
-              <div className="ic" style={{ background: m.tint }}>
-                {m.icon}
-              </div>
-              <b>{MODULE_LABELS[m.key]}</b>
-              <p>{m.desc}</p>
-            </button>
-          ) : (
-            <div className="module" key={m.key}>
-              <div className="ic" style={{ background: m.tint }}>
-                {m.icon}
-              </div>
-              <b>{MODULE_LABELS[m.key]}</b>
-              <p>{m.desc}</p>
-              <span className="soon">In Kürze · M1–M3</span>
+        {MODULE_CARDS.map((m) => (
+          <button className="module" key={m.key} type="button" onClick={() => onOpenModule(m.key)}>
+            <div className="ic" style={{ background: m.tint }}>
+              {m.icon}
             </div>
-          ),
-        )}
+            <b>{MODULE_LABELS[m.key]}</b>
+            <p>{m.desc}</p>
+          </button>
+        ))}
       </div>
 
       <div className="cols">
