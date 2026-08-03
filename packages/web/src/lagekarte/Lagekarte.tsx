@@ -56,6 +56,43 @@ function isCoordinate(value: unknown): value is [number, number] {
   );
 }
 
+const MAP_VIEW_KEY_PREFIX = "lagekatse.mapView.";
+
+interface StoredMapView {
+  center: [number, number];
+  zoom: number;
+}
+
+// Kartenansicht (Center + Zoom) je Raum betrachter-lokal merken, damit sie über
+// Modulwechsel (Lagekarte ↔ Arbeitsblatt) und zwischen voller/eingebetteter Karte
+// erhalten bleibt — localStorage, nicht im CRDT (wie E9 / Invariante #4).
+function loadMapView(roomId: string): StoredMapView | null {
+  try {
+    const raw = localStorage.getItem(MAP_VIEW_KEY_PREFIX + roomId);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      isRecord(parsed) &&
+      isCoordinate(parsed.center) &&
+      typeof parsed.zoom === "number" &&
+      Number.isFinite(parsed.zoom)
+    ) {
+      return { center: parsed.center, zoom: parsed.zoom };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function saveMapView(roomId: string, center: [number, number], zoom: number): void {
+  try {
+    localStorage.setItem(MAP_VIEW_KEY_PREFIX + roomId, JSON.stringify({ center, zoom }));
+  } catch {
+    // Storage nicht verfügbar — die Ansicht fällt beim nächsten Mount auf den Default zurück.
+  }
+}
+
 function isMapFeature(value: unknown): value is MapFeature {
   if (!isRecord(value) || typeof value.id !== "string") return false;
 
@@ -558,7 +595,8 @@ export function Lagekarte({
     const mapElement = mapElementRef.current;
     if (!mapElement) return;
 
-    const map = L.map(mapElement).setView([51.16, 10.45], 6);
+    const savedView = loadMapView(session.room.id);
+    const map = L.map(mapElement).setView(savedView?.center ?? [51.16, 10.45], savedView?.zoom ?? 6);
     mapRef.current = map;
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
@@ -720,10 +758,18 @@ export function Lagekarte({
     };
     map.on("pm:create", onCreate);
 
+    // Kartenansicht je Raum merken (client-lokal), damit sie den Modulwechsel überlebt.
+    const persistView = () => {
+      const center = map.getCenter();
+      saveMapView(session.room.id, [center.lat, center.lng], map.getZoom());
+    };
+    map.on("moveend", persistView);
+
     return () => {
       abortController.abort();
       map.off("click", onMapClick);
       map.off("pm:create", onCreate);
+      map.off("moveend", persistView);
       featuresMap.unobserve(refresh);
       if (featuresMapRef.current === featuresMap) featuresMapRef.current = null;
       if (mapRef.current === map) mapRef.current = null;
