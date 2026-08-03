@@ -33,6 +33,7 @@ const AREA_COLORS = [
 
 const SYMBOL_SIZE_KEY = "lagekatse.symbolSize";
 const LABELS_VISIBLE_KEY = "lagekatse.labelsVisible";
+const RADAR_VISIBLE_KEY = "lagekatse.radarVisible";
 const SYMBOL_SIZE_MIN = 0.6;
 const SYMBOL_SIZE_MAX = 2;
 
@@ -294,6 +295,17 @@ export function Lagekarte({
     }
   });
   const labelsVisibleRef = useRef(labelsVisible);
+  // DWD-Regenradar-Overlay: client-lokale Anzeige-Option (localStorage, Invariante #4) —
+  // gilt für alle Rollen inkl. Nur-Lese-Monitor, geht nicht ins CRDT.
+  const [radarVisible, setRadarVisible] = useState(() => {
+    try {
+      return localStorage.getItem(RADAR_VISIBLE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
+  const radarVisibleRef = useRef(radarVisible);
+  const radarLayerRef = useRef<L.TileLayer.WMS | null>(null);
   const writable = !readOnly && canWrite(session.roles, "lagekarte", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
   });
@@ -321,6 +333,21 @@ export function Lagekarte({
     }
     renderForRightsRef.current?.();
   }, [labelsVisible]);
+
+  useEffect(() => {
+    radarVisibleRef.current = radarVisible;
+    try {
+      localStorage.setItem(RADAR_VISIBLE_KEY, String(radarVisible));
+    } catch {
+      // The preference remains active for this session when storage is unavailable.
+    }
+    const map = mapRef.current;
+    const layer = radarLayerRef.current;
+    if (map && layer) {
+      if (radarVisible) layer.addTo(map);
+      else layer.remove();
+    }
+  }, [radarVisible]);
 
   useEffect(() => {
     writableRef.current = writable;
@@ -537,6 +564,20 @@ export function Lagekarte({
       maxZoom: 19,
       attribution: "&copy; OpenStreetMap-Mitwirkende",
     }).addTo(map);
+
+    // DWD-Regenradar als optionales WMS-Overlay (Bild-Kacheln → kein CORS, kein Server).
+    // Sichtbarkeit ist client-lokal (radarVisible); Layer wird nur bei Bedarf zugefügt.
+    const radarLayer = L.tileLayer.wms("https://maps.dwd.de/geoserver/ows?", {
+      layers: "dwd:Niederschlagsradar",
+      format: "image/png",
+      transparent: true,
+      version: "1.3.0",
+      opacity: 0.55,
+      attribution: "Regenradar: Deutscher Wetterdienst",
+    });
+    radarLayerRef.current = radarLayer;
+    if (radarVisibleRef.current) radarLayer.addTo(map);
+
     map.pm.setGlobalOptions({ pathOptions: {} });
 
     const layers = new Map<string, L.Layer>();
@@ -686,6 +727,7 @@ export function Lagekarte({
       featuresMap.unobserve(refresh);
       if (featuresMapRef.current === featuresMap) featuresMapRef.current = null;
       if (mapRef.current === map) mapRef.current = null;
+      radarLayerRef.current = null;
       if (renderForRightsRef.current === renderAll) renderForRightsRef.current = null;
       if (refreshSymbolsRef.current === refreshSymbols) refreshSymbolsRef.current = null;
       conn.destroy();
@@ -723,6 +765,15 @@ export function Lagekarte({
               onChange={(event) => setLabelsVisible(event.currentTarget.checked)}
             />
             <span>Beschriftung</span>
+          </label>
+          <label className="lagekarte-radar-toggle">
+            <input
+              type="checkbox"
+              checked={radarVisible}
+              aria-label="Regenradar anzeigen"
+              onChange={(event) => setRadarVisible(event.currentTarget.checked)}
+            />
+            <span>Regenradar</span>
           </label>
           {writable && (
             <>
