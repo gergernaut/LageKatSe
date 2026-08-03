@@ -118,12 +118,12 @@ function extractArbeitsblatt(doc: Y.Doc) {
 function waitForSync(conn: ReturnType<typeof connectModule>, timeoutMs = 5000): Promise<void> {
   return new Promise((resolve) => {
     // If already synced (warm connection), resolve immediately.
-    if (conn.provider.ws?.readyState === 1 && conn.provider.synced) {
+    if (conn.provider.synced) {
       resolve();
       return;
     }
     const timer = window.setTimeout(() => resolve(), timeoutMs);
-    conn.provider.once("synced", () => {
+    conn.provider.once("sync", () => {
       window.clearTimeout(timer);
       resolve();
     });
