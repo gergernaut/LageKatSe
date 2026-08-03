@@ -661,14 +661,14 @@ export function Lagekarte({
     if (konradVisibleRef.current) konradLayer.addTo(map);
 
     // DWD-WMS-Layer (Regenradar + KONRAD3D) periodisch aktualisieren.
-    // Der DWD liefert neue Zeitschritte ca. alle 5 Min. Wir setzen den
-    // time-Parameter per setParams — das traegt Leaflet ohne manuellen Zoom/Reload nach.
+    // Der DWD liefert neue Zeitschritte ca. alle 5 Min. Wir erzwingen ein
+    // Neu-Laden der Kacheln via redraw() — ohne time-Parameter, damit der
+    // DWD automatisch den neuesten verfuegbaren Zeitschritt liefert (ein
+    // expliziter time-Wert wuerde ggf. in der Zukunft liegen und leere
+    // Kacheln zurueckliefern, weil die Daten noch nicht vorhanden sind).
     const refreshWmsLayers = () => {
-      const now = new Date().toISOString();
-      // `time` ist kein Teil der Leaflet-Typdefinitionen (WMSParams),
-      // wird aber vom DWD-WMS unterstuetzt. Daher Type-Assertion.
-      radarLayerRef.current?.setParams({ time: now } as unknown as L.WMSParams);
-      konradLayerRef.current?.setParams({ time: now } as unknown as L.WMSParams);
+      radarLayerRef.current?.redraw();
+      konradLayerRef.current?.redraw();
     };
     const wmsRefreshTimer = window.setInterval(refreshWmsLayers, 5 * 60 * 1000);
 
