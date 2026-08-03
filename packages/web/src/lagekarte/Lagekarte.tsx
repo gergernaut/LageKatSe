@@ -665,8 +665,10 @@ export function Lagekarte({
     // time-Parameter per setParams — das traegt Leaflet ohne manuellen Zoom/Reload nach.
     const refreshWmsLayers = () => {
       const now = new Date().toISOString();
-      radarLayerRef.current?.setParams({ time: now });
-      konradLayerRef.current?.setParams({ time: now });
+      // `time` ist kein Teil der Leaflet-Typdefinitionen (WMSParams),
+      // wird aber vom DWD-WMS unterstuetzt. Daher Type-Assertion.
+      radarLayerRef.current?.setParams({ time: now } as unknown as L.TileLayer.WMSParams);
+      konradLayerRef.current?.setParams({ time: now } as unknown as L.TileLayer.WMSParams);
     };
     const wmsRefreshTimer = window.setInterval(refreshWmsLayers, 5 * 60 * 1000);
 
