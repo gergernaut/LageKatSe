@@ -261,9 +261,7 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
   return (
     <div className="app">
       <nav className="rail" aria-label="Module">
-        <div className="rail__mark" aria-hidden="true">
-          L
-        </div>
+        <img className="rail__mark" src="/lagekatse_logo.png" alt="LageKatSe" aria-hidden="true" />
         {VIEWS.map((view) => {
           const full = viewLabel(view);
           const module = RAIL_ACTIVITY[view];
