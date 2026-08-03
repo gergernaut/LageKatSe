@@ -71,7 +71,7 @@ export function Uebersicht({
           <p className="sub">Willkommen, {session.name}. Alle Inhalte werden live im Stabsraum synchronisiert.</p>
         </div>
         <button
-          className="btn btn--ghost"
+          className="btn btn--primary"
           type="button"
           onClick={handleExport}
           disabled={exporting}
