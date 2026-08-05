@@ -690,7 +690,8 @@ export function Lagekarte({
       const bounds = map.getBounds();
       const sw = map.options.crs?.project(bounds.getSouthWest()) ?? L.Projection.SphericalMercator.project(bounds.getSouthWest());
       const ne = map.options.crs?.project(bounds.getNorthEast()) ?? L.Projection.SphericalMercator.project(bounds.getNorthEast());
-      const bbox = `${sw.x},${ne.y},${ne.x},${sw.y}`;
+      // WMS 1.3.0 mit CRS=EPSG:3857: bbox = minX,minY,maxX,maxY
+      const bbox = `${sw.x},${sw.y},${ne.x},${ne.y}`;
 
       const params = new URLSearchParams({
         service: "WMS",
