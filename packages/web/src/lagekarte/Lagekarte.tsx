@@ -725,13 +725,13 @@ export function Lagekarte({
           const rows: [string, string][] = [
             ["Schweregrad", sevText],
             ["Hagel", hail ? "ja" : "nein"],
-            ["Windboeen", gust ? "ja" : "nein"],
+            ["Windböen", gust ? "ja" : "nein"],
             ["Starkregen", heavyRain ? "ja" : "nein"],
-            ["Max. Windboee", `${p.MAXIMUM_ESTIMATED_WIND_GUST ?? "?"} km/h`],
+            ["Max. Windböe", `${p.MAXIMUM_ESTIMATED_WIND_GUST ?? "?"} km/h`],
             ["Zellgeschw.", `${p.CELL_SPEED ?? "?"} km/h`],
             ["Echo-Top", `${p.ECHO_TOP_45_DBZ ?? "?"} m`],
             ["VIL", `${p.CELL_BASED_VIL ?? "?"} kg/m²`],
-            ["Flaeche", `${p.COVERED_AREA ?? "?"} km²`],
+            ["Fläche", `${p.COVERED_AREA ?? "?"} km²`],
           ];
           const html = `<div class="konrad-popup"><b>KONRAD3D-Zelle</b><table>${rows
             .map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`)
