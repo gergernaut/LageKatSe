@@ -646,3 +646,11 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   .arbeitsblatt-kanal-grid { grid-template-columns: 1fr; }
   .arbeitsblatt-checklist { padding: 14px; }
 }
+
+/* ---------- KONRAD3D GetFeatureInfo Popup ---------- */
+.konrad-popup { font-family: var(--sans); font-size: 13px; }
+.konrad-popup b { display: block; margin-bottom: 6px; font-size: 14px; }
+.konrad-popup table { border-collapse: collapse; width: 100%; }
+.konrad-popup td { padding: 2px 8px 2px 0; }
+.konrad-popup td:first-child { color: var(--ink-2); white-space: nowrap; }
+.konrad-popup td:last-child { font-weight: 600; text-align: right; }

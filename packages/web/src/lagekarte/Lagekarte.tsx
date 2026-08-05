@@ -355,7 +355,6 @@ export function Lagekarte({
   });
   const konradVisibleRef = useRef(konradVisible);
   const konradLayerRef = useRef<L.TileLayer.WMS | null>(null);
-  const konradInfoLayerRef = useRef<L.TileLayer.WMS | null>(null);
   const writable = !readOnly && canWrite(session.roles, "lagekarte", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
   });
@@ -408,18 +407,9 @@ export function Lagekarte({
     }
     const map = mapRef.current;
     const layer = konradLayerRef.current;
-    const infoLayer = konradInfoLayerRef.current;
     if (map && layer) {
-      if (konradVisible) {
-        layer.addTo(map);
-        // cell_info als separater Layer darueber — eigene Kacheln, so dass
-        // die Zellfarben (rot/gelb/gruen) erhalten bleiben und die
-        // Hagel/Windboeen-Symbole darueber gelegt werden.
-        infoLayer?.addTo(map);
-      } else {
-        layer.remove();
-        infoLayer?.remove();
-      }
+      if (konradVisible) layer.addTo(map);
+      else layer.remove();
     }
   }, [konradVisible]);
 
@@ -656,9 +646,10 @@ export function Lagekarte({
     // DWD-KONRAD3D (Konvektionserkennung) als optionales WMS-Overlay.
     // current_cells: gefuellllte Zellpolygone (rot/gelb/gruen nach Schweregrad),
     // cur_track_lines: schwarze Verbindungslinien vergangener Zellschwerpunkte.
-    // cell_info wird als *separater* Layer darueber gelegt (eigene Kacheln),
-    // damit die Zellfarben erhalten bleiben und Hagel/Windboeen-Symbole
-    // nicht die Zellpolygone uebermalen. Bild-Kacheln direkt vom DWD → kein CORS.
+    // Zusaetzliche Zell-Infos (Hagel, Windboeen, VIL etc.) werden per
+    // GetFeatureInfo bei Klick auf eine Zelle als Popup angezeigt —
+    // statt als cell_info-Bildlayer, der die Zellfarben uebermalt.
+    // Bild-Kacheln direkt vom DWD → kein CORS.
     const konradLayer = L.tileLayer.wms("https://maps.dwd.de/geoserver/ows?", {
       layers: "dwd:K3D_EVAL_current_cells,dwd:K3D_EVAL_cur_track_lines",
       styles: "",
@@ -669,20 +660,72 @@ export function Lagekarte({
       attribution: "KONRAD3D: Deutscher Wetterdienst",
     });
     konradLayerRef.current = konradLayer;
-    const konradInfoLayer = L.tileLayer.wms("https://maps.dwd.de/geoserver/ows?", {
-      layers: "dwd:K3D_EVAL_cell_info",
-      styles: "",
-      format: "image/png",
-      transparent: true,
-      version: "1.3.0",
-      opacity: 0.9,
-      attribution: "",
-    });
-    konradInfoLayerRef.current = konradInfoLayer;
-    if (konradVisibleRef.current) {
-      konradLayer.addTo(map);
-      konradInfoLayer.addTo(map);
-    }
+    if (konradVisibleRef.current) konradLayer.addTo(map);
+
+    // GetFeatureInfo bei Klick auf eine KONRAD3D-Zelle — zeigt Roh-Attribute
+    // (Schweregrad, Hagel, Windboeen, VIL, Echo-Top, Zellgeschwindigkeit etc.)
+    // als Leaflet-Popup an. Wird nur ausgefuehrt, wenn das KONRAD3D-Overlay an ist
+    // und der Klick nicht auf eine taktische Zeichnung traf.
+    const konradClick = (e: L.LeafletMouseEvent) => {
+      if (!konradVisibleRef.current) return;
+      const point = e.containerPoint;
+      const size = map.getSize();
+      const bounds = map.getBounds();
+      const sw = map.project(bounds.getSouthWest(), map.getZoom());
+      const ne = map.project(bounds.getNorthEast(), map.getZoom());
+      const bbox = `${sw.x},${ne.y},${ne.x},${sw.y}`;
+
+      const params = new URLSearchParams({
+        service: "WMS",
+        version: "1.3.0",
+        request: "GetFeatureInfo",
+        layers: "dwd:K3D_EVAL_current_cells",
+        styles: "",
+        crs: "EPSG:3857",
+        bbox,
+        width: String(size.x),
+        height: String(size.y),
+        query_layers: "dwd:K3D_EVAL_current_cells",
+        info_format: "application/json",
+        i: String(point.x),
+        j: String(point.y),
+        feature_count: "1",
+      });
+
+      fetch(`https://maps.dwd.de/geoserver/ows?${params}`)
+        .then((res) => res.json())
+        .then((data: { features: { properties: Record<string, unknown> }[] }) => {
+          const feature = data.features?.[0];
+          if (!feature?.properties) return;
+          const p = feature.properties;
+          const sev = Number(p.SEVERITY ?? -1);
+          const sevLabels = ["0 (leicht)", "1 (maessig)", "2 (stark)", "3 (extrem)"];
+          const sevText = sev >= 0 && sev <= 3 ? sevLabels[sev] : "?";
+          const hail = p.HAIL_FLAG === 1 || p.HAIL_FLAG === "1";
+          const gust = p.GUST_FLAG === 1 || p.GUST_FLAG === "1";
+          const heavyRain = p.HEAVY_RAIN_FLAG === 1 || p.HEAVY_RAIN_FLAG === "1";
+          const rows: [string, string][] = [
+            ["Schweregrad", sevText],
+            ["Hagel", hail ? "ja" : "nein"],
+            ["Windboeen", gust ? "ja" : "nein"],
+            ["Starkregen", heavyRain ? "ja" : "nein"],
+            ["Max. Windboee", `${p.MAXIMUM_ESTIMATED_WIND_GUST ?? "?"} km/h`],
+            ["Zellgeschw.", `${p.CELL_SPEED ?? "?"} km/h`],
+            ["Echo-Top", `${p.ECHO_TOP_45_DBZ ?? "?"} m`],
+            ["VIL", `${p.CELL_BASED_VIL ?? "?"} kg/m²`],
+            ["Flaeche", `${p.COVERED_AREA ?? "?"} km²`],
+          ];
+          const html = `<div class="konrad-popup"><b>KONRAD3D-Zelle</b><table>${rows
+            .map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`)
+            .join("")}</table></div>`;
+          L.popup({ className: "konrad-popup-wrapper", maxWidth: 280 })
+            .setLatLng(e.latlng)
+            .setContent(html)
+            .openOn(map);
+        })
+        .catch(() => { /* DWD unreachable — silently ignore */ });
+    };
+    map.on("click", konradClick);
 
     // DWD-WMS-Layer (Regenradar + KONRAD3D) periodisch aktualisieren.
     // Der DWD liefert neue Zeitschritte ca. alle 5 Min. Wir erzwingen ein
@@ -693,7 +736,6 @@ export function Lagekarte({
     const refreshWmsLayers = () => {
       radarLayerRef.current?.redraw();
       konradLayerRef.current?.redraw();
-      konradInfoLayerRef.current?.redraw();
     };
     const wmsRefreshTimer = window.setInterval(refreshWmsLayers, 5 * 60 * 1000);
 
@@ -849,6 +891,7 @@ export function Lagekarte({
     return () => {
       abortController.abort();
       map.off("click", onMapClick);
+      map.off("click", konradClick);
       map.off("pm:create", onCreate);
       map.off("moveend", persistView);
       featuresMap.unobserve(refresh);
@@ -856,7 +899,6 @@ export function Lagekarte({
       if (mapRef.current === map) mapRef.current = null;
       radarLayerRef.current = null;
       konradLayerRef.current = null;
-      konradInfoLayerRef.current = null;
       window.clearInterval(wmsRefreshTimer);
       if (renderForRightsRef.current === renderAll) renderForRightsRef.current = null;
       if (refreshSymbolsRef.current === refreshSymbols) refreshSymbolsRef.current = null;
