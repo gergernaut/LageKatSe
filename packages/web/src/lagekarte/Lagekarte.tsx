@@ -355,6 +355,10 @@ export function Lagekarte({
   });
   const konradVisibleRef = useRef(konradVisible);
   const konradLayerRef = useRef<L.TileLayer.WMS | null>(null);
+  // KONRAD3D Info-Modus: wenn aktiv, fragt ein Klick auf eine Zelle per
+  // GetFeatureInfo die Zell-Attribute ab und zeigt sie als Popup.
+  const [konradInfoActive, setKonradInfoActive] = useState(false);
+  const konradInfoActiveRef = useRef(konradInfoActive);
   const writable = !readOnly && canWrite(session.roles, "lagekarte", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
   });
@@ -412,6 +416,16 @@ export function Lagekarte({
       else layer.remove();
     }
   }, [konradVisible]);
+
+  useEffect(() => {
+    konradInfoActiveRef.current = konradInfoActive;
+    const map = mapRef.current;
+    if (!map) return;
+    // Cursor wechselt auf "help", wenn der Info-Modus aktiv ist
+    const container = map.getContainer();
+    if (konradInfoActive) container.classList.add("lagekarte-info-cursor");
+    else container.classList.remove("lagekarte-info-cursor");
+  }, [konradInfoActive]);
 
   useEffect(() => {
     writableRef.current = writable;
@@ -667,7 +681,7 @@ export function Lagekarte({
     // als Leaflet-Popup an. Wird nur ausgefuehrt, wenn das KONRAD3D-Overlay an ist
     // und der Klick nicht auf eine taktische Zeichnung traf.
     const konradClick = (e: L.LeafletMouseEvent) => {
-      if (!konradVisibleRef.current) return;
+      if (!konradVisibleRef.current || !konradInfoActiveRef.current) return;
       const point = e.containerPoint;
       const size = map.getSize();
       // WMS 1.3.0 mit CRS=EPSG:3857: bbox muss in Web-Mercator-Koordinaten sein
@@ -955,10 +969,25 @@ export function Lagekarte({
               type="checkbox"
               checked={konradVisible}
               aria-label="KONRAD3D anzeigen"
-              onChange={(event) => setKonradVisible(event.currentTarget.checked)}
+              onChange={(event) => {
+                const v = event.currentTarget.checked;
+                setKonradVisible(v);
+                if (!v) setKonradInfoActive(false);
+              }}
             />
             <span>KONRAD3D</span>
           </label>
+          {konradVisible && (
+            <button
+              className={`btn btn--ghost lagekarte-info-btn ${konradInfoActive ? "is-active" : ""}`}
+              type="button"
+              title="KONRAD3D Zell-Info: aktivieren, dann auf eine Zelle klicken"
+              aria-pressed={konradInfoActive}
+              onClick={() => setKonradInfoActive((v) => !v)}
+            >
+              ℹ
+            </button>
+          )}
           {writable && (
             <>
               <button

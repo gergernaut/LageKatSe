@@ -648,6 +648,9 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 }
 
 /* ---------- KONRAD3D GetFeatureInfo Popup ---------- */
+.lagekarte-info-btn { padding: 4px 8px !important; font-size: 14px; line-height: 1; }
+.lagekarte-info-btn.is-active { background: var(--signal); color: var(--signal-ink); border-color: var(--signal); }
+.lagekarte-info-cursor { cursor: help; }
 .konrad-popup { font-family: var(--sans); font-size: 13px; }
 .konrad-popup b { display: block; margin-bottom: 6px; font-size: 14px; }
 .konrad-popup table { border-collapse: collapse; width: 100%; }
