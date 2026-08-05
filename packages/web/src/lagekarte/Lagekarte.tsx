@@ -670,9 +670,12 @@ export function Lagekarte({
       if (!konradVisibleRef.current) return;
       const point = e.containerPoint;
       const size = map.getSize();
+      // WMS 1.3.0 mit CRS=EPSG:3857: bbox muss in Web-Mercator-Koordinaten sein
+      // (nicht Pixel-Koordinaten). Leaflet's CRS-Konvertierung liefert die
+      // korrekten Projektionskoordinaten aus LatLng.
       const bounds = map.getBounds();
-      const sw = map.project(bounds.getSouthWest(), map.getZoom());
-      const ne = map.project(bounds.getNorthEast(), map.getZoom());
+      const sw = map.options.crs?.project(bounds.getSouthWest()) ?? L.Projection.SphericalMercator.project(bounds.getSouthWest());
+      const ne = map.options.crs?.project(bounds.getNorthEast()) ?? L.Projection.SphericalMercator.project(bounds.getNorthEast());
       const bbox = `${sw.x},${ne.y},${ne.x},${sw.y}`;
 
       const params = new URLSearchParams({
