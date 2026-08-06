@@ -643,3 +643,19 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   .arbeitsblatt-kanal-grid { grid-template-columns: 1fr; }
   .arbeitsblatt-checklist { padding: 14px; }
 }
+
+/* ---------- KONRAD3D GetFeatureInfo Popup ---------- */
+.lagekarte-info-btn { padding: 4px 8px !important; font-size: 14px; line-height: 1; }
+.lagekarte-info-btn.is-active { background: var(--signal); color: var(--signal-ink); border-color: var(--signal); }
+.lagekarte-info-cursor { cursor: help; }
+.konrad-popup-wrapper .leaflet-popup-content-wrapper {
+  background: var(--ground); color: var(--on-dark); border: 1px solid var(--line-dark);
+  border-radius: 9px; box-shadow: 0 12px 30px rgba(11,17,25,.3); font-family: var(--sans);
+}
+.konrad-popup-wrapper .leaflet-popup-tip { background: var(--ground); border: 1px solid var(--line-dark); }
+.konrad-popup { font-size: 12.5px; line-height: 1.4; }
+.konrad-popup b { display: block; font-size: 12.5px; margin: 0 0 4px; }
+.konrad-popup table { border-collapse: collapse; width: 100%; }
+.konrad-popup td { padding: 1px 8px 1px 0; }
+.konrad-popup td:first-child { color: var(--on-dark-2); white-space: nowrap; font-size: 12px; }
+.konrad-popup td:last-child { font-weight: 600; text-align: right; font-size: 12.5px; }
