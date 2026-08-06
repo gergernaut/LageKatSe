@@ -26,6 +26,7 @@ import {
 } from "@lagekatse/shared";
 import type { Session } from "./session";
 import { connectModule } from "./sync/provider";
+import { dug } from "./dug";
 
 /* ---------- ETB CSV helpers (spiegeln Etb.tsx buildCsv) ---------- */
 
@@ -133,7 +134,7 @@ function waitForSync(conn: ReturnType<typeof connectModule>, timeoutMs = 5000): 
 /* ---------- Main export function ---------- */
 
 export async function exportAll(session: Session): Promise<void> {
-  const dateStr = new Date().toISOString().slice(0, 10);
+  const stamp = dug();
   const code = session.room.joinCode;
   const files: Record<string, Uint8Array> = {};
 
@@ -149,7 +150,7 @@ export async function exportAll(session: Session): Promise<void> {
         exportedAt: new Date().toISOString(),
         features: [...features.values()],
       };
-      files[`lagekarte-${code}-${dateStr}.json`] = new TextEncoder().encode(
+      files[`lagekarte-${code}-${stamp}.json`] = new TextEncoder().encode(
         JSON.stringify(payload, null, 2),
       );
     } finally {
@@ -165,7 +166,7 @@ export async function exportAll(session: Session): Promise<void> {
       const entries = conn.doc.getArray<Y.Map<unknown>>(ETB_ENTRIES);
       const logEntries = entries.toArray().map((e) => e.toJSON() as LogEntry);
       const csv = buildEtbCsv(logEntries);
-      files[`einsatztagebuch-${code}-${dateStr}.csv`] = new TextEncoder().encode(csv);
+      files[`einsatztagebuch-${code}-${stamp}.csv`] = new TextEncoder().encode(csv);
     } finally {
       conn.destroy();
     }
@@ -177,7 +178,7 @@ export async function exportAll(session: Session): Promise<void> {
     try {
       await waitForSync(conn);
       const payload = extractArbeitsblatt(conn.doc);
-      files[`arbeitsblatt-${code}-${dateStr}.json`] = new TextEncoder().encode(
+      files[`arbeitsblatt-${code}-${stamp}.json`] = new TextEncoder().encode(
         JSON.stringify(payload, null, 2),
       );
     } finally {
@@ -191,7 +192,7 @@ export async function exportAll(session: Session): Promise<void> {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `lagekatse-export-${code}-${dateStr}.zip`;
+  link.download = `lagekatse-export-${code}-${stamp}.zip`;
   document.body.appendChild(link);
   link.click();
   link.remove();
