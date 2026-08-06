@@ -705,13 +705,29 @@ export function Lagekarte({
         height: String(size.y),
         query_layers: "dwd:K3D_EVAL_current_cells",
         info_format: "application/json",
-        i: String(point.x),
-        j: String(point.y),
+        // WMS 1.3.0 verlangt ganzzahlige Pixel-Indizes fuer i/j. containerPoint
+        // liefert bei fraktionalem Display-Scaling / Browser-Zoom Nachkommastellen
+        // → GeoServer lehnt sie mit ServiceException "InvalidPoint" ab. Runden und
+        // auf den gueltigen Bereich [0, width|height - 1] clampen.
+        i: String(Math.max(0, Math.min(Math.round(point.x), size.x - 1))),
+        j: String(Math.max(0, Math.min(Math.round(point.y), size.y - 1))),
         feature_count: "1",
       });
 
       fetch(`https://maps.dwd.de/geoserver/ows?${params}`)
-        .then((res) => res.json())
+        .then(async (res) => {
+          // Defense-in-depth: nicht blind res.json(). Bei HTTP-Fehler oder
+          // Nicht-JSON-Antwort (z.B. GeoServer-ServiceException als XML, Proxy-/
+          // Portal-HTML) liefert das die Ursache statt eines nackten SyntaxError.
+          const ct = res.headers.get("content-type") ?? "";
+          if (!res.ok || !ct.includes("json")) {
+            const body = await res.text();
+            throw new Error(
+              `unerwartete Antwort (HTTP ${res.status}, ${ct || "ohne Content-Type"}): ${body.slice(0, 200)}`,
+            );
+          }
+          return res.json();
+        })
         .then((data: { features: { properties: Record<string, unknown> }[] }) => {
           const feature = data.features?.[0];
           if (!feature?.properties) return;
