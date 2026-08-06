@@ -741,7 +741,9 @@ export function Lagekarte({
             .setContent(html)
             .openOn(map);
         })
-        .catch(() => { /* DWD unreachable — silently ignore */ });
+        .catch((err: unknown) => {
+          console.debug("KONRAD3D GetFeatureInfo fehlgeschlagen", err);
+        });
     };
     map.on("click", konradClick);
 
