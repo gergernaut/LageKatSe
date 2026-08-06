@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { MODULE_LABELS, type Module } from "@lagekatse/shared";
 import type { Session } from "../session";
 import type { RoomChat } from "../sync/useRoomChat";
@@ -44,6 +44,13 @@ export function Uebersicht({
 }) {
   const [draft, setDraft] = useState("");
   const [exporting, setExporting] = useState(false);
+  const chatLogRef = useRef<HTMLDivElement>(null);
+
+  // Auto-Scroll: bei neuen Nachrichten und beim initialen Laden ans Ende scrollen.
+  useEffect(() => {
+    const el = chatLogRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -99,7 +106,7 @@ export function Uebersicht({
             <h3>Stabsraum-Chat</h3>
           </div>
           <div className="chat">
-            <div className="chat__log">
+            <div className="chat__log" ref={chatLogRef}>
               {messages.length === 0 && <div className="chat__empty">Noch keine Nachrichten.</div>}
               {messages.map((msg) => (
                 <div className="msg" key={msg.id}>
