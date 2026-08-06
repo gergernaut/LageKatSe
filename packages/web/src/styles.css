@@ -583,6 +583,7 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .lagekarte-palette__empty { margin: 20px 8px; color: var(--ink-3); font-size: 13px; text-align: center; }
 .lagekarte-symbol-group { border-top: 1px solid var(--line-2); }
 .lagekarte-symbol-group--sub { border-top: none; }
+.lagekarte-symbol-group__sublabel { padding: 6px 6px 2px 18px; font-size: 10px; font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; }
 .lagekarte-symbol-group__toggle {
   width: 100%; border: 0; background: transparent; color: var(--ink); padding: 10px 6px;
   display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 5px;

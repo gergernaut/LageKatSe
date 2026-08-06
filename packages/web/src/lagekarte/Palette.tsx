@@ -44,12 +44,15 @@ export function Palette({
       let topName = rawCategory;
       let subName: string | null = null;
 
-      // Split "Org_Type" categories into sub-groups under "Type".
-      if (rawCategory.includes("_")) {
-        const [org, type] = rawCategory.split("_", 2);
+      // Split "Org_Type" categories into sub-groups under "Type". Trennung am
+      // LETZTEN Unterstrich: der Typ ist das Suffix, der Org-Name (der selbst
+      // Unterstriche enthalten darf) ist der Praefix.
+      const sep = rawCategory.lastIndexOf("_");
+      if (sep > 0) {
+        const type = rawCategory.slice(sep + 1);
         if (UNDERSCORE_TYPES.has(type)) {
           topName = type;
-          subName = org;
+          subName = rawCategory.slice(0, sep);
         }
       }
 
@@ -141,7 +144,11 @@ export function Palette({
               {expanded && (
                 <>
                   {hasDirect && (
-                    <div className="lagekarte-symbol-grid">
+                    <>
+                      {hasSubs && (
+                        <div className="lagekarte-symbol-group__sublabel">Allgemein</div>
+                      )}
+                      <div className="lagekarte-symbol-grid">
                       {group.symbols.map((symbol) => (
                         <button
                           className={`lagekarte-symbol-choice ${
@@ -162,6 +169,7 @@ export function Palette({
                         </button>
                       ))}
                     </div>
+                    </>
                   )}
                   {hasSubs && group.subgroups.map(([subName, subSymbols]) => {
                     const subKey = `${group.name}::${subName}`;
