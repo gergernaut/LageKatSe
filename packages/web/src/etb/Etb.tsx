@@ -10,6 +10,7 @@ import * as Y from "yjs";
 import { api } from "../api";
 import type { Session } from "../session";
 import { connectModule } from "../sync/provider";
+import { dug } from "../dug";
 
 const WAYS: EtbWeg[] = ["", "Funk", "Telefon", "Fax", "persönlich", "E-Mail"];
 
@@ -80,12 +81,12 @@ function buildCsv(entries: LogEntry[]): string {
   return `\uFEFF${[header.join(";"), ...rows].join("\r\n")}`;
 }
 
-function downloadCsv(entries: LogEntry[]): void {
+function downloadCsv(entries: LogEntry[], joinCode: string): void {
   const blob = new Blob([buildCsv(entries)], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = "einsatztagebuch.csv";
+  link.download = `einsatztagebuch-${joinCode}-${dug()}.csv`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -202,7 +203,7 @@ export function Etb({ session }: { session: Session }) {
           </span>
         )}
         <div className="spacer" />
-        <button className="tool" type="button" onClick={() => downloadCsv(items)}>
+        <button className="tool" type="button" onClick={() => downloadCsv(items, session.room.joinCode)}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M12 15V3M7 8l5-5 5 5M5 21h14" />
           </svg>

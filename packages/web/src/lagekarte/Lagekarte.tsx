@@ -8,6 +8,7 @@ import { canWrite, LAGEKARTE_FEATURES, type MapFeature } from "@lagekatse/shared
 import type { Session } from "../session";
 import { connectModule } from "../sync/provider";
 import { uid } from "../uid";
+import { dug } from "../dug";
 import { Palette, type PaletteSymbol } from "./Palette";
 
 interface SymbolIndex {
@@ -573,7 +574,7 @@ export function Lagekarte({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `lagekarte-${session.room.joinCode}-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `lagekarte-${session.room.joinCode}-${dug()}.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();
