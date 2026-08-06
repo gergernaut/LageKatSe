@@ -10,6 +10,7 @@ import * as Y from "yjs";
 import { api } from "../api";
 import type { Session } from "../session";
 import { connectModule } from "../sync/provider";
+import { dug } from "../dug";
 
 const WAYS: EtbWeg[] = ["", "Funk", "Telefon", "Fax", "persönlich", "E-Mail"];
 
@@ -85,7 +86,7 @@ function downloadCsv(entries: LogEntry[]): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = "einsatztagebuch.csv";
+  link.download = `einsatztagebuch-${dug()}.csv`;
   document.body.appendChild(link);
   link.click();
   link.remove();
