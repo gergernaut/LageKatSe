@@ -26,6 +26,7 @@ import {
 } from "@lagekatse/shared";
 import type { Session } from "./session";
 import { connectModule } from "./sync/provider";
+import { dug } from "./dug";
 
 /* ---------- ETB CSV helpers (spiegeln Etb.tsx buildCsv) ---------- */
 
@@ -133,7 +134,7 @@ function waitForSync(conn: ReturnType<typeof connectModule>, timeoutMs = 5000): 
 /* ---------- Main export function ---------- */
 
 export async function exportAll(session: Session): Promise<void> {
-  const dateStr = new Date().toISOString().slice(0, 10);
+  const dateStr = dug();
   const code = session.room.joinCode;
   const files: Record<string, Uint8Array> = {};
 
