@@ -3,10 +3,10 @@
  * fuer 03. Aug 2026, 17:48 Uhr. Verwendet in Export-Dateinamen, damit
  * mehrere Exporte am selben Tag unterscheidbar sind.
  *
- * Die Monat-Abkuerzung ist 3-buchstabig (Jan, Feb, ..., Dez) und
- * orientiert sich an der NATO/IdF-Notation.
+ * Die Monat-Abkuerzung ist 3-buchstabig (Jan, Feb, ..., Dec) und
+ * orientiert sich an der NATO/IdF-Notation (englische Kuerzel).
  */
-const DUG_MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+const DUG_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export function dug(date = new Date()): string {
   const dd = String(date.getDate()).padStart(2, "0");
