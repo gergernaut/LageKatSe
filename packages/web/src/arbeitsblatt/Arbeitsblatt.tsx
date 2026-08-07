@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
   AB_EIGENELAGE,
   AB_EXPORT_FORMAT,
@@ -83,8 +83,33 @@ function funktionValue(map: Y.Map<unknown>, field: string): AbFunktion {
   return value === "GF" || value === "ZF" || value === "VF" ? value : "";
 }
 
+// ---- Coercion-Helfer für den JSON-Import (rohe Werte aus der Datei absichern) ----
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+function asString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+function asBool(value: unknown): boolean {
+  return value === true;
+}
+function asPrio(value: unknown): AbPrioritaet {
+  return value === 1 || value === 2 || value === 3 ? value : "";
+}
+function asFunktion(value: unknown): AbFunktion {
+  return value === "GF" || value === "ZF" || value === "VF" ? value : "";
+}
+/** Baut eine Y.Map-Zeile aus einem einfachen Objekt (für die Array-Felder). */
+function rowMap(entries: Record<string, unknown>): Y.Map<unknown> {
+  const map = new Y.Map<unknown>();
+  Object.entries(entries).forEach(([key, value]) => map.set(key, value));
+  return map;
+}
+
 export function Arbeitsblatt({ session }: { session: Session }) {
   const [sheet, setSheet] = useState<ArbeitsblattState>(EMPTY_SHEET);
+  const [importMessage, setImportMessage] = useState("");
+  const importInputRef = useRef<HTMLInputElement>(null);
   const kopfRef = useRef<Y.Map<unknown> | null>(null);
   const fuehrungRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const rueckmeldRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
@@ -353,6 +378,142 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     URL.revokeObjectURL(url);
   };
 
+  // JSON-Import (Gegenstück zum Export). Validiert die Datei gegen das
+  // ArbeitsblattExport-Schema und spielt sie als EINE doc.transact() ein — ein
+  // atomarer Import, ein Sync-Update, saubere Undo-Grenze. Ersetzt das gesamte
+  // (geteilte!) Arbeitsblatt, daher vorher window.confirm. Nur Schreibberechtigte.
+  const importJson = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget; // vor dem await sichern (React nullt currentTarget)
+    const file = input.files?.[0];
+    try {
+      if (!file) return;
+      if (!writable) {
+        setImportMessage("Import nicht erlaubt.");
+        return;
+      }
+      const parsed: unknown = JSON.parse(await file.text());
+      if (!isRecord(parsed) || parsed.format !== AB_EXPORT_FORMAT || !isRecord(parsed.sheet)) {
+        setImportMessage("Import fehlgeschlagen: kein gültiges Arbeitsblatt-Export-Format.");
+        return;
+      }
+      const doc = kopfRef.current?.doc;
+      if (!doc) {
+        setImportMessage("Import fehlgeschlagen: Arbeitsblatt noch nicht bereit.");
+        return;
+      }
+      if (
+        !window.confirm(
+          "Das aktuelle Arbeitsblatt wird durch die importierten Daten ersetzt — für alle im Stabsraum. Fortfahren?",
+        )
+      ) {
+        return;
+      }
+
+      const sheet = parsed.sheet;
+      const kopfObj = isRecord(sheet.kopf) ? sheet.kopf : {};
+      const gefahrenObj = isRecord(sheet.gefahren) ? sheet.gefahren : {};
+      const eigeneLageObj = isRecord(sheet.eigeneLage) ? sheet.eigeneLage : {};
+      const organisationObj = isRecord(sheet.organisation) ? sheet.organisation : {};
+      const fuehrungArr = Array.isArray(sheet.fuehrungsvorgang) ? sheet.fuehrungsvorgang : [];
+      const rueckArr = Array.isArray(sheet.rueckmeldungen) ? sheet.rueckmeldungen : [];
+      const nachArr = Array.isArray(sheet.nachforderung) ? sheet.nachforderung : [];
+      const orgaArr = Array.isArray(sheet.organigramm) ? sheet.organigramm : [];
+
+      doc.transact(() => {
+        const kopf = kopfRef.current;
+        const gefahren = gefahrenRef.current;
+        const fuehrung = fuehrungRef.current;
+        const rueck = rueckmeldRef.current;
+        const eigeneLage = eigeneLageRef.current;
+        const nach = nachforderungRef.current;
+        const organisation = organisationRef.current;
+        const organigramm = organigrammRef.current;
+        const wetter = wetterRef.current;
+        if (
+          !kopf || !gefahren || !fuehrung || !rueck || !eigeneLage || !nach ||
+          !organisation || !organigramm || !wetter
+        ) {
+          return;
+        }
+
+        // Feld A: Kopf-Skalare überschreiben
+        AB_KOPF_FIELDS.forEach((f) => kopf.set(f, asString(kopfObj[f])));
+
+        // Feld B: Gefahren ersetzen (leeren, dann gültige Posten setzen)
+        [...gefahren.keys()].forEach((k) => gefahren.delete(k));
+        for (const g of AB_GEFAHREN_KATALOG) {
+          const p = gefahrenObj[g.key];
+          if (isRecord(p) && typeof p.betroffen === "boolean") {
+            const notiz = asString(p.notiz);
+            gefahren.set(g.key, notiz ? { betroffen: p.betroffen, notiz } : { betroffen: p.betroffen });
+          }
+        }
+
+        // Feld C: Führungsvorgang (Array ersetzen)
+        fuehrung.delete(0, fuehrung.length);
+        for (const r of fuehrungArr) {
+          if (!isRecord(r)) continue;
+          fuehrung.push([
+            rowMap({
+              id: asString(r.id) || uid(),
+              bedrohtesObjekt: asString(r.bedrohtesObjekt),
+              wirkung: asString(r.wirkung),
+              prioritaet: asPrio(r.prioritaet),
+              massnahmen: asString(r.massnahmen),
+              erledigt: asBool(r.erledigt),
+            }),
+          ]);
+        }
+
+        // Feld D: Rückmeldungen
+        rueck.delete(0, rueck.length);
+        for (const r of rueckArr) {
+          if (!isRecord(r)) continue;
+          rueck.push([rowMap({ id: asString(r.id) || uid(), text: asString(r.text), erledigt: asBool(r.erledigt) })]);
+        }
+
+        // Feld E: eigene Lage (Skalare) + Nachforderung (Array)
+        eigeneLage.set("auftragMr", asBool(eigeneLageObj.auftragMr));
+        eigeneLage.set("auftragBb", asBool(eigeneLageObj.auftragBb));
+        eigeneLage.set("auftragText", asString(eigeneLageObj.auftragText));
+        eigeneLage.set("kraefteuebersicht", asString(eigeneLageObj.kraefteuebersicht));
+        nach.delete(0, nach.length);
+        for (const r of nachArr) {
+          if (!isRecord(r)) continue;
+          nach.push([rowMap({ id: asString(r.id) || uid(), text: asString(r.text) })]);
+        }
+
+        // Feld F: Organisation (Skalare) + Organigramm (Array)
+        AB_KANAL_FIELDS.forEach((f) => organisation.set(f, asString(organisationObj[f])));
+        organisation.set("eigeneFunktion", asFunktion(organisationObj.eigeneFunktion));
+        organigramm.delete(0, organigramm.length);
+        for (const r of orgaArr) {
+          if (!isRecord(r)) continue;
+          organigramm.push([
+            rowMap({
+              id: asString(r.id) || uid(),
+              rolle: asString(r.rolle),
+              auftrag: asString(r.auftrag),
+              fuehrer: asString(r.fuehrer),
+              rufname: asString(r.rufname),
+            }),
+          ]);
+        }
+
+        // Rückseite: Wetter-Snapshot (Whole-Value) übernehmen oder leeren
+        if (isRecord(sheet.wetter)) wetter.set(AB_WETTER_SNAPSHOT, sheet.wetter);
+        else wetter.delete(AB_WETTER_SNAPSHOT);
+      });
+
+      setImportMessage("Arbeitsblatt importiert.");
+    } catch (err) {
+      console.debug("Arbeitsblatt-Import fehlgeschlagen", err);
+      setImportMessage("Import fehlgeschlagen: ungültige JSON-Datei.");
+    } finally {
+      input.value = "";
+    }
+  };
+
   return (
     <div className="arbeitsblatt">
       <div className="work__bar arbeitsblatt__bar">
@@ -372,7 +533,23 @@ export function Arbeitsblatt({ session }: { session: Session }) {
           Taktisches Arbeitsblatt
         </h2>
         <span className="chip">Alle Felder werden synchronisiert</span>
+        {importMessage && <span className="chip">{importMessage}</span>}
         <div className="spacer" />
+        {writable && (
+          <button className="tool" type="button" onClick={() => importInputRef.current?.click()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+            </svg>
+            Import JSON
+          </button>
+        )}
+        <input
+          ref={importInputRef}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={importJson}
+        />
         <button className="tool" type="button" onClick={exportJson}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M12 15V3M7 8l5-5 5 5M5 21h14" />
