@@ -99,6 +99,9 @@ packages/
 - **Zugang.** Lobby-Code + optionales Raum-Passwort, selbst deklarierter Name,
   Session-Token (JWT). Rollen werden serverseitig signiert; Rechte serverseitig
   durchgesetzt.
+- **Rate-Limiting.** Grundschutz gegen Brute-Force/Enumeration: ein globales Limit
+  pro Client-IP und ein strengeres für Lobby-Join & Raum-Anlegen (konfigurierbar,
+  s. `.env.example`; hinter einem Reverse-Proxy `TRUST_PROXY=true` für die echte IP).
 
 ## Wie M1 funktioniert (Lagekarte)
 
