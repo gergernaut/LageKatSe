@@ -43,9 +43,20 @@ export function registerRoutes(
 ): void {
   const { rooms, config, hub } = deps;
 
-  app.get("/api/health", async () => ({ ok: true, ts: new Date().toISOString() }));
+  // Strengeres Limit für sensible Endpunkte (Brute-Force/Enumeration, #64).
+  const sensitiveLimit = {
+    config: {
+      rateLimit: { max: config.rateLimit.sensitiveMax, timeWindow: config.rateLimit.windowMs },
+    },
+  };
 
-  app.post("/api/rooms", async (req, reply) => {
+  // Health wird von Monitoring/Smoke-Tests häufig gepollt → vom Rate-Limit ausnehmen.
+  app.get("/api/health", { config: { rateLimit: false } }, async () => ({
+    ok: true,
+    ts: new Date().toISOString(),
+  }));
+
+  app.post("/api/rooms", sensitiveLimit, async (req, reply) => {
     const body = createSchema.parse(req.body);
     const rec = await rooms.create(body);
     return reply.code(201).send({ room: toPublic(rec) });
@@ -59,7 +70,7 @@ export function registerRoutes(
     return reply.send({ room: toPublic(rec) });
   });
 
-  app.post<{ Params: { code: string } }>("/api/rooms/:code/join", async (req, reply) => {
+  app.post<{ Params: { code: string } }>("/api/rooms/:code/join", sensitiveLimit, async (req, reply) => {
     const body = joinSchema.parse(req.body);
     const { room, claims } = await rooms.join(req.params.code, body);
     const token = await signSession(claims, config.jwtSecret);
@@ -103,6 +114,19 @@ export function registerRoutes(
         error: "invalid_request",
         message: err.issues.map((i) => i.message).join(" "),
       });
+    }
+    // Rate-Limit (#64): @fastify/rate-limit wirft bei Überschreitung mit statusCode 429.
+    if ((err as { statusCode?: number }).statusCode === 429) {
+      return reply.code(429).send({
+        error: "rate_limited",
+        message: "Zu viele Anfragen — bitte einen Moment warten.",
+      });
+    }
+    // Sonstige Fastify-Fehler mit gesetztem 4xx-Status (z.B. Body-Parsing) durchreichen.
+    const status = (err as { statusCode?: number }).statusCode;
+    if (typeof status === "number" && status >= 400 && status < 500) {
+      const message = err instanceof Error ? err.message : "Fehlerhafte Anfrage.";
+      return reply.code(status).send({ error: "request_error", message });
     }
     app.log.error(err);
     return reply.code(500).send({ error: "internal", message: "Interner Serverfehler." });
