@@ -129,6 +129,7 @@ export function Etb({ session }: { session: Session }) {
   const [items, setItems] = useState<LogEntry[]>([]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [pdfBusy, setPdfBusy] = useState(false);
   const entriesRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const writable = canWrite(session.roles, "etb", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
@@ -178,6 +179,40 @@ export function Etb({ session }: { session: Session }) {
     }
   };
 
+  // PDF-Export (client-seitig, wie CSV). Erzeugt das Dokument on-demand via
+  // pdf.ts; Fehler (z.B. Schrift nicht ladbar) landen in der Statuszeile.
+  const exportPdf = async () => {
+    if (pdfBusy) return;
+    setPdfBusy(true);
+    setError("");
+    try {
+      // pdf-lib ist schwer → erst beim tatsächlichen Export dynamisch laden
+      // (eigener Chunk, hält den ETB-Modul-Chunk klein).
+      const { etbToPdf } = await import("../pdf");
+      const bytes = await etbToPdf(items, {
+        roomName: session.room.name,
+        joinCode: session.room.joinCode,
+        stamp: dug(),
+      });
+      // Kopie mit definitem ArrayBuffer — pdf-libs Uint8Array<ArrayBufferLike>
+      // ist sonst kein gültiger BlobPart unter der neuen TS-lib.dom.
+      const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `einsatztagebuch-${session.room.joinCode}-${dug()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (cause) {
+      console.debug("ETB-PDF-Export fehlgeschlagen", cause);
+      setError("PDF-Export fehlgeschlagen.");
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   return (
     <div className="work">
       <div className="work__bar">
@@ -208,6 +243,12 @@ export function Etb({ session }: { session: Session }) {
             <path d="M12 15V3M7 8l5-5 5 5M5 21h14" />
           </svg>
           Export CSV
+        </button>
+        <button className="tool" type="button" onClick={exportPdf} disabled={pdfBusy}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M6 2h9l5 5v15H6zM14 2v6h6" />
+          </svg>
+          {pdfBusy ? "Erzeuge…" : "Export PDF"}
         </button>
       </div>
 
