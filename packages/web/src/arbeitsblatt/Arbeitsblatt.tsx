@@ -506,7 +506,8 @@ export function Arbeitsblatt({ session }: { session: Session }) {
       });
 
       setImportMessage("Arbeitsblatt importiert.");
-    } catch {
+    } catch (err) {
+      console.debug("Arbeitsblatt-Import fehlgeschlagen", err);
       setImportMessage("Import fehlgeschlagen: ungültige JSON-Datei.");
     } finally {
       input.value = "";
