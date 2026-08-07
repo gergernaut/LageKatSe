@@ -1,5 +1,6 @@
 import "./load-dotenv"; // must run before anything reads process.env
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import Fastify from "fastify";
 import { loadConfig } from "./config";
 import { registerRoutes } from "./http";
@@ -14,8 +15,19 @@ async function main(): Promise<void> {
   const rooms = new RoomService(store);
   const hub = new RoomHub(store);
 
-  const app = Fastify({ logger: { transport: undefined } });
+  const app = Fastify({ logger: { transport: undefined }, trustProxy: config.trustProxy });
   await app.register(cors, { origin: config.corsOrigin, credentials: true });
+  // Rate-Limiting (Brute-Force-/Enumeration-Schutz, #64). Global als Grundschutz; sensible
+  // Endpunkte (Join/Raum-Anlegen) setzen ein strengeres Limit per Route-Config. In-Memory-
+  // Store (reicht für den Ein-Prozess-Betrieb, §13.2). Hinter Proxy braucht es trustProxy,
+  // damit nicht alle Requests auf die Proxy-IP fallen.
+  // Überschreitung wirft mit statusCode 429; die Antwort formt der zentrale
+  // Error-Handler in http.ts einheitlich als { error: "rate_limited", message }.
+  await app.register(rateLimit, {
+    global: true,
+    max: config.rateLimit.max,
+    timeWindow: config.rateLimit.windowMs,
+  });
   registerRoutes(app, { rooms, config, hub });
 
   // WebSocket gateway shares the same HTTP server.
