@@ -11,6 +11,7 @@ import { api } from "../api";
 import type { Session } from "../session";
 import { connectModule } from "../sync/provider";
 import { dug } from "../dug";
+import { formatDateTime } from "../format";
 
 const WAYS: EtbWeg[] = ["", "Funk", "Telefon", "Fax", "persönlich", "E-Mail"];
 
@@ -31,15 +32,6 @@ function replaceTime(iso: string, time: string): string | null {
 
   date.setHours(hours, minutes, 0, 0);
   return date.toISOString();
-}
-
-/** Full local date+time for the CSV — HH:MM alone is ambiguous over a multi-day
- *  Lage, and the ETB is a Nachweisdokument (architecture.md §9.5). */
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())} ${p(date.getHours())}:${p(date.getMinutes())}`;
 }
 
 function csvCell(value: unknown): string {

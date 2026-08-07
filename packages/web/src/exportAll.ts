@@ -29,19 +29,13 @@ import {
 import type { Session } from "./session";
 import { connectModule } from "./sync/provider";
 import { dug } from "./dug";
+import { formatDateTime } from "./format";
 
 /* ---------- ETB CSV helpers (spiegeln Etb.tsx buildCsv) ---------- */
 
 function csvCell(value: unknown): string {
   const text = String(value ?? "");
   return /[;"\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-}
-
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())} ${p(date.getHours())}:${p(date.getMinutes())}`;
 }
 
 function buildEtbCsv(entries: LogEntry[]): string {
