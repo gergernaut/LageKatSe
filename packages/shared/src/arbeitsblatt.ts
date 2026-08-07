@@ -20,6 +20,7 @@
  *   doc.getArray(AB_NACHFORDERUNG) Feld E — freie Nachforderungs-Einträge (Y.Map per AbNachforderung)
  *   doc.getMap(AB_ORGANISATION)  Feld F — Funkkanäle + eigene Funktion scalars (AbOrganisation)
  *   doc.getArray(AB_ORGANIGRAMM) Feld F — Führungs-Organigramm rows (Y.Map per AbOrganigrammzeile)
+ *   doc.getMap(AB_WETTER)        Rückseite — Wetter-Snapshot (DWD/BrightSky, ein Whole-Value-Posten)
  *
  * Feld B (Lagebild) bettet die `lagekarte` read-only ein (§10.2) — die Karte
  * bleibt eine Referenz (eine Quelle der Wahrheit); die Gefahren-Randfelder
@@ -34,6 +35,7 @@ export const AB_EIGENELAGE = "eigeneLage" as const;
 export const AB_NACHFORDERUNG = "nachforderung" as const;
 export const AB_ORGANISATION = "organisation" as const;
 export const AB_ORGANIGRAMM = "organigramm" as const;
+export const AB_WETTER = "wetter" as const;
 
 // ---- Feld A: Kopfzeile ----
 export interface AbKopf {
@@ -189,6 +191,66 @@ export interface AbGefahr {
   notiz?: string;
 }
 
+// ---- Rückseite: Wetter (DWD OpenData via BrightSky) ----
+/**
+ * Wetter-Snapshot für die Kartenmitte des Lagebilds (#44 Teil 2 / Wetter-Teil #42).
+ * **Geteilter** Arbeitsblatt-Zustand: ein schreibberechtigter Nutzer ruft ab, der
+ * Snapshot landet im CRDT, alle (auch RO-Monitore) sehen dasselbe. Anders als die
+ * feldweise gemergten Tabellen ist Wetter ein **atomarer Whole-Value-Posten** unter
+ * genau einem Key (AB_WETTER_SNAPSHOT) — es wird nicht kollaborativ feldweise editiert,
+ * sondern bei jedem Abruf komplett ersetzt. Quelle: BrightSky (DWD OpenData), CORS-offen.
+ */
+export const AB_WETTER_SNAPSHOT = "snapshot" as const;
+
+/** Momentanwerte (BrightSky /current_weather; Wind/Niederschlag aus den _10-Feldern). */
+export interface AbWetterCurrent {
+  temperature: number | null; // °C
+  windSpeed: number | null; // km/h (10-min-Mittel)
+  windDirection: number | null; // Grad, aus der es weht
+  windGust: number | null; // km/h (Spitzenböe, 10 min)
+  precipitation: number | null; // mm (letzte 10 min)
+  cloudCover: number | null; // %
+  pressure: number | null; // hPa (auf Meereshöhe reduziert)
+  humidity: number | null; // % relative Feuchte
+  condition: string | null; // BrightSky-condition, z.B. "dry" | "rain" | "thunderstorm"
+  icon: string | null; // BrightSky-icon-slug
+}
+
+/** Ein Vorhersage-Stundenwert (BrightSky /weather). */
+export interface AbWetterForecastHour {
+  time: string; // ISO-8601, Stundenbeginn
+  temperature: number | null; // °C
+  windSpeed: number | null; // km/h
+  precipitation: number | null; // mm in der Stunde
+  precipitationProbability: number | null; // %
+  condition: string | null;
+  icon: string | null;
+}
+
+/** CAP-Dringlichkeit einer DWD-Warnung (BrightSky /alerts), grob minor→extreme. */
+export type AbWetterSeverity = "minor" | "moderate" | "severe" | "extreme" | null;
+
+/** Eine aktive DWD-Warnung für den Standort. `id` ist der Dedup-Schlüssel. */
+export interface AbWetterAlert {
+  id: string;
+  event: string | null; // event_de, z.B. "GEWITTER"
+  severity: AbWetterSeverity;
+  headline: string | null; // headline_de
+  description: string | null; // description_de (ggf. gekürzt)
+  onset: string | null; // ISO-8601 Beginn
+  expires: string | null; // ISO-8601 Ende
+}
+
+export interface AbWetterSnapshot {
+  fetchedAt: string; // ISO-8601 — wann abgerufen (Staleness/Anzeige)
+  lat: number;
+  lon: number;
+  stationName: string | null; // nächstgelegene DWD-Station
+  current: AbWetterCurrent;
+  forecast: AbWetterForecastHour[]; // nächste ~4 Stunden ab fetchedAt
+  alerts: AbWetterAlert[];
+}
+
 // ---- assembled snapshot (read back via toJSON for the JSON export) ----
 /**
  * The whole worksheet as a plain object — the shape produced by reading every
@@ -205,6 +267,7 @@ export interface Arbeitsblatt {
   nachforderung: AbNachforderung[];
   organisation: AbOrganisation;
   organigramm: AbOrganigrammzeile[];
+  wetter: AbWetterSnapshot | null; // Rückseite — null solange nie abgerufen
 }
 
 /** Envelope of the client-side JSON export (architecture.md §10.4 / §12). */
