@@ -3,18 +3,24 @@
 Modulare, browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz.
 Fach- und Architekturkonzept: **[architecture.md](./architecture.md)**.
 
-> **Status: M3 — Taktisches Arbeitsblatt.** Auf dem M0-Fundament (Stabsräume
-> anlegen/beitreten, Rollen & Rechte, Live-Präsenz & Chat, autoritative
-> Echtzeit-Sync-Engine mit Persistenz) laufen jetzt alle drei Fachmodule: die
-> kollaborative **Lagekarte** (M1 — Leaflet + OSM, taktische Zeichen DV 102,
-> Flächen, Tooltips, JSON-Im-/Export), das **Einsatztagebuch** (M2 — Tabelle mit
-> server-vergebener, lückenloser Lfd-Nr. und Serverzeit, Live-Feld-Edits, Storno,
-> CSV-Export) und das **Taktische Arbeitsblatt** (M3 — IdF-Vorderseite Felder A–F
-> live-synchron, Feld B als eingebettete read-only Lagekarte, JSON-Export).
-> Modulübergreifend zeigt der Rail
-> einen kleinen **Aktivitäts-Punkt**, wenn sich in einem gerade nicht geöffneten Modul etwas tut
-> — und immer auch als **Zähler im Browser-Tab-Titel**. Wo HTTPS/localhost vorhanden ist, gibt es
-> zusätzlich optionale **Desktop-Benachrichtigungen** (pro Nutzer per Glocke aktivierbar).
+> **Status: M0–M3 ✅ komplett, M4 (Härtung & Ausbau) angelaufen.** Auf dem
+> M0-Fundament (Stabsräume anlegen/beitreten, Rollen & Rechte, Live-Präsenz & Chat,
+> autoritative Echtzeit-Sync-Engine mit Persistenz) laufen alle drei Fachmodule:
+> die kollaborative **Lagekarte** (M1 — Leaflet + OSM, taktische Zeichen DV 102 in
+> nach Typ gruppierter Palette, Flächen, Tooltips, JSON-Im-/Export, schaltbares
+> **DWD-Regenradar** und **KONRAD3D**-Gewitterzellen-Overlay mit Zell-Info per
+> Klick, raumweise gemerkte Kartenansicht), das **Einsatztagebuch** (M2 — Tabelle
+> mit server-vergebener, lückenloser Lfd-Nr. und Serverzeit, Live-Feld-Edits,
+> Storno, **CSV- und PDF-Export**) und das **Taktische Arbeitsblatt** (M3 —
+> IdF-Vorderseite Felder A–F live-synchron, Gefahren-Randfelder, Feld B als
+> eingebettete read-only Lagekarte, **Wetter-Rückseite** via DWD/BrightSky,
+> **JSON-Export/-Import und PDF-Export**). Auf der Übersicht gibt es einen
+> **Gesamt-Export** (ZIP aller Module). Modulübergreifend zeigt der Rail einen
+> kleinen **Aktivitäts-Punkt**, wenn sich in einem gerade nicht geöffneten Modul
+> etwas tut — und immer auch als **Zähler im Browser-Tab-Titel**. Wo HTTPS/localhost
+> vorhanden ist, gibt es zusätzlich optionale **Desktop-Benachrichtigungen** (pro
+> Nutzer per Glocke aktivierbar). **M4 begonnen:** PDF-Export ausgeliefert; offen
+> u.a. Rate-Limiting, Reverse-Proxy/TLS-Betrieb, Aufbewahrungs-/Löschkonzept.
 
 ## Schnellstart
 
@@ -80,8 +86,8 @@ packages/
 ## Wie M0 funktioniert
 
 - **Ein Yjs-Dokument pro Raum × Modul.** Die Dokumentgrenze ist die Rechtegrenze.
-  Real existieren die Dokumente `chat` (M0), `lagekarte` (M1) und `etb` (M2); die
-  Sync-Engine ist modul-agnostisch und trägt das letzte Modul (M3) ohne Änderung.
+  Real existieren die Dokumente `chat` (M0), `lagekarte` (M1), `etb` (M2) und
+  `arbeitsblatt` (M3); die Sync-Engine ist modul-agnostisch.
 - **Autoritativer Server, kein P2P.** Jede WebSocket-Verbindung wird pro Dokument
   als *read-write* oder *read-only* gebunden (`packages/server/src/sync/gateway.ts`).
   Schreibversuche einer RO-Verbindung werden verworfen und der Client resynchronisiert
@@ -100,10 +106,19 @@ Das erste Fachmodul (`packages/web/src/lagekarte/`): eine gemeinsame, live-synch
 Lagekarte, in die der Stab die Lage grafisch führt.
 
 - **Karte & Bedienung.** Leaflet mit OpenStreetMap-Kacheln. Taktische Zeichen
-  (DV 102) werden aus einer durchsuchbaren Palette per Klick platziert, per Drag
-  verschoben, beschriftet (Bezeichnung + Beschreibung) und gelöscht. Flächen
+  (DV 102) werden aus einer durchsuchbaren, **nach Typ gruppierten Palette**
+  (Untermenüs je Organisation, statt einer flachen Liste) per Klick platziert, per
+  Drag verschoben, beschriftet (Bezeichnung + Beschreibung) und gelöscht. Flächen
   (Polygon/Rechteck/Kreis) werden mit Leaflet-Geoman gezeichnet und tragen Farbe
   und Deckkraft. Bezeichnung + Beschreibung erscheinen als Tooltip.
+- **DWD-Wetterlayer (optional).** Zwei schaltbare Overlays direkt vom Deutschen
+  Wetterdienst (WMS, `maps.dwd.de`): das **Regenradar** und **KONRAD3D**
+  (Gewitterzellen nach Schweregrad + Zugbahnen); ein Klick auf eine KONRAD3D-Zelle
+  zeigt per GetFeatureInfo deren Kennwerte (Hagel, Windböen, VIL, Echo-Top …) als
+  Popup. Die Ein/Aus-Schalter sind **betrachter-lokal** (localStorage) — greifen
+  also auch für den Nur-Lese-Monitor.
+- **Kartenansicht-Persistenz.** Kartenmitte und Zoomstufe werden **pro Raum**
+  betrachter-lokal gemerkt (localStorage) und überleben Modul-Wechsel und Reload.
 - **Zeichensatz.** 894 gemeinfreie SVGs (CC0) aus
   [jonas-koeritz/Taktische-Zeichen](https://github.com/jonas-koeritz/Taktische-Zeichen)
   liegen unter `packages/web/public/taktische-zeichen/`. Der durchsuchbare Index
@@ -141,16 +156,44 @@ Einsatztagebuch (ETB), in das der Stab ein- und ausgehende Meldungen führt.
   durchgestrichen), damit die Lfd-Nr.-Kette lückenlos bleibt.
 - **Rechte.** Schreiben darf, wer den Scope `etb` hat (Einsatztagebuchführer/S-Rollen);
   Nur-Lese-Rollen sehen die Tabelle ohne Editier-Steuerelemente (serverseitig erzwungen).
-- **CSV-Export.** Excel-tauglich (`;`-getrennt, UTF-8-BOM), inkl. vollem Zeitstempel
-  und Storno-Kennzeichnung.
+- **CSV- und PDF-Export.** CSV Excel-tauglich (`;`-getrennt, UTF-8-BOM), inkl.
+  vollem Zeitstempel und Storno-Kennzeichnung. Das **PDF** (A4 quer) wird
+  client-seitig mit pdf-lib erzeugt (eingebettete Schrift für Umlaute/Sonderzeichen,
+  Wort-Umbruch, Paginierung) — für Ablage und Übergabe.
 
 Der ETB-Pfad (autoritatives Anlegen, RO-Sperre, Hot-Join) ist Teil des Sync-Smoke-Tests:
 `node packages/web/scripts/e2e.mjs`.
 
+## Wie M3 funktioniert (Taktisches Arbeitsblatt)
+
+Das dritte Fachmodul (`packages/web/src/arbeitsblatt/`): das digitale IdF-Arbeitsblatt,
+ein strukturiertes, live-synchrones Formular pro Stabsraum.
+
+- **Felder A–F, feldweise synchron.** Kopfzeile, Führungsvorgang, Rückmeldungen,
+  eigene Lage/Nachforderung und Organisation/Organigramm liegen als top-level
+  Yjs-Typen im `arbeitsblatt`-Dokument; Edits mergen feld-/zeilenweise. Es gibt
+  **keine server-autoritativen Felder** — anders als das ETB braucht das Modul
+  keinen eigenen Endpoint.
+- **Feld B — Lagebild.** Die Lagekarte ist read-only eingebettet (eine Quelle der
+  Wahrheit); daneben werden die **neun Gefahren der Einsatzstelle** (4 A · 1 C · 4 E)
+  als geteilte Randfelder beurteilt. Direktes Editieren der Karte aus dem Arbeitsblatt
+  ist bewusst nicht vorgesehen (das Kartenfeld ist zu klein).
+- **Wetter-Rückseite.** Für die Kartenmitte des Lagebilds werden aktuelle Wetterdaten,
+  eine 4-Stunden-Vorhersage und DWD-Warnungen über **BrightSky** (DWD OpenData,
+  ohne Schlüssel) abgerufen. Der Snapshot ist geteilt (ein Schreibberechtigter ruft
+  ab, alle sehen dasselbe); ein Klick trägt die aktuelle Wetterlage ins ETB ein.
+- **Export/Import.** Voller Formularzustand als **JSON** (Export **und** Import —
+  Import validiert gegen das Schema und spielt als eine CRDT-Transaktion ein) sowie
+  **PDF** (A4 hoch, client-seitig via pdf-lib).
+
+Sync und Rechte-Durchsetzung deckt ein Smoke-Test ab:
+`node packages/web/scripts/arbeitsblatt-e2e.mjs`.
+
 ## Nächste Schritte
 
 - ~~**M1** Gemeinsame Lagekarte~~ ✅ umgesetzt (PR #2)
-- ~~**M2** Einsatztagebuch (Tabelle, Auto-Lfd-Nr./Zeit, Storno, CSV-Export)~~ ✅ umgesetzt (PR #31)
-- **M3** Taktisches Arbeitsblatt (Felder A–F, eingebettetes Live-Lagebild) ⟵ als Nächstes
+- ~~**M2** Einsatztagebuch (Tabelle, Auto-Lfd-Nr./Zeit, Storno, CSV/PDF-Export)~~ ✅ umgesetzt (PR #31)
+- ~~**M3** Taktisches Arbeitsblatt (Felder A–F, eingebettetes Live-Lagebild, Gefahren-Randfelder, Wetter, JSON-Im-/Export, PDF)~~ ✅ umgesetzt
+- **M4 — Härtung & Ausbau** (angelaufen): PDF-Export ✅, DWD-Wetter ✅, Gesamt-Export ✅; **offen:** Rate-Limiting, Reverse-Proxy/TLS-Betrieb, Aufbewahrungs-/Löschkonzept (E10), Auth-Proxy/SSO, Admin-Auth, echtes Test-Framework
 
 Offene Punkte mit ⚠️ in [architecture.md §17](./architecture.md).
