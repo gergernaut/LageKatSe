@@ -14,6 +14,8 @@ import {
   AB_ORGANIGRAMM,
   AB_ORGANISATION,
   AB_RUECKMELD,
+  AB_WETTER,
+  AB_WETTER_SNAPSHOT,
   canWrite,
   type AbFunktion,
   type AbFuehrungszeile,
@@ -24,15 +26,18 @@ import {
   type AbNotiz,
   type AbOrganigrammzeile,
   type AbPrioritaet,
+  type AbWetterSnapshot,
   type Arbeitsblatt as ArbeitsblattState,
   type ArbeitsblattExport,
 } from "@lagekatse/shared";
 import * as Y from "yjs";
+import { api } from "../api";
 import { Lagekarte } from "../lagekarte/Lagekarte";
 import type { Session } from "../session";
 import { connectModule } from "../sync/provider";
 import { uid } from "../uid";
 import { dug } from "../dug";
+import { Wetter } from "./Wetter";
 
 const EMPTY_SHEET: ArbeitsblattState = {
   kopf: {
@@ -60,6 +65,7 @@ const EMPTY_SHEET: ArbeitsblattState = {
     eigeneFunktion: "",
   },
   organigramm: [],
+  wetter: null,
 };
 
 function stringValue(map: Y.Map<unknown>, field: string): string {
@@ -87,6 +93,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   const organisationRef = useRef<Y.Map<unknown> | null>(null);
   const organigrammRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const gefahrenRef = useRef<Y.Map<unknown> | null>(null);
+  const wetterRef = useRef<Y.Map<unknown> | null>(null);
   const writable = canWrite(session.roles, "arbeitsblatt", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
   });
@@ -102,6 +109,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     const organisation = doc.getMap<unknown>(AB_ORGANISATION);
     const organigramm = doc.getArray<Y.Map<unknown>>(AB_ORGANIGRAMM);
     const gefahren = doc.getMap<unknown>(AB_GEFAHREN);
+    const wetter = doc.getMap<unknown>(AB_WETTER);
 
     kopfRef.current = kopf;
     fuehrungRef.current = fuehrung;
@@ -111,6 +119,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     organisationRef.current = organisation;
     organigrammRef.current = organigramm;
     gefahrenRef.current = gefahren;
+    wetterRef.current = wetter;
 
     const readSheet = (): ArbeitsblattState => ({
       kopf: {
@@ -142,6 +151,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
       organigramm: organigramm
         .toArray()
         .map((row) => row.toJSON() as AbOrganigrammzeile),
+      wetter: (wetter.get(AB_WETTER_SNAPSHOT) as AbWetterSnapshot | undefined) ?? null,
     });
 
     const refresh = () => setSheet(readSheet());
@@ -158,6 +168,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
       organisationRef.current = null;
       organigrammRef.current = null;
       gefahrenRef.current = null;
+      wetterRef.current = null;
       conn.destroy();
     };
   }, [session.room.id, session.token]);
@@ -170,6 +181,23 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   const setGefahr = (key: AbGefahrKey, posten: AbGefahr) => {
     if (!writable) return;
     gefahrenRef.current?.set(key, posten);
+  };
+
+  // Wetter-Snapshot als atomarer Whole-Value-Posten schreiben (Invariante #1):
+  // ein Key ⇒ konkurrierende Abrufe settlen per LWW, nie gemischte Teilstände.
+  const setWetter = (snapshot: AbWetterSnapshot) => {
+    if (!writable) return;
+    wetterRef.current?.set(AB_WETTER_SNAPSHOT, snapshot);
+  };
+
+  // "Aktuelle Wetterdaten ins ETB": server-autoritativer Eintrag (Invariante #6);
+  // der Server vergibt lfdNr/zeit/bearbeiter, wir liefern nur den Inhalt.
+  const writeWetterEtb = async (inhalt: string) => {
+    if (!writable) return;
+    await api.createEtbEntry(session.room.joinCode, session.token, {
+      inhalt,
+      von: "DWD/BrightSky",
+    });
   };
 
   const setFuehrungField = (
@@ -819,6 +847,14 @@ export function Arbeitsblatt({ session }: { session: Session }) {
           </div>
         </div>
       </section>
+
+      <Wetter
+        snapshot={sheet.wetter}
+        writable={writable}
+        roomId={session.room.id}
+        onSnapshot={setWetter}
+        onWriteEtb={writeWetterEtb}
+      />
     </div>
   );
 }

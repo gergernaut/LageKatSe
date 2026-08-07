@@ -20,6 +20,8 @@ import {
   AB_ORGANIGRAMM,
   AB_ORGANISATION,
   AB_RUECKMELD,
+  AB_WETTER,
+  AB_WETTER_SNAPSHOT,
   ETB_ENTRIES,
   LAGEKARTE_FEATURES,
   type LogEntry,
@@ -79,6 +81,7 @@ function extractArbeitsblatt(doc: Y.Doc) {
   const nachforderung = doc.getArray<Y.Map<unknown>>(AB_NACHFORDERUNG);
   const organisation = doc.getMap<unknown>(AB_ORGANISATION);
   const organigramm = doc.getArray<Y.Map<unknown>>(AB_ORGANIGRAMM);
+  const wetter = doc.getMap<unknown>(AB_WETTER);
 
   return {
     format: AB_EXPORT_FORMAT,
@@ -110,6 +113,7 @@ function extractArbeitsblatt(doc: Y.Doc) {
         eigeneFunktion: stringValue(organisation, "eigeneFunktion"),
       },
       organigramm: organigramm.toJSON(),
+      wetter: wetter.get(AB_WETTER_SNAPSHOT) ?? null,
     },
   };
 }
