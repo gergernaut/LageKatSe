@@ -56,6 +56,7 @@ function connect(roomId, token) {
     kopf: doc.getMap("kopf"),
     fuehrung: doc.getArray("fuehrungsvorgang"),
     gefahren: doc.getMap("gefahren"),
+    wetter: doc.getMap("wetter"),
   };
 }
 
@@ -103,35 +104,52 @@ async function main() {
   W.fuehrung.push([row]);
   // Feld B: mark a hazard (gefahren Y.Map, whole-value posten).
   W.gefahren.set("atemgifte", { betroffen: true, notiz: "Rauchgas" });
+  // Rückseite: Wetter-Snapshot als atomarer Whole-Value-Posten unter "snapshot".
+  W.wetter.set("snapshot", {
+    fetchedAt: "2026-08-07T09:30:00.000Z",
+    lat: 51.5,
+    lon: 7.5,
+    stationName: "Dortmund",
+    current: { temperature: 18, windSpeed: 12, windDirection: 225, windGust: 25, precipitation: 0, cloudCover: 25, pressure: 1022, humidity: 66, condition: "dry", icon: "partly-cloudy-day" },
+    forecast: [],
+    alerts: [],
+  });
   await sleep(900);
 
   const stichwort = O.kopf.get("einsatzstichwort");
   const firstRow = O.fuehrung.length > 0 ? O.fuehrung.get(0) : null;
   const bedroht = firstRow ? firstRow.get("bedrohtesObjekt") : null;
   const gefahr = O.gefahren.get("atemgifte");
-  console.log("observer sieht:", { stichwort, rows: O.fuehrung.length, bedroht, gefahr });
+  const wetter = O.wetter.get("snapshot");
+  console.log("observer sieht:", { stichwort, rows: O.fuehrung.length, bedroht, gefahr, wetter });
   const test1 =
     stichwort === "Wohnungsbrand B3" &&
     O.fuehrung.length === 1 &&
     bedroht === "Person im 2. OG" &&
     !!gefahr &&
     gefahr.betroffen === true;
+  const test3 =
+    !!wetter && wetter.stationName === "Dortmund" && wetter.current?.temperature === 18;
 
-  // Monitor tries to overwrite the header field — must be dropped server-side.
+  // Monitor tries to overwrite the header field AND the weather snapshot — both
+  // must be dropped server-side.
   M.kopf.set("einsatzstichwort", "MONITOR HACK");
+  M.wetter.set("snapshot", { stationName: "HACK" });
   await sleep(900);
   const afterHack = O.kopf.get("einsatzstichwort");
-  console.log("nach Monitor-Write:", afterHack);
-  const test2 = afterHack === "Wohnungsbrand B3";
+  const wetterAfterHack = O.wetter.get("snapshot");
+  console.log("nach Monitor-Write:", { afterHack, station: wetterAfterHack?.stationName });
+  const test2 = afterHack === "Wohnungsbrand B3" && wetterAfterHack?.stationName === "Dortmund";
 
   console.log(`[${test1 ? "PASS" : "FAIL"}] S3 setzt Kopf-Feld + Führungsvorgang-Zeile + Gefahr → Observer sieht sie (Sync)`);
-  console.log(`[${test2 ? "PASS" : "FAIL"}] Monitor-Write auf arbeitsblatt blockiert (Rechte)`);
+  console.log(`[${test3 ? "PASS" : "FAIL"}] S3 setzt Wetter-Snapshot → Observer sieht ihn (Sync)`);
+  console.log(`[${test2 ? "PASS" : "FAIL"}] Monitor-Write auf arbeitsblatt (Kopf + Wetter) blockiert (Rechte)`);
 
   W.provider.destroy();
   O.provider.destroy();
   M.provider.destroy();
   await sleep(150);
-  process.exit(test1 && test2 ? 0 : 1);
+  process.exit(test1 && test2 && test3 ? 0 : 1);
 }
 
 main().catch((err) => {
