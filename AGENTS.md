@@ -17,8 +17,13 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   `index.ts` (Bootstrap + Shutdown), `http.ts` (REST: Räume, Join, autoritatives ETB-Anlegen),
   `sync/gateway.ts` (Auth + WS-Upgrade), `sync/room-hub.ts` (Yjs-Docs, Persistenz, Fan-out),
   `store/` (`memory` | `postgres`).
-- `packages/web` — `@lagekatse/web`: React/Vite-SPA. `lobby/`, `uebersicht/`, `lagekarte/`,
-  `etb/`, `sync/provider.ts` (`connectModule`).
+- `packages/web` — `@lagekatse/web`: React/Vite-SPA. `lobby/`, `uebersicht/`, `lagekarte/`
+  (Karte + `Palette.tsx` + DWD-Regenradar/KONRAD3D-Overlays), `etb/`,
+  `arbeitsblatt/` (`Arbeitsblatt.tsx`, `Wetter.tsx`), `sync/provider.ts` (`connectModule`).
+  Client-Utilities: `wetter.ts` (BrightSky-Abruf), `pdf.ts` (`etbToPdf`/`arbeitsblattToPdf`
+  via pdf-lib, Schrift `public/fonts/DejaVuSans.ttf`), `exportAll.ts` (Gesamt-Export als
+  ZIP via fflate), `dug.ts` (Datum-Uhrzeit-Gruppe für Dateinamen), `format.ts`
+  (`formatDateTime`, geteilt von CSV/ZIP/PDF).
 - **Aktivitäts-Dots (#32):** server-authored, nicht-persistierter **`activity`**-Kanal
   (`shared/src/activity.ts`) signalisiert Modul-Änderungen; `RoomHub.bumpActivity` (gedrosselt)
   zählt hoch, das Gateway führt ihn **read-only**, `useRoomActivity` zeigt Dots am Rail. Der
@@ -37,7 +42,8 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   Start** gelesen — nach Änderung Dev neu starten.
 
 ## Code-Stil
-- TypeScript strict; React 18 + Leaflet + Yjs (Web), Fastify + `ws` + Yjs (Server).
+- TypeScript strict; React 19 + Vite + Leaflet + Yjs (Web; PDF via pdf-lib/@pdf-lib/fontkit,
+  ZIP via fflate), Fastify + `ws` + Yjs (Server).
 - **Deutsch** für UI-Text und Domänenbegriffe (Stabsraum, Lagekarte, …), **englische**
   Identifier.
 - **Inline-Kommentare erlaubt** und genutzt — knapp, nur wo nicht selbsterklärend; vorhandene

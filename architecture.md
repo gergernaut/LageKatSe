@@ -1,7 +1,7 @@
 # LageKatSe – Architektur- und Fachkonzept
 
 > Modulare, browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz.
-> Version 0.3 · Stand: 2026-08-01 · Konzept + Umsetzungsstand bis **M3 (Taktisches Arbeitsblatt)**
+> Version 0.4 · Stand: 2026-08-07 · Konzept + Umsetzungsstand: **M0–M3 komplett inkl. Phase-2-Ausbau, M4 (Härtung & Ausbau) angelaufen — PDF-Export ausgeliefert**
 
 Dieses Dokument überführt das Brainstorming (`LageKatSe.txt`) in ein tragfähiges technisches Konzept.
 Es beschreibt Zielbild, Architektur, Datenmodell, Rechtemodell und einen Umsetzungsfahrplan.
@@ -392,7 +392,9 @@ Das Herzstück: eine OpenStreetMap-Karte, auf der der Stab die Lage grafisch fü
 
 ### 8.1 Funktionsumfang
 
-- **OSM-Grundkarte** (Leaflet), frei verschieb-/zoombar.
+- **OSM-Grundkarte** (Leaflet), frei verschieb-/zoombar. **Kartenansicht-Persistenz:**
+  Mitte + Zoom werden **pro Raum** betrachter-lokal (localStorage) gemerkt und überleben
+  Modul-Wechsel und Reload (client-lokal, nicht im CRDT — wie E9/§8.3).
 - **DWD-Regenradar (optional):** schaltbares WMS-Overlay des Deutschen Wetterdienstes
   (`dwd:Niederschlagsradar`, `maps.dwd.de`), **client-lokaler Toggle** (localStorage, nicht im CRDT
   — wie die Symbolgröße, §8.3/E9; wirkt daher auch für den Nur-Lese-Monitor). Bild-Kacheln kommen
@@ -406,8 +408,10 @@ Das Herzstück: eine OpenStreetMap-Karte, auf der der Stab die Lage grafisch fü
   Bildlayer, um die Zellfarben nicht zu uebermalen. Wie das Regenradar
   **client-lokal** (localStorage, nicht im CRDT; wirkt auch fuer den Nur-Lese-Monitor).
   Bild-Kacheln direkt vom DWD (kein Server/CORS). Quelle: Deutscher Wetterdienst.
-- **Taktische Zeichen (DV 102) platzieren:** aus einer durchsuchbaren Symbol-Palette per
-  Klick auf die Karte setzen; verschieben (Drag), beschriften, löschen. *(Drehen ist im
+- **Taktische Zeichen (DV 102) platzieren:** aus einer durchsuchbaren, **nach Typ
+  gruppierten** Symbol-Palette (Untermenüs je Organisation — `Org_Typ`-Kategorien werden
+  unter dem Typ einsortiert, 34 → 12 Top-Level) per Klick auf die Karte setzen;
+  verschieben (Drag), beschriften, löschen. *(Drehen ist im
   Datenmodell vorgesehen/gerendert, aber noch ohne Bearbeitungs-UI.)*
 - **Symbolgröße = globaler Darstellungs-Slider pro Betrachter, nicht pro Symbol.** Die
   DV-102-Zeichen sind alle gleich groß, und Größe ist nicht bedeutungstragend; der Bedarf ist
@@ -587,8 +591,8 @@ Lfd.Nr;Zeit;Richtung;Von;An;Weg;Inhalt;Veranlassung;Erledigt;Bearbeiter
 
 > Trennzeichen `;` und UTF-8-BOM für reibungsloses Öffnen in deutschem Excel.
 
-> **Stand M2:** **Export umgesetzt** (`;`, UTF-8-BOM, Feld-Quoting, voller Zeitstempel,
-> Storno-Kennzeichnung). **CSV-Import** ist zurückgestellt.
+> **Export umgesetzt** (`;`, UTF-8-BOM, Feld-Quoting, voller Zeitstempel, Storno-Kennzeichnung).
+> Zusätzlich **PDF-Export** (A4 quer, client-seitig via pdf-lib; §10.4). **CSV-Import** ist zurückgestellt.
 
 ---
 
@@ -597,10 +601,14 @@ Lfd.Nr;Zeit;Richtung;Von;An;Weg;Inhalt;Veranlassung;Erledigt;Bearbeiter
 Digitale Abbildung des **Taktischen Arbeitsblatts (IdF NRW, DIN A4)** – ein strukturiertes Formular
 rund um ein eingebettetes Lagebild. Alle Felder werden zwischen den Teilnehmern synchronisiert.
 
-> **In M3 umgesetzt** (Vorderseite): Felder A, C, D, E, F live-synchron (Feld-/Zeilen-Level-Merge),
+> **Umgesetzt** (Vorderseite): Felder A, C, D, E, F live-synchron (Feld-/Zeilen-Level-Merge),
 > Feld B als eingebettete read-only Lagekarte **plus Gefahren-Randfelder (4 A – 1 C – 4 E)**,
-> JSON-Export. Zurückgestellt (Phase 2): JSON-Import & Karte aus dem Arbeitsblatt bearbeiten (#41),
-> PDF-Export, Rückseite (#42, E7).
+> **JSON-Export *und* -Import** (Import validiert gegen das Schema und spielt als **eine**
+> CRDT-Transaktion ein, nur Schreibberechtigte, mit Bestätigungsdialog) sowie **PDF-Export**
+> (client-seitig via pdf-lib). Aus der Rückseite (#42) ist die **Wetter-Sektion** umgesetzt
+> (DWD/BrightSky, s. §10.5); ABC/MANV/Dekon wurden verworfen (#42 geschlossen).
+> **Verworfen:** Karte aus dem Arbeitsblatt heraus bearbeiten (#41 — das eingebettete
+> Kartenfeld ist zu klein, die Werkzeugleiste zu groß → Feld B bleibt read-only).
 
 ### 10.1 Feldaufteilung (Vorderseite, gemäß IdF-Vorlage)
 
@@ -675,11 +683,31 @@ interface Arbeitsblatt {
 }
 ```
 
-### 10.4 Export
+### 10.4 Export / Import
 
-- **JSON** (vollständiger Formularzustand) für Sicherung/Weitergabe. **(umgesetzt in M3)** –
+- **JSON-Export** (vollständiger Formularzustand) für Sicherung/Weitergabe. **(umgesetzt)** –
   Envelope `{ format: "lagekatse.arbeitsblatt", version: 1, exportedAt, sheet }`.
-- **PDF** (Phase 2): Ausfüllen der amtlichen AcroForm-Felder der Original-Vorlage für den Druck.
+- **JSON-Import** **(umgesetzt)** – Gegenstück zum Export: validiert die Datei gegen das Envelope-
+  Schema und spielt sie als **eine** `doc.transact()` ein (ersetzt den gesamten, geteilten Stand;
+  nur Schreibberechtigte; vorher Bestätigungsdialog, da der Replace für alle im Stabsraum wirkt).
+- **PDF-Export** **(umgesetzt, M4)** – client-seitige Erzeugung mit **pdf-lib** (A4 hoch, Abschnitte
+  A–F + Wetter, eingebettete DejaVu-Sans-Schrift für Umlaute/Sonderzeichen, Tabellen mit Wort-Umbruch
+  und Paginierung). Bewusst **kein** Ausfüllen amtlicher AcroForm-Vorlagen (robust, keine Vorlagen-/
+  Lizenz-Abhängigkeit); ETB und Arbeitsblatt teilen `packages/web/src/pdf.ts` (pdf-lib wird erst beim
+  Klick per dynamischem `import()` geladen).
+
+### 10.5 Rückseite: Wetter (DWD/BrightSky) — umgesetzt
+
+Aus der zurückgestellten Rückseite (#42) ist nur der **Wetter-Teil** umgesetzt (ABC/MANV/Dekon
+verworfen). Für die **Kartenmitte des Lagebilds** (kein Geocoding) werden über **BrightSky**
+(DWD OpenData, CORS-offen, ohne Schlüssel) abgerufen: aktuelle Werte, 4-Stunden-Vorhersage und
+aktive **DWD-Warnungen**. Der Snapshot liegt als **atomarer Whole-Value-Posten** im
+`arbeitsblatt`-Doc (top-level `wetter`-`Y.Map`, ein Key) — **geteilt**: ein Schreibberechtigter
+ruft ab, alle (auch der Nur-Lese-Monitor) sehen denselben Stand; leiser Auto-Refresh bei
+Veralterung. Ein Button **„aktuelle Wetterdaten ins ETB eintragen"** legt einen ETB-Eintrag an
+(server-autoritativ, §9). Neue Warnungen lösen einen aktiven Hinweis aus (Banner + der ohnehin
+entstehende Aktivitäts-Dot; OS-Notification nur im secure context). Reine Client-Funktion
+(`packages/web/src/wetter.ts`), keine Server-Änderung.
 
 ---
 
@@ -760,14 +788,17 @@ schlankes, **server-authored, nicht-persistiertes** Signal:
 | Modul | Export | Import | Rechte |
 |-------|--------|--------|--------|
 | Lagekarte | JSON (GeoJSON-nah) | JSON | Schreib-Scope `lagekarte` |
-| Einsatztagebuch | CSV (+ PDF opt.) | CSV | Schreib-Scope `etb` |
-| Arbeitsblatt | JSON (+ PDF opt.) | JSON | Schreib-Scope `arbeitsblatt` |
-| **Ganzer Stabsraum** | JSON-Bundle (alle Module) | JSON-Bundle | S-Rolle |
+| Einsatztagebuch | **CSV, PDF** | CSV *(offen)* | Schreib-Scope `etb` |
+| Arbeitsblatt | **JSON, PDF** | **JSON** | Schreib-Scope `arbeitsblatt` |
+| **Ganzer Stabsraum** | **ZIP** (Lagekarte-JSON + ETB-CSV + Arbeitsblatt-JSON) | *(offen)* | S-Rolle |
 
-- **Client-seitiger Download/Upload** über die HTTP-API; Import validiert gegen ein JSON-Schema und
-  wird als CRDT-Transaktion eingespielt (damit sauber synchronisiert).
-- Ein **Stabsraum-Bundle** (alle Module in einer Datei) erlaubt Backup/Weitergabe einer kompletten
-  Lage – nützlich für Übungsnachbereitung.
+- **Client-seitiger Download/Upload**; JSON-Import validiert gegen ein Schema und wird als **eine**
+  CRDT-Transaktion eingespielt (damit sauber synchronisiert). **Umgesetzt:** Lagekarte-Im-/Export,
+  ETB-CSV/-PDF, Arbeitsblatt-JSON-Im-/Export + -PDF, Gesamt-Export als **ZIP** auf der Übersicht
+  (`packages/web/src/exportAll.ts`, via `fflate`). Dateinamen tragen eine **Datum-Uhrzeit-Gruppe**
+  (DUG, z.B. `…-071930Aug26.…`; `dug.ts`).
+- **Offen:** CSV-Import (ETB) und ein Stabsraum-**Bundle-Import** (das ZIP dient bisher Backup/
+  Weitergabe/Übungsnachbereitung, wird aber noch nicht re-importiert).
 
 ---
 
@@ -866,7 +897,7 @@ Stand der Entscheidungen (2026-07-29 mit K. Kelker geklärt) — ✅ = entschied
 | E4 | Lizenz DV-102-SVG-Bibliothek | ✅ Geklärt (M1): [jonas-koeritz/Taktische-Zeichen](https://github.com/jonas-koeritz/Taktische-Zeichen) v2.0.0, **CC0/gemeinfrei** (s. §8.2) |
 | E5 | Konflikt beim Verschieben | ✅ Umgesetzt (M1): **Whole-Value-LWW pro Feature** (§8.3); feldweises Merge ggf. später, Nutzer-Test offen |
 | E6 | Leaflet vs. MapLibre | ✅ Leaflet (in M1 ausgeliefert) |
-| E7 | Rückseite Arbeitsblatt (ABC/MANV/Wetter) | ▫ Phase 2 |
+| E7 | Rückseite Arbeitsblatt (ABC/MANV/Wetter) | ✅ Wetter umgesetzt (§10.5, DWD/BrightSky); ABC/MANV/Dekon verworfen (#42 geschlossen) |
 | E8 | Nutzerkonten statt Raumcode? | ✅ Vorerst **Raumcode**, keine Accounts in M0; Accounts erst bei raumübergreifender Historie |
 | E9 | Symbolgröße pro Symbol oder global? | ✅ **Global pro Betrachter** (lokaler Slider, `localStorage`); `SymbolFeature.scale` entfernt – Größe ist bei DV-102 nicht bedeutungstragend, Bedarf = Lesbarkeit (Beamer/Tablet) und muss auch für den RO-Monitor gehen. Rotation bleibt pro Symbol (§8.1/§8.3) |
 | E10 | Alte Räume bei Postgres-Persistenz | ✅ **Automatische Inaktivitäts-Retention** (konfigurierbare Frist auf `last_active_at`, geplanter Cascade-DELETE) statt Admin-Portal; **vor** dem Löschen Stabsraum-Bundle-Export (§12), optional Self-Service „Lage abschließen" durch S-Rollen (kein Admin-Account nötig, passt zu E8); Ops-CLI fürs Betreiben. Admin-Web-Portal erst mit Admin-Auth (M4). ⚠️ **Retention-Frist mit Zielgruppe klären** (eine Lage kann Wochen dauern) — nur Postgres-Deploy. Vorarbeit: `last_active_at` auch bei Aktivität bumpen (§14) |
@@ -904,10 +935,19 @@ Iterativ, jede Stufe für sich lauffähig und demonstrierbar.
 - JSON-Export; **keine** server-autoritativen Felder → reine Client-CRDT-Writes (kein eigener Endpoint)
 - **Ergebnis:** Alle drei Kern-Module vollständig.
 
-### M4 – Härtung & Ausbau
-- Offline-Robustheit, Auth-Proxy/SSO-Anbindung, Retention/Löschkonzept (E10 / §14), Admin-Auth (Vorbedingung für ein Admin-Portal)
-- PDF-Export (ETB, Arbeitsblatt), Stabsraum-Bundle-Export
-- Ausbaustufen: Live-Cursor, Arbeitsblatt-Rückseite, eigener Tile-Server
+### Phase-2-Ausbau — ✅ umgesetzt
+Nach den drei Kern-Modulen ausgeliefert: Gefahren-Randfelder (Feld B), DWD-Regenradar + KONRAD3D
+(inkl. Zell-Info per GetFeatureInfo), Kartenansicht-Persistenz pro Raum, Palette-Untermenüs (34 → 12),
+Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Import**, **Wetter-Rückseite**
+(DWD/BrightSky, §10.5). Damit ist #42 (nur Wetter) abgeschlossen und #41 erledigt.
+
+### M4 – Härtung & Ausbau — angelaufen
+- ✅ **PDF-Export** (ETB + Arbeitsblatt, client-seitig via pdf-lib; §9.5/§10.4)
+- ✅ **Gesamt-Export** als ZIP (§12) — Bundle-*Import* noch offen
+- ⏳ Offen: Rate-Limiting (§14), Reverse-Proxy/TLS-Betrieb (§16), Retention/Löschkonzept (E10 / §14),
+  Auth-Proxy/SSO-Anbindung, Admin-Auth (Vorbedingung Admin-Portal), Offline-Robustheit
+- ⏳ Tech-Debt: echtes Test-Framework (bisher nur handgeschriebene `.mjs`-Smoke-Tests)
+- ⏳ Ausbaustufen: Live-Cursor, eigener Tile-Server, DV-102-Rotations-UI
 
 ---
 
