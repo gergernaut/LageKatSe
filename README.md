@@ -160,8 +160,10 @@ Einsatztagebuch (ETB), in das der Stab ein- und ausgehende Meldungen führt.
   durchgestrichen), damit die Lfd-Nr.-Kette lückenlos bleibt.
 - **Rechte.** Schreiben darf, wer den Scope `etb` hat (Einsatztagebuchführer/S-Rollen);
   Nur-Lese-Rollen sehen die Tabelle ohne Editier-Steuerelemente (serverseitig erzwungen).
-- **JSON- und PDF-Export.** Das **JSON** ist verlustfrei (inkl. `lfdNr`/`zeit`/`storniert`)
-  und die per Bundle-Import wieder einspielbare Form. Das **PDF** (A4 quer) wird
+- **JSON-Im-/Export und PDF-Export** (wie beim Arbeitsblatt). Das **JSON** ist verlustfrei
+  (inkl. `lfdNr`/`zeit`/`storniert`); der **JSON-Import** ersetzt das ETB **server-autoritativ**
+  (`/etb/import`, nur S-Rollen, Invariante #6) — dieselbe Form spielt auch der Bundle-Import ein.
+  Das **PDF** (A4 quer) wird
   client-seitig mit pdf-lib erzeugt (eingebettete Schrift für Umlaute/Sonderzeichen,
   Wort-Umbruch, Paginierung) — für Ablage und Übergabe. (Der frühere CSV-Export
   entfiel mit #71 zugunsten von JSON + PDF, wie beim Arbeitsblatt.)

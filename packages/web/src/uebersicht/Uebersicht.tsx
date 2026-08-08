@@ -120,18 +120,18 @@ export function Uebersicht({
             disabled={exporting}
             title="Alle Module als ZIP exportieren"
           >
-            {exporting ? "Exportiere…" : "Gesamt-Export"}
+            {exporting ? "Exportiere…" : "Bundle-Export"}
           </button>
           {canImport && (
             <>
               <button
-                className="btn btn--ghost"
+                className="btn btn--primary"
                 type="button"
                 onClick={() => importInputRef.current?.click()}
                 disabled={importing}
                 title="Ein exportiertes Bundle (ZIP) einspielen — ersetzt den geteilten Stand"
               >
-                {importing ? "Importiere…" : "Bundle importieren"}
+                {importing ? "Importiere…" : "Bundle-Import"}
               </button>
               <input
                 ref={importInputRef}
