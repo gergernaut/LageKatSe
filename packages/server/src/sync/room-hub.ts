@@ -138,6 +138,34 @@ export class RoomHub {
     return entry;
   }
 
+  /**
+   * Ersetzt das gesamte Einsatztagebuch server-autoritativ (Bundle-Import, #71,
+   * architecture.md §12). Wie `appendEtbEntry` läuft alles in **einer**
+   * SERVER_ORIGIN-Transaktion (Invariante #6: der Server, nicht der Client, schreibt
+   * ETB-Einträge). Die Einträge werden **originalgetreu** übernommen (id/lfdNr/zeit/
+   * storniert), nur nach `lfdNr` sortiert, damit die laufende Nummer monoton bleibt;
+   * ein Folge-`appendEtbEntry` zählt korrekt weiter (es liest maxLfdNr live). Die
+   * Persistenz läuft über den vorhandenen doc.on("update")-Pfad (Invariante #5).
+   */
+  async replaceEtbEntries(roomId: string, entries: LogEntry[]): Promise<number> {
+    const md = await this.getDoc(roomId, "etb");
+    const arr = md.doc.getArray<Y.Map<unknown>>(ETB_ENTRIES);
+    const sorted = [...entries].sort((a, b) => a.lfdNr - b.lfdNr);
+
+    md.doc.transact(() => {
+      arr.delete(0, arr.length);
+      for (const entry of sorted) {
+        const yEntry = new Y.Map<unknown>();
+        for (const [key, value] of Object.entries(entry)) yEntry.set(key, value);
+        arr.push([yEntry]);
+      }
+    }, SERVER_ORIGIN);
+
+    void this.bumpActivity(roomId, "etb", "Einsatztagebuch importiert");
+
+    return sorted.length;
+  }
+
   async bumpActivity(roomId: string, module: Module, summary = ""): Promise<void> {
     const key = docKey(roomId, module);
     const now = Date.now();
