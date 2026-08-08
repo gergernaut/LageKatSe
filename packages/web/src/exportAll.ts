@@ -1,7 +1,8 @@
 /**
  * Gesamt-Export: verbindet sich mit jedem Modul-Dokument, extrahiert die
- * Daten im jeweiligen Format (Lagekarte JSON, ETB CSV, Arbeitsblatt JSON)
- * und paketiert alles als ZIP-Datei zum Download.
+ * Daten im jeweiligen Format (jeweils verlustfreies JSON) und paketiert alles
+ * als ZIP-Datei zum Download. Gegenstück ist der Bundle-Import (importAll.ts, #71),
+ * daher JSON statt CSV — verlustfrei re-importierbar.
  *
  * Die Verbindung ist kurzlebig: connect → extract → destroy. Die Daten werden
  * aus den bereits vom y-websocket-Provider synchronisierten Yjs-Dokumenten
@@ -23,36 +24,15 @@ import {
   AB_WETTER,
   AB_WETTER_SNAPSHOT,
   ETB_ENTRIES,
+  ETB_EXPORT_FORMAT,
   LAGEKARTE_FEATURES,
+  type EtbExport,
   type LogEntry,
 } from "@lagekatse/shared";
 import type { Session } from "./session";
 import { connectModule } from "./sync/provider";
 import { dug } from "./dug";
-import { formatDateTime } from "./format";
-
-/* ---------- ETB CSV helpers (spiegeln Etb.tsx buildCsv) ---------- */
-
-function csvCell(value: unknown): string {
-  const text = String(value ?? "");
-  return /[;"\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-}
-
-function buildEtbCsv(entries: LogEntry[]): string {
-  const header = [
-    "Lfd.Nr", "Zeit", "Richtung", "Von", "An", "Weg",
-    "Inhalt", "Veranlassung", "Erledigt", "Bearbeiter",
-  ];
-  const rows = entries.map((entry) => {
-    const inhalt = entry.storniert ? `[STORNIERT] ${entry.inhalt}` : entry.inhalt;
-    return [
-      entry.lfdNr, formatDateTime(entry.zeit), entry.richtung,
-      entry.von, entry.an, entry.weg, inhalt, entry.veranlassung,
-      entry.erledigt ? "ja" : "nein", entry.bearbeiter,
-    ].map(csvCell).join(";");
-  });
-  return `\uFEFF${[header.join(";"), ...rows].join("\r\n")}`;
-}
+import { waitForSync } from "./sync/waitForSync";
 
 /* ---------- Arbeitsblatt extraction (spiegelt Arbeitsblatt.tsx) ---------- */
 
@@ -112,23 +92,6 @@ function extractArbeitsblatt(doc: Y.Doc) {
   };
 }
 
-/* ---------- Sync helper: wait for a fresh Yjs doc to receive data ---------- */
-
-function waitForSync(conn: ReturnType<typeof connectModule>, timeoutMs = 5000): Promise<void> {
-  return new Promise((resolve) => {
-    // If already synced (warm connection), resolve immediately.
-    if (conn.provider.synced) {
-      resolve();
-      return;
-    }
-    const timer = window.setTimeout(() => resolve(), timeoutMs);
-    conn.provider.once("sync", () => {
-      window.clearTimeout(timer);
-      resolve();
-    });
-  });
-}
-
 /* ---------- Main export function ---------- */
 
 export async function exportAll(session: Session): Promise<void> {
@@ -163,8 +126,15 @@ export async function exportAll(session: Session): Promise<void> {
       await waitForSync(conn);
       const entries = conn.doc.getArray<Y.Map<unknown>>(ETB_ENTRIES);
       const logEntries = entries.toArray().map((e) => e.toJSON() as LogEntry);
-      const csv = buildEtbCsv(logEntries);
-      files[`einsatztagebuch-${code}-${stamp}.csv`] = new TextEncoder().encode(csv);
+      const payload: EtbExport = {
+        format: ETB_EXPORT_FORMAT,
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        entries: logEntries,
+      };
+      files[`einsatztagebuch-${code}-${stamp}.json`] = new TextEncoder().encode(
+        JSON.stringify(payload, null, 2),
+      );
     } finally {
       conn.destroy();
     }

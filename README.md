@@ -11,11 +11,12 @@ Fach- und Architekturkonzept: **[architecture.md](./architecture.md)**.
 > **DWD-Regenradar** und **KONRAD3D**-Gewitterzellen-Overlay mit Zell-Info per
 > Klick, raumweise gemerkte Kartenansicht), das **Einsatztagebuch** (M2 — Tabelle
 > mit server-vergebener, lückenloser Lfd-Nr. und Serverzeit, Live-Feld-Edits,
-> Storno, **CSV- und PDF-Export**) und das **Taktische Arbeitsblatt** (M3 —
+> Storno, **JSON- und PDF-Export**) und das **Taktische Arbeitsblatt** (M3 —
 > IdF-Vorderseite Felder A–F live-synchron, Gefahren-Randfelder, Feld B als
 > eingebettete read-only Lagekarte, **Wetter-Rückseite** via DWD/BrightSky,
 > **JSON-Export/-Import und PDF-Export**). Auf der Übersicht gibt es einen
-> **Gesamt-Export** (ZIP aller Module). Modulübergreifend zeigt der Rail einen
+> **Gesamt-Export** (ZIP aller Module) und einen **Bundle-Import** (ZIP wieder
+> einspielen, nur S-Rollen). Modulübergreifend zeigt der Rail einen
 > kleinen **Aktivitäts-Punkt**, wenn sich in einem gerade nicht geöffneten Modul
 > etwas tut — und immer auch als **Zähler im Browser-Tab-Titel**. Wo HTTPS/localhost
 > vorhanden ist, gibt es zusätzlich optionale **Desktop-Benachrichtigungen** (pro
@@ -159,10 +160,13 @@ Einsatztagebuch (ETB), in das der Stab ein- und ausgehende Meldungen führt.
   durchgestrichen), damit die Lfd-Nr.-Kette lückenlos bleibt.
 - **Rechte.** Schreiben darf, wer den Scope `etb` hat (Einsatztagebuchführer/S-Rollen);
   Nur-Lese-Rollen sehen die Tabelle ohne Editier-Steuerelemente (serverseitig erzwungen).
-- **CSV- und PDF-Export.** CSV Excel-tauglich (`;`-getrennt, UTF-8-BOM), inkl.
-  vollem Zeitstempel und Storno-Kennzeichnung. Das **PDF** (A4 quer) wird
+- **JSON-Im-/Export und PDF-Export** (wie beim Arbeitsblatt). Das **JSON** ist verlustfrei
+  (inkl. `lfdNr`/`zeit`/`storniert`); der **JSON-Import** ersetzt das ETB **server-autoritativ**
+  (`/etb/import`, nur S-Rollen, Invariante #6) — dieselbe Form spielt auch der Bundle-Import ein.
+  Das **PDF** (A4 quer) wird
   client-seitig mit pdf-lib erzeugt (eingebettete Schrift für Umlaute/Sonderzeichen,
-  Wort-Umbruch, Paginierung) — für Ablage und Übergabe.
+  Wort-Umbruch, Paginierung) — für Ablage und Übergabe. (Der frühere CSV-Export
+  entfiel mit #71 zugunsten von JSON + PDF, wie beim Arbeitsblatt.)
 
 Der ETB-Pfad (autoritatives Anlegen, RO-Sperre, Hot-Join) ist Teil des Sync-Smoke-Tests:
 `node packages/web/scripts/e2e.mjs`.
@@ -195,8 +199,8 @@ Sync und Rechte-Durchsetzung deckt ein Smoke-Test ab:
 ## Nächste Schritte
 
 - ~~**M1** Gemeinsame Lagekarte~~ ✅ umgesetzt (PR #2)
-- ~~**M2** Einsatztagebuch (Tabelle, Auto-Lfd-Nr./Zeit, Storno, CSV/PDF-Export)~~ ✅ umgesetzt (PR #31)
+- ~~**M2** Einsatztagebuch (Tabelle, Auto-Lfd-Nr./Zeit, Storno, JSON/PDF-Export)~~ ✅ umgesetzt (PR #31)
 - ~~**M3** Taktisches Arbeitsblatt (Felder A–F, eingebettetes Live-Lagebild, Gefahren-Randfelder, Wetter, JSON-Im-/Export, PDF)~~ ✅ umgesetzt
-- **M4 — Härtung & Ausbau** (angelaufen): PDF-Export ✅, DWD-Wetter ✅, Gesamt-Export ✅, Rate-Limiting ✅, Test-Framework (Vitest) + CI ✅; **offen:** Reverse-Proxy/TLS-Betrieb, Aufbewahrungs-/Löschkonzept (E10)
+- **M4 — Härtung & Ausbau** (angelaufen): PDF-Export ✅, DWD-Wetter ✅, Gesamt-Export ✅, Bundle-Import ✅, Rate-Limiting ✅, Test-Framework (Vitest) + CI ✅, Startseiten-Disclaimer ✅; **offen:** Reverse-Proxy/TLS-Betrieb, Aufbewahrungs-/Löschkonzept (E10)
 
 Offene Punkte mit ⚠️ in [architecture.md §17](./architecture.md).

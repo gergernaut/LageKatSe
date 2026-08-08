@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canWrite, effectiveWriteScopes, ROLES, type Role } from "./roles";
+import { canWrite, effectiveWriteScopes, hasStabRole, ROLES, type Role } from "./roles";
 import { MODULES, type Module } from "./modules";
 
 const CHAT_ON = { allowMonitorChat: true };
@@ -69,5 +69,23 @@ describe("effectiveWriteScopes / canWrite", () => {
     for (const r of ROLES) {
       expect(() => effectiveWriteScopes([r], CHAT_ON)).not.toThrow();
     }
+  });
+});
+
+describe("hasStabRole (Gate für destruktive Gesamt-Aktionen, z.B. Bundle-Import #71)", () => {
+  it("ist wahr, sobald eine S-Rolle dabei ist", () => {
+    expect(hasStabRole(["S3"])).toBe(true);
+    expect(hasStabRole(["MONITOR", "S1"])).toBe(true);
+  });
+
+  it("ist falsch für reine Modul-/Anzeigerollen", () => {
+    expect(hasStabRole(["LAGEKARTE"])).toBe(false);
+    expect(hasStabRole(["ETB"])).toBe(false);
+    expect(hasStabRole(["MONITOR"])).toBe(false);
+    expect(hasStabRole(["LAGEKARTE", "ETB", "MONITOR"])).toBe(false);
+  });
+
+  it("ist falsch für die leere Rollenliste", () => {
+    expect(hasStabRole([])).toBe(false);
   });
 });

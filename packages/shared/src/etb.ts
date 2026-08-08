@@ -65,3 +65,18 @@ export type EtbEditableField = Exclude<keyof LogEntry, "id" | "lfdNr">;
 export type NewEtbEntryInput = Partial<
   Pick<LogEntry, "richtung" | "von" | "an" | "weg" | "inhalt" | "veranlassung">
 >;
+
+/**
+ * Envelope of the ETB export (Teil des Stabsraum-Bundles, architecture.md §12).
+ * Verlustfrei — anders als der frühere CSV-Export trägt es `id`/`lfdNr`/`zeit`
+ * und `storniert` originalgetreu, damit der Bundle-Import den ETB server-autoritativ
+ * (Invariante #6) wiederherstellen kann.
+ */
+export const ETB_EXPORT_FORMAT = "lagekatse.etb" as const;
+
+export interface EtbExport {
+  format: typeof ETB_EXPORT_FORMAT;
+  version: 1;
+  exportedAt: string; // ISO-8601
+  entries: LogEntry[];
+}
