@@ -19,8 +19,8 @@ Fach- und Architekturkonzept: **[architecture.md](./architecture.md)**.
 > kleinen **Aktivitäts-Punkt**, wenn sich in einem gerade nicht geöffneten Modul
 > etwas tut — und immer auch als **Zähler im Browser-Tab-Titel**. Wo HTTPS/localhost
 > vorhanden ist, gibt es zusätzlich optionale **Desktop-Benachrichtigungen** (pro
-> Nutzer per Glocke aktivierbar). **M4 begonnen:** PDF-Export ausgeliefert; offen
-> u.a. Rate-Limiting, Reverse-Proxy/TLS-Betrieb, Aufbewahrungs-/Löschkonzept.
+> Nutzer per Glocke aktivierbar). **M4 begonnen:** PDF-Export und Rate-Limiting
+> ausgeliefert; offen u.a. Reverse-Proxy/TLS-Betrieb, Aufbewahrungs-/Löschkonzept.
 
 ## Schnellstart
 
@@ -197,6 +197,6 @@ Sync und Rechte-Durchsetzung deckt ein Smoke-Test ab:
 - ~~**M1** Gemeinsame Lagekarte~~ ✅ umgesetzt (PR #2)
 - ~~**M2** Einsatztagebuch (Tabelle, Auto-Lfd-Nr./Zeit, Storno, CSV/PDF-Export)~~ ✅ umgesetzt (PR #31)
 - ~~**M3** Taktisches Arbeitsblatt (Felder A–F, eingebettetes Live-Lagebild, Gefahren-Randfelder, Wetter, JSON-Im-/Export, PDF)~~ ✅ umgesetzt
-- **M4 — Härtung & Ausbau** (angelaufen): PDF-Export ✅, DWD-Wetter ✅, Gesamt-Export ✅; **offen:** Rate-Limiting, Reverse-Proxy/TLS-Betrieb, Aufbewahrungs-/Löschkonzept (E10), Auth-Proxy/SSO, Admin-Auth, echtes Test-Framework
+- **M4 — Härtung & Ausbau** (angelaufen): PDF-Export ✅, DWD-Wetter ✅, Gesamt-Export ✅, Rate-Limiting ✅; **offen:** Reverse-Proxy/TLS-Betrieb, Aufbewahrungs-/Löschkonzept (E10), Auth-Proxy/SSO, Admin-Auth, echtes Test-Framework
 
 Offene Punkte mit ⚠️ in [architecture.md §17](./architecture.md).
