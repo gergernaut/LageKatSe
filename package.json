@@ -13,11 +13,14 @@
     "dev:web": "pnpm --filter @lagekatse/web run dev",
     "build": "pnpm --filter @lagekatse/web run build",
     "typecheck": "pnpm -r run typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down"
   },
   "devDependencies": {
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   },
   "packageManager": "pnpm@9.15.0"
 }
