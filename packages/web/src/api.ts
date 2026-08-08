@@ -41,6 +41,13 @@ export const api = {
       body: JSON.stringify(body),
       headers: { authorization: `Bearer ${token}` },
     }),
+  // Bundle-Import (#71): ersetzt das gesamte ETB server-autoritativ (nur S-Rollen).
+  importEtb: (code: string, token: string, entries: LogEntry[]) =>
+    request<{ count: number }>(`/api/rooms/${encodeURIComponent(code)}/etb/import`, {
+      method: "POST",
+      body: JSON.stringify({ entries }),
+      headers: { authorization: `Bearer ${token}` },
+    }),
 };
 
 /** Derive the WebSocket origin from the HTTP API base. */

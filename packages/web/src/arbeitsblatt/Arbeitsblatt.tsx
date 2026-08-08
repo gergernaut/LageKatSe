@@ -16,10 +16,6 @@ import {
   AB_RUECKMELD,
   AB_WETTER,
   AB_WETTER_SNAPSHOT,
-  asBool,
-  asFunktion,
-  asPrio,
-  asString,
   canWrite,
   isRecord,
   type AbFunktion,
@@ -43,6 +39,7 @@ import { connectModule } from "../sync/provider";
 import { uid } from "../uid";
 import { dug } from "../dug";
 import { Wetter } from "./Wetter";
+import { applyArbeitsblattImport } from "./applyImport";
 
 const EMPTY_SHEET: ArbeitsblattState = {
   kopf: {
@@ -86,17 +83,6 @@ function booleanValue(map: Y.Map<unknown>, field: string): boolean {
 function funktionValue(map: Y.Map<unknown>, field: string): AbFunktion {
   const value = map.get(field);
   return value === "GF" || value === "ZF" || value === "VF" ? value : "";
-}
-
-// Coercion-Helfer (isRecord/asString/asBool/asPrio/asFunktion) für den JSON-Import
-// leben in @lagekatse/shared (dort neben den Domänentypen, wiederverwendbar server-
-// seitig / für Bundle-Import #71) und sind oben importiert.
-
-/** Baut eine Y.Map-Zeile aus einem einfachen Objekt (für die Array-Felder). */
-function rowMap(entries: Record<string, unknown>): Y.Map<unknown> {
-  const map = new Y.Map<unknown>();
-  Object.entries(entries).forEach(([key, value]) => map.set(key, value));
-  return map;
 }
 
 export function Arbeitsblatt({ session }: { session: Session }) {
@@ -434,101 +420,8 @@ export function Arbeitsblatt({ session }: { session: Session }) {
         return;
       }
 
-      const sheet = parsed.sheet;
-      const kopfObj = isRecord(sheet.kopf) ? sheet.kopf : {};
-      const gefahrenObj = isRecord(sheet.gefahren) ? sheet.gefahren : {};
-      const eigeneLageObj = isRecord(sheet.eigeneLage) ? sheet.eigeneLage : {};
-      const organisationObj = isRecord(sheet.organisation) ? sheet.organisation : {};
-      const fuehrungArr = Array.isArray(sheet.fuehrungsvorgang) ? sheet.fuehrungsvorgang : [];
-      const rueckArr = Array.isArray(sheet.rueckmeldungen) ? sheet.rueckmeldungen : [];
-      const nachArr = Array.isArray(sheet.nachforderung) ? sheet.nachforderung : [];
-      const orgaArr = Array.isArray(sheet.organigramm) ? sheet.organigramm : [];
-
-      doc.transact(() => {
-        const kopf = kopfRef.current;
-        const gefahren = gefahrenRef.current;
-        const fuehrung = fuehrungRef.current;
-        const rueck = rueckmeldRef.current;
-        const eigeneLage = eigeneLageRef.current;
-        const nach = nachforderungRef.current;
-        const organisation = organisationRef.current;
-        const organigramm = organigrammRef.current;
-        const wetter = wetterRef.current;
-        if (
-          !kopf || !gefahren || !fuehrung || !rueck || !eigeneLage || !nach ||
-          !organisation || !organigramm || !wetter
-        ) {
-          return;
-        }
-
-        // Feld A: Kopf-Skalare überschreiben
-        AB_KOPF_FIELDS.forEach((f) => kopf.set(f, asString(kopfObj[f])));
-
-        // Feld B: Gefahren ersetzen (leeren, dann gültige Posten setzen)
-        [...gefahren.keys()].forEach((k) => gefahren.delete(k));
-        for (const g of AB_GEFAHREN_KATALOG) {
-          const p = gefahrenObj[g.key];
-          if (isRecord(p) && typeof p.betroffen === "boolean") {
-            const notiz = asString(p.notiz);
-            gefahren.set(g.key, notiz ? { betroffen: p.betroffen, notiz } : { betroffen: p.betroffen });
-          }
-        }
-
-        // Feld C: Führungsvorgang (Array ersetzen)
-        fuehrung.delete(0, fuehrung.length);
-        for (const r of fuehrungArr) {
-          if (!isRecord(r)) continue;
-          fuehrung.push([
-            rowMap({
-              id: asString(r.id) || uid(),
-              bedrohtesObjekt: asString(r.bedrohtesObjekt),
-              wirkung: asString(r.wirkung),
-              prioritaet: asPrio(r.prioritaet),
-              massnahmen: asString(r.massnahmen),
-              erledigt: asBool(r.erledigt),
-            }),
-          ]);
-        }
-
-        // Feld D: Rückmeldungen
-        rueck.delete(0, rueck.length);
-        for (const r of rueckArr) {
-          if (!isRecord(r)) continue;
-          rueck.push([rowMap({ id: asString(r.id) || uid(), text: asString(r.text), erledigt: asBool(r.erledigt) })]);
-        }
-
-        // Feld E: eigene Lage (Skalare) + Nachforderung (Array)
-        eigeneLage.set("auftragMr", asBool(eigeneLageObj.auftragMr));
-        eigeneLage.set("auftragBb", asBool(eigeneLageObj.auftragBb));
-        eigeneLage.set("auftragText", asString(eigeneLageObj.auftragText));
-        eigeneLage.set("kraefteuebersicht", asString(eigeneLageObj.kraefteuebersicht));
-        nach.delete(0, nach.length);
-        for (const r of nachArr) {
-          if (!isRecord(r)) continue;
-          nach.push([rowMap({ id: asString(r.id) || uid(), text: asString(r.text) })]);
-        }
-
-        // Feld F: Organisation (Skalare) + Organigramm (Array)
-        AB_KANAL_FIELDS.forEach((f) => organisation.set(f, asString(organisationObj[f])));
-        organisation.set("eigeneFunktion", asFunktion(organisationObj.eigeneFunktion));
-        organigramm.delete(0, organigramm.length);
-        for (const r of orgaArr) {
-          if (!isRecord(r)) continue;
-          organigramm.push([
-            rowMap({
-              id: asString(r.id) || uid(),
-              rolle: asString(r.rolle),
-              auftrag: asString(r.auftrag),
-              fuehrer: asString(r.fuehrer),
-              rufname: asString(r.rufname),
-            }),
-          ]);
-        }
-
-        // Rückseite: Wetter-Snapshot (Whole-Value) übernehmen oder leeren
-        if (isRecord(sheet.wetter)) wetter.set(AB_WETTER_SNAPSHOT, sheet.wetter);
-        else wetter.delete(AB_WETTER_SNAPSHOT);
-      });
+      // Eine atomare Transaktion, geteilt mit dem Bundle-Import (importAll.ts).
+      applyArbeitsblattImport(doc, parsed.sheet, uid);
 
       setImportMessage("Arbeitsblatt importiert.");
     } catch (err) {
