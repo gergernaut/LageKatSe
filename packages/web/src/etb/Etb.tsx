@@ -1,7 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import {
   canWrite,
   ETB_ENTRIES,
+  ETB_EXPORT_FORMAT,
+  hasStabRole,
+  isRecord,
+  type EtbExport,
   type EtbRichtung,
   type EtbWeg,
   type LogEntry,
@@ -69,11 +73,17 @@ export function Etb({ session }: { session: Session }) {
   const [items, setItems] = useState<LogEntry[]>([]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const entriesRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const writable = canWrite(session.roles, "etb", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
   });
+  // ETB-Import ist destruktiv + server-autoritativ (Invariante #6, /etb/import) →
+  // nur Stabsrollen (wie der Bundle-Import); die reine ETB-Modulrolle bekäme 403.
+  const canImport = hasStabRole(session.roles);
 
   useEffect(() => {
     const conn = connectModule(session.room.id, "etb", session.token);
@@ -119,8 +129,59 @@ export function Etb({ session }: { session: Session }) {
     }
   };
 
-  // PDF-Export (client-seitig, wie CSV). Erzeugt das Dokument on-demand via
-  // pdf.ts; Fehler (z.B. Schrift nicht ladbar) landen in der Statuszeile.
+  // JSON-Export (verlustfrei, Gegenstück zum Import; gleiches Format wie im Bundle).
+  const exportJson = () => {
+    const payload: EtbExport = {
+      format: ETB_EXPORT_FORMAT,
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      entries: items,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `einsatztagebuch-${session.room.joinCode}-${dug()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // JSON-Import: ersetzt das gesamte ETB server-autoritativ (POST /etb/import,
+  // Invariante #6) — nicht clientseitig. Destruktiv, daher window.confirm; nur S-Rollen.
+  const importJson = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget; // vor await sichern (React nullt currentTarget)
+    const file = input.files?.[0];
+    try {
+      if (!file || importing) return;
+      const parsed: unknown = JSON.parse(await file.text());
+      if (!isRecord(parsed) || parsed.format !== ETB_EXPORT_FORMAT || !Array.isArray(parsed.entries)) {
+        setNotice("Import fehlgeschlagen: kein gültiges ETB-Export-Format.");
+        return;
+      }
+      if (
+        !window.confirm(
+          "Das aktuelle Einsatztagebuch wird durch die importierten Einträge ersetzt — für alle im Stabsraum. Fortfahren?",
+        )
+      ) {
+        return;
+      }
+      setImporting(true);
+      setNotice("");
+      setError("");
+      const { count } = await api.importEtb(session.room.joinCode, session.token, parsed.entries as LogEntry[]);
+      setNotice(`${count} Eintr${count === 1 ? "ag" : "äge"} importiert.`);
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : "Import fehlgeschlagen.");
+    } finally {
+      setImporting(false);
+      input.value = "";
+    }
+  };
+
+  // PDF-Export (client-seitig). Erzeugt das Dokument on-demand via pdf.ts;
+  // Fehler (z.B. Schrift nicht ladbar) landen in der Statuszeile.
   const exportPdf = async () => {
     if (pdfBusy) return;
     setPdfBusy(true);
@@ -172,12 +233,28 @@ export function Etb({ session }: { session: Session }) {
           Einsatztagebuch
         </h2>
         <span className="chip etb-hint">Lfd-Nr. &amp; Uhrzeit automatisch</span>
+        {notice && <span className="chip">{notice}</span>}
         {error && (
           <span className="etb-error" role="alert">
             {error}
           </span>
         )}
         <div className="spacer" />
+        {canImport && (
+          <button className="tool" type="button" onClick={() => importInputRef.current?.click()} disabled={importing}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+            </svg>
+            {importing ? "Importiere…" : "Import JSON"}
+          </button>
+        )}
+        <input ref={importInputRef} type="file" accept="application/json,.json" hidden onChange={importJson} />
+        <button className="tool" type="button" onClick={exportJson}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M12 15V3M7 8l5-5 5 5M5 21h14" />
+          </svg>
+          Export JSON
+        </button>
         <button className="tool" type="button" onClick={exportPdf} disabled={pdfBusy}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M6 2h9l5 5v15H6zM14 2v6h6" />
