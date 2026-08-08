@@ -34,9 +34,13 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
 
 ## Bauen & Prüfen
 - **`pnpm typecheck`** (tsc über alle Pakete) und **`pnpm build`** (Web-Prod-Build) müssen
-  grün sein. Es gibt **kein Test-Framework**.
+  grün sein.
+- **`pnpm test`** (Vitest, `vitest run`) für **reine Logik** — Rollen/Rechte (`shared/roles.ts`),
+  Import-Coercion (`shared/arbeitsblatt.ts`), `format`/`dug`, PDF-Textumbruch. Tests liegen als
+  `*.test.ts` **neben** dem Code (Node-Umgebung, kein DOM). Neue reine Helfer bitte mit Test.
 - Smoke-Tests sind handgeschriebene `.mjs` unter `packages/web/scripts/` (`e2e.mjs`,
-  `lagekarte-e2e.mjs`), mit `node` **gegen einen laufenden Server** ausgeführt. Server-Default
+  `lagekarte-e2e.mjs`, `arbeitsblatt-e2e.mjs`, `ratelimit-e2e.mjs`), mit `node` **gegen einen
+  laufenden Server** ausgeführt — sie bleiben **ergänzend** zu den Unit-Tests. Server-Default
   = **Memory-Store** (`pnpm dev:server`); Postgres via `pnpm db:up` + `DATABASE_URL`.
 - Konfiguration: `.env` **im Repo-Root** (Backend via dotenv, Vite via envDir), **einmal beim
   Start** gelesen — nach Änderung Dev neu starten.
