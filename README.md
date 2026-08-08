@@ -197,6 +197,6 @@ Sync und Rechte-Durchsetzung deckt ein Smoke-Test ab:
 - ~~**M1** Gemeinsame Lagekarte~~ ✅ umgesetzt (PR #2)
 - ~~**M2** Einsatztagebuch (Tabelle, Auto-Lfd-Nr./Zeit, Storno, CSV/PDF-Export)~~ ✅ umgesetzt (PR #31)
 - ~~**M3** Taktisches Arbeitsblatt (Felder A–F, eingebettetes Live-Lagebild, Gefahren-Randfelder, Wetter, JSON-Im-/Export, PDF)~~ ✅ umgesetzt
-- **M4 — Härtung & Ausbau** (angelaufen): PDF-Export ✅, DWD-Wetter ✅, Gesamt-Export ✅, Rate-Limiting ✅; **offen:** Reverse-Proxy/TLS-Betrieb, Aufbewahrungs-/Löschkonzept (E10), Auth-Proxy/SSO, Admin-Auth, echtes Test-Framework
+- **M4 — Härtung & Ausbau** (angelaufen): PDF-Export ✅, DWD-Wetter ✅, Gesamt-Export ✅, Rate-Limiting ✅, Test-Framework (Vitest) + CI ✅; **offen:** Reverse-Proxy/TLS-Betrieb, Aufbewahrungs-/Löschkonzept (E10)
 
 Offene Punkte mit ⚠️ in [architecture.md §17](./architecture.md).

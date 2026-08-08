@@ -16,7 +16,12 @@ import {
   AB_RUECKMELD,
   AB_WETTER,
   AB_WETTER_SNAPSHOT,
+  asBool,
+  asFunktion,
+  asPrio,
+  asString,
   canWrite,
+  isRecord,
   type AbFunktion,
   type AbFuehrungszeile,
   type AbGefahr,
@@ -83,22 +88,10 @@ function funktionValue(map: Y.Map<unknown>, field: string): AbFunktion {
   return value === "GF" || value === "ZF" || value === "VF" ? value : "";
 }
 
-// ---- Coercion-Helfer für den JSON-Import (rohe Werte aus der Datei absichern) ----
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-function asString(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-function asBool(value: unknown): boolean {
-  return value === true;
-}
-function asPrio(value: unknown): AbPrioritaet {
-  return value === 1 || value === 2 || value === 3 ? value : "";
-}
-function asFunktion(value: unknown): AbFunktion {
-  return value === "GF" || value === "ZF" || value === "VF" ? value : "";
-}
+// Coercion-Helfer (isRecord/asString/asBool/asPrio/asFunktion) für den JSON-Import
+// leben in @lagekatse/shared (dort neben den Domänentypen, wiederverwendbar server-
+// seitig / für Bundle-Import #71) und sind oben importiert.
+
 /** Baut eine Y.Map-Zeile aus einem einfachen Objekt (für die Array-Felder). */
 function rowMap(entries: Record<string, unknown>): Y.Map<unknown> {
   const map = new Y.Map<unknown>();
