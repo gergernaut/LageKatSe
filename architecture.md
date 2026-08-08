@@ -587,7 +587,9 @@ gewünscht/nötig ist.
 > **JSON-Export** (verlustfrei: `id`/`lfdNr`/`zeit`/`storniert`, Envelope `lagekatse.etb`) — er ist
 > die re-importierbare Form (Bundle, §12). Zusätzlich **PDF-Export** (A4 quer, client-seitig via
 > pdf-lib; §10.4) als Nachweis-Ausdruck. Der frühere **CSV-Export entfiel mit #71** (Vereinheitlichung
-> mit dem Arbeitsblatt: JSON + PDF). Re-Import nur server-autoritativ über den Bundle-Import (§12).
+> mit dem Arbeitsblatt: JSON + PDF). **JSON-Import** (im ETB-Modul und via Bundle) läuft
+> **server-autoritativ** über `POST /etb/import` (nie clientseitig, Invariante #6) und ist nur
+> S-Rollen erlaubt.
 
 ---
 
@@ -783,7 +785,7 @@ schlankes, **server-authored, nicht-persistiertes** Signal:
 | Modul | Export | Import | Rechte |
 |-------|--------|--------|--------|
 | Lagekarte | JSON (GeoJSON-nah) | JSON | Schreib-Scope `lagekarte` |
-| Einsatztagebuch | **JSON, PDF** | via Bundle | Schreib-Scope `etb` (Bundle: S-Rolle) |
+| Einsatztagebuch | **JSON, PDF** | **JSON** (server-autoritativ) / Bundle | S-Rolle |
 | Arbeitsblatt | **JSON, PDF** | **JSON** | Schreib-Scope `arbeitsblatt` |
 | **Ganzer Stabsraum** | **ZIP** (je Modul JSON) | **ZIP (Bundle-Import)** | S-Rolle |
 
