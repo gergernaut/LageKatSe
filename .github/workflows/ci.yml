@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   build:
-    name: typecheck & build
+    name: unit tests, typecheck & build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -28,6 +28,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Vitest-Unit-Tests (reine Logik, kein Server) zuerst — schnelles Feedback.
+      - run: pnpm test
       - run: pnpm typecheck
       - run: pnpm build
 
