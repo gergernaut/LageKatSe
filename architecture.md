@@ -956,7 +956,9 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
   Retention **4 Wochen** (E10) — Details in §14/§17
 - ⏳ Offen: Retention/Löschkonzept umsetzen (#66) + Self-Service „Lage abschließen" (#75),
   Reverse-Proxy/TLS-Betrieb (#65), Offline-Robustheit (#70), Startseiten-Disclaimer (#76)
-- ⏳ Tech-Debt: echtes Test-Framework (#72; bisher nur handgeschriebene `.mjs`-Smoke-Tests)
+- ✅ **Test-Framework** (#72): Vitest (`pnpm test`) für reine Logik (Rollen/Rechte, Import-Coercion,
+  `format`/`dug`, PDF-Umbruch), in CI eingehängt; `.mjs`-Smoke-Tests bleiben ergänzend.
+  Ein UI-Happy-Path via Playwright ist als optionales Follow-up ausgegliedert.
 - ⏳ Ausbaustufen: DV-102-Rotations-UI (#69), Live-Cursor, eigener Tile-Server
 - ❌ Verworfen (per #73): Auth-Proxy/SSO als Pflicht (#67, optional bleibt möglich), Admin-Auth/-Portal (#68)
 

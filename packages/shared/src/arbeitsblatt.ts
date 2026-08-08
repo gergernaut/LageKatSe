@@ -279,3 +279,26 @@ export interface ArbeitsblattExport {
   exportedAt: string; // ISO-8601
   sheet: Arbeitsblatt;
 }
+
+// ---- Coercion-Helfer für den JSON-Import (rohe Werte aus Fremddateien absichern) ----
+/**
+ * Defensive Konvertierungen für unvertraute Eingaben (JSON-Import §10.4, später
+ * Bundle-Import #71). Bewusst hier in `shared` neben den Domänentypen, die sie
+ * erzeugen — so nutzbar von Client **und** Server. Jede fällt auf einen sicheren
+ * Default zurück, statt zu werfen: ein defektes Feld darf den Import nicht kippen.
+ */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+export function asString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+export function asBool(value: unknown): boolean {
+  return value === true;
+}
+export function asPrio(value: unknown): AbPrioritaet {
+  return value === 1 || value === 2 || value === 3 ? value : "";
+}
+export function asFunktion(value: unknown): AbFunktion {
+  return value === "GF" || value === "ZF" || value === "VF" ? value : "";
+}

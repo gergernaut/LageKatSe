@@ -72,7 +72,8 @@ const COLS: Col[] = [
 ];
 
 /** Wort-Umbruch auf eine maximale Breite; sehr lange Wörter werden hart getrennt. */
-function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
+// Exportiert für Unit-Tests (nur `widthOfTextAtSize` von PDFFont wird genutzt).
+export function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const out: string[] = [];
   for (const rawLine of String(text ?? "").split("\n")) {
     const words = rawLine.split(/\s+/).filter(Boolean);
