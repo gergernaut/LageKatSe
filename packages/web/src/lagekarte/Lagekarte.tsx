@@ -5,6 +5,12 @@ import "@geoman-io/leaflet-geoman-free";
 import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
 import type { Map as YMap, YMapEvent } from "yjs";
 import { canWrite, LAGEKARTE_FEATURES, type MapFeature } from "@lagekatse/shared";
+import {
+  applyLagekarteImport,
+  isCoordinate,
+  isRecord,
+  parseLagekarteFeatures,
+} from "./applyImport";
 import type { Session } from "../session";
 import { connectModule } from "../sync/provider";
 import { uid } from "../uid";
@@ -43,21 +49,6 @@ function clampSymbolSize(value: number): number {
   return Math.min(SYMBOL_SIZE_MAX, Math.max(SYMBOL_SIZE_MIN, value));
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isCoordinate(value: unknown): value is [number, number] {
-  return (
-    Array.isArray(value) &&
-    value.length === 2 &&
-    typeof value[0] === "number" &&
-    Number.isFinite(value[0]) &&
-    typeof value[1] === "number" &&
-    Number.isFinite(value[1])
-  );
-}
-
 const MAP_VIEW_KEY_PREFIX = "lagekatse.mapView.";
 
 interface StoredMapView {
@@ -93,24 +84,6 @@ function saveMapView(roomId: string, center: [number, number], zoom: number): vo
   } catch {
     // Storage nicht verfügbar — die Ansicht fällt beim nächsten Mount auf den Default zurück.
   }
-}
-
-function isMapFeature(value: unknown): value is MapFeature {
-  if (!isRecord(value) || typeof value.id !== "string") return false;
-
-  if (value.kind === "symbol") {
-    return typeof value.symbolId === "string" && isCoordinate(value.position);
-  }
-
-  if (value.kind === "area") {
-    return (
-      (value.shape === "polygon" || value.shape === "rectangle" || value.shape === "circle") &&
-      Array.isArray(value.geometry) &&
-      value.geometry.every(isCoordinate)
-    );
-  }
-
-  return false;
 }
 
 function areaFromLayer(
@@ -593,25 +566,24 @@ export function Lagekarte({
       }
 
       const parsed: unknown = JSON.parse(await file.text());
-      if (
-        !isRecord(parsed) ||
-        parsed.format !== "lagekatse.lagekarte" ||
-        !Array.isArray(parsed.features)
-      ) {
+      const result = parseLagekarteFeatures(parsed);
+      if (!result) {
         setImportMessage("Import fehlgeschlagen: ungültiges Dateiformat.");
         return;
       }
 
-      const features = parsed.features.filter(isMapFeature);
       const featuresMap = featuresMapRef.current;
       if (!writableRef.current || !featuresMap) {
         setImportMessage("Import fehlgeschlagen: Karte ist noch nicht bereit.");
         return;
       }
 
-      for (const feature of features) featuresMap.set(feature.id, feature);
+      // Einzeldatei-Import mischt in den Bestand (replace:false); der Bundle-Import
+      // ersetzt. Kartenansicht ist Leaflet-lokal, daher hier (nicht im Apply-Helfer).
+      applyLagekarteImport(featuresMap, result.valid, { replace: false });
 
       if (
+        isRecord(parsed) &&
         isRecord(parsed.view) &&
         isCoordinate(parsed.view.center) &&
         typeof parsed.view.zoom === "number" &&
@@ -620,9 +592,9 @@ export function Lagekarte({
         mapRef.current?.setView(parsed.view.center, parsed.view.zoom);
       }
 
-      const skipped = parsed.features.length - features.length;
+      const skipped = result.total - result.valid.length;
       setImportMessage(
-        `${features.length} Feature${features.length === 1 ? "" : "s"} importiert${
+        `${result.valid.length} Feature${result.valid.length === 1 ? "" : "s"} importiert${
           skipped > 0 ? `, ${skipped} ungültig` : ""
         }.`,
       );

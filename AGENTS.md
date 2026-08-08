@@ -14,16 +14,17 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   `effectiveWriteScopes`, `WRITE_SCOPES`), Module (`modules.ts`), Protokoll, Datenmodelle
   (`lagekarte.ts`). Von Client **und** Server genutzt — die gemeinsame Quelle der Wahrheit.
 - `packages/server` — `@lagekatse/server`: Fastify HTTP-API + WebSocket-Sync-Gateway.
-  `index.ts` (Bootstrap + Shutdown), `http.ts` (REST: Räume, Join, autoritatives ETB-Anlegen),
-  `sync/gateway.ts` (Auth + WS-Upgrade), `sync/room-hub.ts` (Yjs-Docs, Persistenz, Fan-out),
-  `store/` (`memory` | `postgres`).
+  `index.ts` (Bootstrap + Shutdown), `http.ts` (REST: Räume, Join, autoritatives ETB-Anlegen
+  **+ ETB-Bundle-Import**), `sync/gateway.ts` (Auth + WS-Upgrade), `sync/room-hub.ts`
+  (Yjs-Docs, Persistenz, Fan-out; `appendEtbEntry`/`replaceEtbEntries`), `store/` (`memory` | `postgres`).
 - `packages/web` — `@lagekatse/web`: React/Vite-SPA. `lobby/`, `uebersicht/`, `lagekarte/`
   (Karte + `Palette.tsx` + DWD-Regenradar/KONRAD3D-Overlays), `etb/`,
   `arbeitsblatt/` (`Arbeitsblatt.tsx`, `Wetter.tsx`), `sync/provider.ts` (`connectModule`).
   Client-Utilities: `wetter.ts` (BrightSky-Abruf), `pdf.ts` (`etbToPdf`/`arbeitsblattToPdf`
-  via pdf-lib, Schrift `public/fonts/DejaVuSans.ttf`), `exportAll.ts` (Gesamt-Export als
-  ZIP via fflate), `dug.ts` (Datum-Uhrzeit-Gruppe für Dateinamen), `format.ts`
-  (`formatDateTime`, geteilt von CSV/ZIP/PDF).
+  via pdf-lib, Schrift `public/fonts/DejaVuSans.ttf`), `exportAll.ts` (Gesamt-Export) +
+  `importAll.ts` (Bundle-Import, beide ZIP via fflate), `*/applyImport.ts` (geteilte, React-freie
+  Import-Apply-Logik für Lagekarte/Arbeitsblatt — von Einzeldatei- **und** Bundle-Import genutzt),
+  `dug.ts` (Datum-Uhrzeit-Gruppe für Dateinamen), `format.ts` (`formatDateTime`, PDF-Export).
 - **Aktivitäts-Dots (#32):** server-authored, nicht-persistierter **`activity`**-Kanal
   (`shared/src/activity.ts`) signalisiert Modul-Änderungen; `RoomHub.bumpActivity` (gedrosselt)
   zählt hoch, das Gateway führt ihn **read-only**, `useRoomActivity` zeigt Dots am Rail. Der
@@ -39,7 +40,7 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   Import-Coercion (`shared/arbeitsblatt.ts`), `format`/`dug`, PDF-Textumbruch. Tests liegen als
   `*.test.ts` **neben** dem Code (Node-Umgebung, kein DOM). Neue reine Helfer bitte mit Test.
 - Smoke-Tests sind handgeschriebene `.mjs` unter `packages/web/scripts/` (`e2e.mjs`,
-  `lagekarte-e2e.mjs`, `arbeitsblatt-e2e.mjs`, `ratelimit-e2e.mjs`), mit `node` **gegen einen
+  `lagekarte-e2e.mjs`, `arbeitsblatt-e2e.mjs`, `bundle-import-e2e.mjs`, `ratelimit-e2e.mjs`), mit `node` **gegen einen
   laufenden Server** ausgeführt — sie bleiben **ergänzend** zu den Unit-Tests. Server-Default
   = **Memory-Store** (`pnpm dev:server`); Postgres via `pnpm db:up` + `DATABASE_URL`.
 - Konfiguration: `.env` **im Repo-Root** (Backend via dotenv, Vite via envDir), **einmal beim
@@ -73,7 +74,9 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
    `POST /api/rooms/:code/etb/entries` (`RoomHub.appendEtbEntry`): der Server vergibt `lfdNr`
    (monoton, **lückenlos**) und `zeit` (Serveruhr) und pusht ihn ins CRDT — der Client legt
    **keine** Einträge direkt an. Feld-Edits danach sind normale `Y.Map.set` pro Entry-`Y.Map`
-   (**Feld-Level-Merge**, nicht Whole-Value-LWW wie die Karte).
+   (**Feld-Level-Merge**, nicht Whole-Value-LWW wie die Karte). **Auch der Bundle-Import** ersetzt
+   das ETB server-autoritativ über `POST /api/rooms/:code/etb/import` (`RoomHub.replaceEtbEntries`,
+   nur S-Rollen) — nie clientseitig; `lfdNr`/`zeit`/`storniert` bleiben dabei originalgetreu erhalten.
 
 ## Workflow
 - Feature-Code entsteht i. d. R. via Codex, in kleinen Schritten (je Schritt ein Commit).

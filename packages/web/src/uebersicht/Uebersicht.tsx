@@ -1,8 +1,9 @@
-import { type FormEvent, useEffect, useRef, useState } from "react";
-import { MODULE_LABELS, type Module } from "@lagekatse/shared";
+import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
+import { hasStabRole, MODULE_LABELS, type Module } from "@lagekatse/shared";
 import type { Session } from "../session";
 import type { RoomChat } from "../sync/useRoomChat";
 import { exportAll } from "../exportAll";
+import { importBundle } from "../importAll";
 
 const MODULE_CARDS: { key: Exclude<Module, "chat">; icon: string; tint: string; desc: string }[] = [
   { key: "lagekarte", icon: "🗺️", tint: "rgba(47,107,216,.12)", desc: "Taktische Zeichen (DV 102) & Bereiche auf OpenStreetMap." },
@@ -44,7 +45,13 @@ export function Uebersicht({
 }) {
   const [draft, setDraft] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const chatLogRef = useRef<HTMLDivElement>(null);
+
+  // Bundle-Import ist destruktiv (ersetzt den geteilten Stand) → nur Stabsrollen.
+  const canImport = hasStabRole(session.roles);
 
   // Auto-Scroll: bei neuen Nachrichten und beim initialen Laden ans Ende scrollen.
   useEffect(() => {
@@ -70,6 +77,34 @@ export function Uebersicht({
     }
   };
 
+  const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget; // vor await sichern (React nullt currentTarget)
+    const file = input.files?.[0];
+    try {
+      if (!file || importing) return;
+      if (
+        !window.confirm(
+          "Der geteilte Stand aller Module (Lagekarte, Einsatztagebuch, Arbeitsblatt) wird durch das Bundle ersetzt — für alle im Stabsraum. Fortfahren?",
+        )
+      ) {
+        return;
+      }
+      setImporting(true);
+      setImportMsg(null);
+      const result = await importBundle(session, file);
+      const parts = [
+        result.imported.length ? `Importiert: ${result.imported.join(", ")}` : "",
+        result.skipped.length ? `Übersprungen: ${result.skipped.join(", ")}` : "",
+      ].filter(Boolean);
+      setImportMsg(parts.join(" · ") || "Nichts importiert.");
+    } catch (err) {
+      setImportMsg(err instanceof Error ? err.message : "Bundle-Import fehlgeschlagen.");
+    } finally {
+      setImporting(false);
+      input.value = "";
+    }
+  };
+
   return (
     <div className="wrap">
       <div className="uebersicht-head">
@@ -77,16 +112,39 @@ export function Uebersicht({
           <h1>Anwendungen</h1>
           <p className="sub">Willkommen, {session.name}. Alle Inhalte werden live im Stabsraum synchronisiert.</p>
         </div>
-        <button
-          className="btn btn--primary"
-          type="button"
-          onClick={handleExport}
-          disabled={exporting}
-          title="Alle Module als ZIP exportieren"
-        >
-          {exporting ? "Exportiere…" : "Gesamt-Export"}
-        </button>
+        <div className="uebersicht-actions">
+          <button
+            className="btn btn--primary"
+            type="button"
+            onClick={handleExport}
+            disabled={exporting}
+            title="Alle Module als ZIP exportieren"
+          >
+            {exporting ? "Exportiere…" : "Gesamt-Export"}
+          </button>
+          {canImport && (
+            <>
+              <button
+                className="btn btn--ghost"
+                type="button"
+                onClick={() => importInputRef.current?.click()}
+                disabled={importing}
+                title="Ein exportiertes Bundle (ZIP) einspielen — ersetzt den geteilten Stand"
+              >
+                {importing ? "Importiere…" : "Bundle importieren"}
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".zip,application/zip"
+                style={{ display: "none" }}
+                onChange={handleImportFile}
+              />
+            </>
+          )}
+        </div>
       </div>
+      {importMsg && <div className="import-note">{importMsg}</div>}
 
       <div className="modules">
         {MODULE_CARDS.map((m) => (

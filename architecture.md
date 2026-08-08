@@ -523,7 +523,7 @@ Ein kollaboratives, tabellarisches Einsatztagebuch (ETB) in Anlehnung an die Vor
 - **Lfd. Nr.** wird automatisch vergeben (server-monoton, lückenlos).
 - **Uhrzeit** wird beim Anlegen automatisch gesetzt (**Server-Zeit**, nicht Client-Uhr) – **editierbar**.
 - **Live-Sync** & **Hot-Join** wie bei der Karte; Sichtbarkeit für alle, Schreiben je Rechte-Scope.
-- **Import/Export** als **CSV** (Excel-kompatibel), optional PDF für die Ablage.
+- **Export** als **JSON** (verlustfrei, re-importierbar via Bundle §12) und **PDF** (Ablage/Nachweis).
 
 ### 9.2 Spalten (Vorschlag, ⚠️ final gegen FM-A-31 abgleichen)
 
@@ -582,17 +582,12 @@ gewünscht/nötig ist.
 > **Stand M2:** **Storno umgesetzt** (Eintrag bleibt, wird durchgestrichen). Die volle
 > **Änderungshistorie** ist zurückgestellt, bis der Bedarf mit der Zielgruppe geklärt ist.
 
-### 9.5 CSV-Export (Beispielkopf)
+### 9.5 Export (JSON + PDF)
 
-```csv
-Lfd.Nr;Zeit;Richtung;Von;An;Weg;Inhalt;Veranlassung;Erledigt;Bearbeiter
-1;2026-07-28T09:03:00;E;Leitstelle;S3;Funk;"Erkundung Abschnitt Nord";"ELW 1 entsandt";ja;Kelker
-```
-
-> Trennzeichen `;` und UTF-8-BOM für reibungsloses Öffnen in deutschem Excel.
-
-> **Export umgesetzt** (`;`, UTF-8-BOM, Feld-Quoting, voller Zeitstempel, Storno-Kennzeichnung).
-> Zusätzlich **PDF-Export** (A4 quer, client-seitig via pdf-lib; §10.4). **CSV-Import** ist zurückgestellt.
+> **JSON-Export** (verlustfrei: `id`/`lfdNr`/`zeit`/`storniert`, Envelope `lagekatse.etb`) — er ist
+> die re-importierbare Form (Bundle, §12). Zusätzlich **PDF-Export** (A4 quer, client-seitig via
+> pdf-lib; §10.4) als Nachweis-Ausdruck. Der frühere **CSV-Export entfiel mit #71** (Vereinheitlichung
+> mit dem Arbeitsblatt: JSON + PDF). Re-Import nur server-autoritativ über den Bundle-Import (§12).
 
 ---
 
@@ -788,17 +783,23 @@ schlankes, **server-authored, nicht-persistiertes** Signal:
 | Modul | Export | Import | Rechte |
 |-------|--------|--------|--------|
 | Lagekarte | JSON (GeoJSON-nah) | JSON | Schreib-Scope `lagekarte` |
-| Einsatztagebuch | **CSV, PDF** | CSV *(offen)* | Schreib-Scope `etb` |
+| Einsatztagebuch | **JSON, PDF** | via Bundle | Schreib-Scope `etb` (Bundle: S-Rolle) |
 | Arbeitsblatt | **JSON, PDF** | **JSON** | Schreib-Scope `arbeitsblatt` |
-| **Ganzer Stabsraum** | **ZIP** (Lagekarte-JSON + ETB-CSV + Arbeitsblatt-JSON) | *(offen)* | S-Rolle |
+| **Ganzer Stabsraum** | **ZIP** (je Modul JSON) | **ZIP (Bundle-Import)** | S-Rolle |
 
 - **Client-seitiger Download/Upload**; JSON-Import validiert gegen ein Schema und wird als **eine**
   CRDT-Transaktion eingespielt (damit sauber synchronisiert). **Umgesetzt:** Lagekarte-Im-/Export,
-  ETB-CSV/-PDF, Arbeitsblatt-JSON-Im-/Export + -PDF, Gesamt-Export als **ZIP** auf der Übersicht
-  (`packages/web/src/exportAll.ts`, via `fflate`). Dateinamen tragen eine **Datum-Uhrzeit-Gruppe**
-  (DUG, z.B. `…-071930Aug26.…`; `dug.ts`).
-- **Offen:** CSV-Import (ETB) und ein Stabsraum-**Bundle-Import** (das ZIP dient bisher Backup/
-  Weitergabe/Übungsnachbereitung, wird aber noch nicht re-importiert).
+  ETB-JSON/-PDF, Arbeitsblatt-JSON-Im-/Export + -PDF, Gesamt-Export **und Bundle-Import** als **ZIP**
+  auf der Übersicht (`exportAll.ts` / `importAll.ts`, via `fflate`). Dateinamen tragen eine
+  **Datum-Uhrzeit-Gruppe** (DUG, z.B. `…-071930Aug26.…`; `dug.ts`).
+- **ETB-Export ist JSON** (verlustfrei: `id`/`lfdNr`/`zeit`/`storniert`) — der frühere **CSV-Export
+  entfiel** (#71): Nachweis-Ausdruck ist der PDF-Export, konsistent mit dem Arbeitsblatt (JSON + PDF).
+- **Bundle-Import (#71):** ersetzt den geteilten Stand (faithful restore), **nur S-Rollen**,
+  Bestätigungsdialog. Die apply-Logik teilen sich Einzeldatei- und Bundle-Import (`*/applyImport.ts`).
+  Lagekarte/Arbeitsblatt laufen als **eine** Client-CRDT-Transaktion; der **ETB wird
+  server-autoritativ** über `POST /api/rooms/:code/etb/import` (`RoomHub.replaceEtbEntries`)
+  ersetzt — der Client legt keine ETB-Einträge direkt an (Invariante #6). `lfdNr`/`zeit`/`storniert`
+  bleiben originalgetreu erhalten (nach `lfdNr` sortiert).
 
 ---
 
@@ -933,8 +934,8 @@ Iterativ, jede Stufe für sich lauffähig und demonstrierbar.
 
 ### M2 – Gemeinsames Einsatztagebuch — ✅ umgesetzt (PR #31)
 - Tabelle, Auto-Lfd.-Nr. (server-autoritativ, lückenlos), Auto-Zeit (Serverzeit, editierbar)
-- Live-Sync (Feld-Level-Merge), Hot-Join, **CSV-Export**, **Storno**
-- Zurückgestellt: CSV-Import, volle Änderungshistorie, PDF (→ M4)
+- Live-Sync (Feld-Level-Merge), Hot-Join, **Export** (ursprünglich CSV; seit #71 JSON + PDF), **Storno**
+- Zurückgestellt: volle Änderungshistorie
 - **Ergebnis:** Lückenloses, kollaboratives ETB.
 
 ### M3 – Taktisches Arbeitsblatt (Vorderseite) — ✅ umgesetzt
@@ -950,12 +951,14 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
 
 ### M4 – Härtung & Ausbau — angelaufen
 - ✅ **PDF-Export** (ETB + Arbeitsblatt, client-seitig via pdf-lib; §9.5/§10.4)
-- ✅ **Gesamt-Export** als ZIP (§12) — Bundle-*Import* noch offen (#71)
+- ✅ **Gesamt-Export + Bundle-Import** als ZIP (§12, #71): Restore aller Module; ETB server-autoritativ
+  (`/etb/import`), nur S-Rollen. ETB-Export dabei auf verlustfreies JSON umgestellt (CSV entfiel).
 - ✅ **Rate-Limiting** (#64, §14): globales + strengeres Limit auf Join/Raum-Anlegen
+- ✅ **Startseiten-Disclaimer** (#76): „kein primäres Einsatzmittel" in der Lobby
 - ✅ **Fachliche Klärung** mit der Zielgruppe (#73): Auth schlank genügt (E3), ETB-Storno reicht (E2),
   Retention **4 Wochen** (E10) — Details in §14/§17
 - ⏳ Offen: Retention/Löschkonzept umsetzen (#66) + Self-Service „Lage abschließen" (#75),
-  Reverse-Proxy/TLS-Betrieb (#65), Offline-Robustheit (#70), Startseiten-Disclaimer (#76)
+  Reverse-Proxy/TLS-Betrieb (#65), Offline-Robustheit (#70)
 - ✅ **Test-Framework** (#72): Vitest (`pnpm test`) für reine Logik (Rollen/Rechte, Import-Coercion,
   `format`/`dug`, PDF-Umbruch), in CI eingehängt; `.mjs`-Smoke-Tests bleiben ergänzend.
   Ein UI-Happy-Path via Playwright ist als optionales Follow-up ausgegliedert.

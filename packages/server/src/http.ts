@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { canWrite, ROLES } from "@lagekatse/shared";
+import { canWrite, hasStabRole, ROLES } from "@lagekatse/shared";
 import { signSession, verifySession } from "./auth";
 import type { Config } from "./config";
 import { HttpError, RoomService, toPublic } from "./rooms";
@@ -35,6 +35,30 @@ const newEtbEntrySchema = z.object({
   weg: z.enum(["Funk", "Telefon", "Fax", "persönlich", "E-Mail", ""]).optional(),
   inhalt: z.string().max(4000, "Inhalt ist zu lang (max. 4000 Zeichen).").optional(),
   veranlassung: z.string().max(4000, "Veranlassung ist zu lang (max. 4000 Zeichen).").optional(),
+});
+
+// Vollständiger ETB-Eintrag für den Bundle-Import (#71) — anders als beim Anlegen
+// trägt der Client hier id/lfdNr/zeit/storniert bei (verlustfreier Restore); der
+// Server übernimmt sie originalgetreu (replaceEtbEntries).
+const etbImportSchema = z.object({
+  entries: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(80),
+        lfdNr: z.number().int().min(1),
+        zeit: z.string().max(40),
+        richtung: z.enum(["E", "A", ""]),
+        von: z.string().max(200),
+        an: z.string().max(200),
+        weg: z.enum(["Funk", "Telefon", "Fax", "persönlich", "E-Mail", ""]),
+        inhalt: z.string().max(4000),
+        veranlassung: z.string().max(4000),
+        erledigt: z.boolean(),
+        bearbeiter: z.string().max(200),
+        storniert: z.boolean().optional(),
+      }),
+    )
+    .max(5000, "Zu viele Einträge (max. 5000)."),
 });
 
 export function registerRoutes(
@@ -103,6 +127,28 @@ export function registerRoutes(
     const body = newEtbEntrySchema.parse(req.body ?? {});
     const entry = await hub.appendEtbEntry(rec.id, claims.name, body);
     return reply.code(201).send({ entry });
+  });
+
+  // Bundle-Import (#71): ersetzt das gesamte Einsatztagebuch server-autoritativ.
+  // Destruktiv → strenger als canWrite("etb"): nur Stabsrollen (S1–S6).
+  app.post<{ Params: { code: string } }>("/api/rooms/:code/etb/import", async (req, reply) => {
+    const authorization = req.headers.authorization ?? "";
+    const token = authorization.startsWith("Bearer ") ? authorization.slice("Bearer ".length) : "";
+    const claims = await verifySession(token, config.jwtSecret);
+    if (!claims) throw new HttpError(401, "unauthorized", "Ungültige oder fehlende Anmeldung.");
+
+    const rec = await rooms.getByCode(req.params.code);
+    if (!rec) throw new HttpError(404, "room_not_found", "Kein Stabsraum mit diesem Lobby-Code.");
+    if (claims.room !== rec.id) {
+      throw new HttpError(403, "room_mismatch", "Die Anmeldung gehört nicht zu diesem Stabsraum.");
+    }
+    if (!hasStabRole(claims.roles)) {
+      throw new HttpError(403, "forbidden", "Bundle-Import erfordert eine Stabsrolle (S1–S6).");
+    }
+
+    const body = etbImportSchema.parse(req.body ?? {});
+    const count = await hub.replaceEtbEntries(rec.id, body.entries);
+    return reply.send({ count });
   });
 
   app.setErrorHandler((err, _req, reply) => {
