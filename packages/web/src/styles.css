@@ -77,6 +77,14 @@ input, select, textarea { font-family: inherit; }
 .lobby__hero h1 span { color: var(--signal); }
 .lobby__hero p { color: var(--on-dark-2); font-size: 16px; line-height: 1.55; margin: 0; max-width: 54ch; }
 
+.lobby__disclaimer {
+  max-width: 640px; margin: 0 0 28px;
+  color: var(--on-dark-2); font-size: 13px; line-height: 1.5;
+  background: rgba(247,168,27,.08); border: 1px solid rgba(247,168,27,.3);
+  border-left: 3px solid var(--signal); border-radius: 8px; padding: 11px 14px;
+}
+.lobby__disclaimer b { color: var(--on-dark); font-weight: 700; }
+
 .tabs { display: inline-flex; gap: 4px; background: var(--ground-2); border: 1px solid var(--line-dark); border-radius: 999px; padding: 4px; margin-bottom: 18px; }
 .tabs button { border: none; background: transparent; color: var(--on-dark-2); padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; }
 .tabs button.active { background: var(--signal); color: var(--signal-ink); }

@@ -118,6 +118,12 @@ export function Lobby({ onEnter }: { onEnter: (session: Session) => void }) {
         </p>
       </div>
 
+      <div className="lobby__disclaimer" role="note">
+        <b>Unterstützendes Werkzeug bzw. Übungsmittel</b> — LageKatSe ist{" "}
+        <b>kein primäres Einsatzmittel</b> und erzeugt <b>keine rechtskräftigen
+        Dokumente oder Nachweise</b>.
+      </div>
+
       <div className="tabs">
         <button className={mode === "join" ? "active" : ""} onClick={() => { setMode("join"); setError(null); }}>
           Beitreten
