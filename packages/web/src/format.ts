@@ -5,7 +5,7 @@
 /**
  * Volles lokales Datum + Uhrzeit (`YYYY-MM-DD HH:MM`). HH:MM allein ist über eine
  * mehrtägige Lage mehrdeutig, und ETB/Arbeitsblatt sind Nachweisdokumente
- * (architecture.md §9.5). Wird von CSV-, ZIP- und PDF-Export genutzt.
+ * (architecture.md §9.5). Wird vom PDF-Export genutzt.
  */
 export function formatDateTime(iso: string): string {
   const date = new Date(iso);

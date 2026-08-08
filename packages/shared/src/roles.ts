@@ -22,6 +22,19 @@ export function isRole(value: unknown): value is Role {
   return typeof value === "string" && (ROLES as readonly string[]).includes(value);
 }
 
+/**
+ * Die sechs Stabsfunktionen (S1–S6). Eine Stabsrolle steht für die eigentliche
+ * Führungsverantwortung — im Gegensatz zu den reinen Modul-/Anzeigerollen
+ * (LAGEKARTE/ETB/MONITOR). Wird für destruktive Gesamt-Aktionen genutzt, die
+ * strenger als eine einzelne Modul-Schreibberechtigung gated sein sollen.
+ */
+export const STAB_ROLES: Role[] = ["S1", "S2", "S3", "S4", "S5", "S6"];
+
+/** Hält die Rollenkombination mindestens eine Stabsrolle (S1–S6)? */
+export function hasStabRole(roles: readonly Role[]): boolean {
+  return roles.some((r) => (STAB_ROLES as readonly Role[]).includes(r));
+}
+
 export const ROLE_LABELS: Record<Role, string> = {
   S1: "S1 · Personal / Innerer Dienst",
   S2: "S2 · Lage",
