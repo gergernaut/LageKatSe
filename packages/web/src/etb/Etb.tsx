@@ -11,7 +11,6 @@ import { api } from "../api";
 import type { Session } from "../session";
 import { connectModule } from "../sync/provider";
 import { dug } from "../dug";
-import { formatDateTime } from "../format";
 
 const WAYS: EtbWeg[] = ["", "Funk", "Telefon", "Fax", "persönlich", "E-Mail"];
 
@@ -32,57 +31,6 @@ function replaceTime(iso: string, time: string): string | null {
 
   date.setHours(hours, minutes, 0, 0);
   return date.toISOString();
-}
-
-function csvCell(value: unknown): string {
-  const text = String(value ?? "");
-  return /[;"\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-}
-
-function buildCsv(entries: LogEntry[]): string {
-  const header = [
-    "Lfd.Nr",
-    "Zeit",
-    "Richtung",
-    "Von",
-    "An",
-    "Weg",
-    "Inhalt",
-    "Veranlassung",
-    "Erledigt",
-    "Bearbeiter",
-  ];
-  const rows = entries.map((entry) => {
-    // Das v1-Schema hat keine Storno-Spalte; die Kennzeichnung bleibt deshalb im Inhalt sichtbar.
-    const inhalt = entry.storniert ? `[STORNIERT] ${entry.inhalt}` : entry.inhalt;
-    return [
-      entry.lfdNr,
-      formatDateTime(entry.zeit),
-      entry.richtung,
-      entry.von,
-      entry.an,
-      entry.weg,
-      inhalt,
-      entry.veranlassung,
-      entry.erledigt ? "ja" : "nein",
-      entry.bearbeiter,
-    ]
-      .map(csvCell)
-      .join(";");
-  });
-  return `\uFEFF${[header.join(";"), ...rows].join("\r\n")}`;
-}
-
-function downloadCsv(entries: LogEntry[], joinCode: string): void {
-  const blob = new Blob([buildCsv(entries)], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `einsatztagebuch-${joinCode}-${dug()}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
 }
 
 function TextCell({
@@ -230,12 +178,6 @@ export function Etb({ session }: { session: Session }) {
           </span>
         )}
         <div className="spacer" />
-        <button className="tool" type="button" onClick={() => downloadCsv(items, session.room.joinCode)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <path d="M12 15V3M7 8l5-5 5 5M5 21h14" />
-          </svg>
-          Export CSV
-        </button>
         <button className="tool" type="button" onClick={exportPdf} disabled={pdfBusy}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M6 2h9l5 5v15H6zM14 2v6h6" />

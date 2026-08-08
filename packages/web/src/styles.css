@@ -178,6 +178,11 @@ input, select, textarea { font-family: inherit; }
 .uebersicht-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .uebersicht-head h1 { font-size: 22px; margin: 0 0 4px; }
 .uebersicht-head .sub { color: var(--ink-2); font-size: 14px; margin: 0; }
+.uebersicht-actions { display: flex; gap: 8px; flex: none; }
+.import-note {
+  margin: -12px 0 20px; padding: 9px 12px; border-radius: 8px; font-size: 13px;
+  color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line);
+}
 
 .modules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 28px; }
 .module { text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 10px; min-height: 130px; box-shadow: 0 1px 2px rgba(11,17,25,.05); color: var(--ink); }
