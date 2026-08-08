@@ -832,22 +832,29 @@ Skalierung:
   (bcrypt-gehasht). Beim Beitritt wird ein **Session-Token** (JWT oder opak) ausgestellt, das
   `roomId`, `sessionId` und Rollen trägt und WebSocket wie HTTP-Aufrufe autorisiert. **Name ist
   selbst deklariert** (kein Identitätsnachweis).
-- **⚠️ zu klären – Produktivbetrieb:** Für einen realen KatS-Einsatz sind selbst deklarierte Namen +
-  Raumcode dünn. Empfehlung: LageKatSe hinter einem **Auth-Proxy / Organisations-SSO** und/oder im
-  **VPN/geschlossenen Netz** betreiben. Rollen sollten dann ggf. serverseitig zugewiesen statt frei
-  gewählt werden. Für Übung/Ausbildung ist das leichte Modell akzeptabel.
+- **Auth-Stärke — entschieden (Zielgruppe, #73):** **Lobby-Code + optionales Raum-Passwort in
+  Kombination mit dem Rate-Limiting (§14/#64) genügen.** LageKatSe soll **ad-hoc** und mit **niedriger
+  Nutzungshürde** bereitstehen (Usability vor Härtung) und ist **kein primäres Einsatzmittel** (s.
+  Disclaimer unten) — daher ist keine hochgradige Sicherheit nötig. Ein **Auth-Proxy/SSO ist optional**
+  (Deployment-Wahl des Betreibers, z.B. VPN/geschlossenes Netz), aber **nicht erforderlich**.
 - **Transport:** ausschließlich TLS (HTTPS/WSS).
 - **Autoritative Rechte:** siehe [§6.3](#6-rollen--rechtemodell) – Sicherheit unabhängig vom Client.
-- **DSGVO & Retention (E10):** Meldungen/ETB können personenbezogene Daten enthalten. Backbone ist eine
-  **automatische Inaktivitäts-Retention**: ein geplanter Server-Sweep löscht Räume (Cascade auf
-  Sessions/Dokumente/Chat), deren `last_active_at` älter als eine **konfigurierbare Frist** ist — kein
-  Admin-Portal nötig. Da das ETB ein Nachweisdokument ist, **vor** dem Hard-Delete das Stabsraum-Bundle
-  exportieren/archivieren (§12); das Beenden einer Lage kann auch **Self-Service** durch die S-Rollen
-  geschehen (passt zu E8, kein Admin-Account). Dazu Export für Auskunft, klare Zweckbindung,
-  Auftragsverarbeitung, Server-Standort EU. **⚠️ Frist** mit Zielgruppe/Datenschutz abstimmen (eine Lage
-  kann Wochen dauern). Nur für den Postgres-Deploy relevant (Memory-Store vergisst beim Neustart).
-- **Rate-Limiting** auf Beitritts- und Import-Endpunkten (Brute-Force auf Lobby-Codes verhindern →
-  ausreichend lange, zufällige Codes).
+- **DSGVO & Retention (E10) — Frist entschieden (Zielgruppe, #73):** Meldungen/ETB können
+  personenbezogene Daten enthalten. Backbone ist eine **automatische Inaktivitäts-Retention**: ein
+  geplanter Server-Sweep löscht Räume (Cascade auf Sessions/Dokumente/Chat), deren `last_active_at`
+  älter als die **Frist (Default 4 Wochen, konfigurierbar)** ist — kein Admin-Portal nötig. Da das ETB
+  ein Nachweisdokument ist, **vor** dem Hard-Delete das Stabsraum-Bundle exportieren/archivieren (§12).
+  Ergänzend ein **Self-Service „Lage abschließen"** durch die S-Rollen (Doppel-Bestätigung → Abschluss-
+  ETB-Eintrag + Gesamt/PDF-Export → Landing-Page → serverseitiges Löschen; passt zu E8, kein
+  Admin-Account). Zweckbindung, Auftragsverarbeitung, Server-Standort EU. Nur für den Postgres-Deploy
+  relevant (Memory-Store vergisst beim Neustart). Umsetzung: #66 (Auto-Retention), #75 (Self-Service).
+- **Rate-Limiting — umgesetzt (#64):** globales Limit pro IP + strengeres auf Beitritts-/Raum-Anlegen-
+  Endpunkten (Brute-Force/Enumeration auf Lobby-Codes bremsen → zusätzlich ausreichend lange, zufällige
+  Codes). Konfigurierbar; `TRUST_PROXY` für die echte Client-IP hinter einem Reverse-Proxy.
+- **Kein primäres Einsatzmittel (Zielgruppe, #73):** LageKatSe ist ein **unterstützendes Werkzeug bzw.
+  Übungsmittel** und erzeugt **keine rechtskräftigen Dokumente/Nachweise**. Dieser Hinweis wird auf der
+  Startseite angezeigt (#76). Genau deshalb ist eine volle ETB-Änderungshistorie nicht nötig (E2:
+  Storno reicht) und das Auth-Modell bewusst schlank gehalten.
 
 ---
 
@@ -892,15 +899,15 @@ Stand der Entscheidungen (2026-07-29  geklärt) — ✅ = entschieden, ▫ = Def
 | # | Frage | Entscheidung |
 |---|-------|--------------|
 | E1 | Darf der Monitor chatten? | ✅ Konfigurierbar je Raum, **Standard: an** (Koordination ≠ Lageänderung) |
-| E2 | ETB frei editierbar oder Historie/Storno? | ✅ Umgesetzt (M2): frei editierbar + **Storno** (Eintrag bleibt, durchgestrichen; hält die Lfd-Nr.-Kette). Volle **Änderungshistorie** zurückgestellt, bis Bedarf mit Zielgruppe geklärt (§9.4) |
-| E3 | Auth-Modell / -Stärke | ✅ **M0:** Lobby-Code + optionales Raum-Passwort, selbst deklarierter Name, Session-Token (JWT). Token-/Session-Schicht so gebaut, dass SSO/Accounts später andockbar sind. Produktiv weiterhin Auth-Proxy/geschlossenes Netz empfohlen |
+| E2 | ETB frei editierbar oder Historie/Storno? | ✅ **Entschieden (Zielgruppe, #73): Storno reicht** — frei editierbar + Storno (Eintrag bleibt, durchgestrichen; hält die Lfd-Nr.-Kette). Volle Änderungshistorie **verworfen** (LageKatSe ist kein primäres/rechtssicheres Einsatzmittel, s. §14 + Startseiten-Disclaimer #76) |
+| E3 | Auth-Modell / -Stärke | ✅ **Entschieden (Zielgruppe, #73): schlank genügt** — Lobby-Code + optionales Raum-Passwort + Rate-Limiting (#64); Session-Token (JWT), selbst deklarierter Name. Usability/Ad-hoc vor Härtung, kein primäres Einsatzmittel. Auth-Proxy/SSO **optional** (Betreiber-Wahl), nicht erforderlich → #67 geschlossen |
 | E4 | Lizenz DV-102-SVG-Bibliothek | ✅ Geklärt (M1): [jonas-koeritz/Taktische-Zeichen](https://github.com/jonas-koeritz/Taktische-Zeichen) v2.0.0, **CC0/gemeinfrei** (s. §8.2) |
 | E5 | Konflikt beim Verschieben | ✅ Umgesetzt (M1): **Whole-Value-LWW pro Feature** (§8.3); feldweises Merge ggf. später, Nutzer-Test offen |
 | E6 | Leaflet vs. MapLibre | ✅ Leaflet (in M1 ausgeliefert) |
 | E7 | Rückseite Arbeitsblatt (ABC/MANV/Wetter) | ✅ Wetter umgesetzt (§10.5, DWD/BrightSky); ABC/MANV/Dekon verworfen (#42 geschlossen) |
 | E8 | Nutzerkonten statt Raumcode? | ✅ Vorerst **Raumcode**, keine Accounts in M0; Accounts erst bei raumübergreifender Historie |
 | E9 | Symbolgröße pro Symbol oder global? | ✅ **Global pro Betrachter** (lokaler Slider, `localStorage`); `SymbolFeature.scale` entfernt – Größe ist bei DV-102 nicht bedeutungstragend, Bedarf = Lesbarkeit (Beamer/Tablet) und muss auch für den RO-Monitor gehen. Rotation bleibt pro Symbol (§8.1/§8.3) |
-| E10 | Alte Räume bei Postgres-Persistenz | ✅ **Automatische Inaktivitäts-Retention** (konfigurierbare Frist auf `last_active_at`, geplanter Cascade-DELETE) statt Admin-Portal; **vor** dem Löschen Stabsraum-Bundle-Export (§12), optional Self-Service „Lage abschließen" durch S-Rollen (kein Admin-Account nötig, passt zu E8); Ops-CLI fürs Betreiben. Admin-Web-Portal erst mit Admin-Auth (M4). ⚠️ **Retention-Frist mit Zielgruppe klären** (eine Lage kann Wochen dauern) — nur Postgres-Deploy. Vorarbeit: `last_active_at` auch bei Aktivität bumpen (§14) |
+| E10 | Alte Räume bei Postgres-Persistenz | ✅ **Entschieden (Zielgruppe, #73): Frist 4 Wochen** Inaktivität (Default, konfigurierbar) → geplanter Cascade-DELETE auf `last_active_at`; **vor** dem Löschen Stabsraum-Bundle-Export (§12). Ergänzend **Self-Service „Lage abschließen"** durch S-Rollen (kein Admin-Account, passt zu E8). Kein Admin-Portal nötig → #68 geschlossen. Nur Postgres-Deploy. Umsetzung: **#66** (Auto-Retention), **#75** (Self-Service). Vorarbeit: `last_active_at` auch bei Aktivität bumpen |
 
 **Tooling (M0):** Monorepo mit **pnpm-Workspaces**, gemeinsames `shared`-Paket. Frontend React+Vite, Backend Fastify + `ws` + Yjs, PostgreSQL.
 
@@ -943,11 +950,15 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
 
 ### M4 – Härtung & Ausbau — angelaufen
 - ✅ **PDF-Export** (ETB + Arbeitsblatt, client-seitig via pdf-lib; §9.5/§10.4)
-- ✅ **Gesamt-Export** als ZIP (§12) — Bundle-*Import* noch offen
-- ⏳ Offen: Rate-Limiting (§14), Reverse-Proxy/TLS-Betrieb (§16), Retention/Löschkonzept (E10 / §14),
-  Auth-Proxy/SSO-Anbindung, Admin-Auth (Vorbedingung Admin-Portal), Offline-Robustheit
-- ⏳ Tech-Debt: echtes Test-Framework (bisher nur handgeschriebene `.mjs`-Smoke-Tests)
-- ⏳ Ausbaustufen: Live-Cursor, eigener Tile-Server, DV-102-Rotations-UI
+- ✅ **Gesamt-Export** als ZIP (§12) — Bundle-*Import* noch offen (#71)
+- ✅ **Rate-Limiting** (#64, §14): globales + strengeres Limit auf Join/Raum-Anlegen
+- ✅ **Fachliche Klärung** mit der Zielgruppe (#73): Auth schlank genügt (E3), ETB-Storno reicht (E2),
+  Retention **4 Wochen** (E10) — Details in §14/§17
+- ⏳ Offen: Retention/Löschkonzept umsetzen (#66) + Self-Service „Lage abschließen" (#75),
+  Reverse-Proxy/TLS-Betrieb (#65), Offline-Robustheit (#70), Startseiten-Disclaimer (#76)
+- ⏳ Tech-Debt: echtes Test-Framework (#72; bisher nur handgeschriebene `.mjs`-Smoke-Tests)
+- ⏳ Ausbaustufen: DV-102-Rotations-UI (#69), Live-Cursor, eigener Tile-Server
+- ❌ Verworfen (per #73): Auth-Proxy/SSO als Pflicht (#67, optional bleibt möglich), Admin-Auth/-Portal (#68)
 
 ---
 
