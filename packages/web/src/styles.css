@@ -167,6 +167,7 @@ input, select, textarea { font-family: inherit; }
 .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .dot--ok { background: var(--ok); }
 .dot--off { background: var(--ink-3); }
+.dot--warn { background: var(--warn); }
 .role-badge { font-size: 12px; padding: 4px 9px; border-radius: 999px; background: rgba(247,168,27,.12); border: 1px solid rgba(247,168,27,.3); color: var(--signal); }
 
 .canvas { grid-area: canvas; min-width: 0; min-height: 0; overflow: auto; padding: 28px clamp(16px, 4vw, 44px) 44px; }
