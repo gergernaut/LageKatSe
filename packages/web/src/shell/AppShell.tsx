@@ -317,8 +317,14 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
         <span className="role-badge">◆ {session.roles.join(" · ")}</span>
         <div className="spacer" />
         <span className="live">
-          <span className={`dot ${chat.connected ? "dot--ok" : "dot--off"}`} />
-          {chat.connected ? "Live synchronisiert" : "Verbinde…"}
+          <span className={`dot ${
+            chat.connectionStatus === "connected" ? "dot--ok"
+            : chat.connectionStatus === "disconnected" ? "dot--off"
+            : "dot--warn"
+          }`} />
+          {chat.connectionStatus === "connected" ? "Live synchronisiert"
+          : chat.connectionStatus === "disconnected" ? "Offline — lokal zwischengespeichert"
+          : "Verbinde…"}
         </span>
         <button className="btn btn--ghost topbar__leave" type="button" onClick={onLeave}>
           Verlassen
