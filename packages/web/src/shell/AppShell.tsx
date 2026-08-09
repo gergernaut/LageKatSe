@@ -342,6 +342,7 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
             messages={chat.messages}
             online={chat.online}
             connected={chat.connected}
+            connectionStatus={chat.connectionStatus}
             canChat={chat.canChat}
             send={chat.send}
             onOpenModule={setActiveView}
