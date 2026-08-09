@@ -812,6 +812,12 @@ schlankes, **server-authored, nicht-persistiertes** Signal:
 Server-Neustart: Räume werden **lazy** beim ersten Beitritt aus Snapshot + Update-Log rekonstruiert.
 Da der komplette Zustand in der DB liegt, gehen keine Daten verloren (L3). Client-seitig überbrückt
 `y-indexeddb` kurze Ausfälle; beim Reconnect gleicht Yjs automatisch ab (L6).
+**Umgesetzt (#70):** die vier langlebigen Modul-Dokumente (chat, lagekarte, etb, arbeitsblatt)
+werden pro Raum × Modul in IndexedDB gecacht (`connectModule`, `disableBc` bleibt — Invariante #2).
+Sofort-Anzeige beim Laden aus dem Cache, Weiterarbeit offline; der Server bleibt autoritativ
+und gleicht beim Reconnect ab. Der Live-Indikator in der Topbar zeigt drei States:
+„Live synchronisiert" (connected), „Verbinde…" (connecting), „Offline — lokal zwischengespeichert"
+(disconnected).
 
 ### 13.2 Skalierung
 
