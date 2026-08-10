@@ -413,7 +413,8 @@ Das Herzstück: eine OpenStreetMap-Karte, auf der der Stab die Lage grafisch fü
   `pegel.ts`) liefert Koordinaten + aktuellen Wasserstand + Status (`stateMnwMhw`); je Pegel
   ein **Canvas-CircleMarker**, eingefärbt nach Status (Hochwasser rot / normal grün /
   Niedrigwasser blau / unbekannt grau). **Klick** öffnet ein Popup mit Messwert, Status und
-  Zeitpunkt; mit etb-Schreibrecht ein **„In ETB übernehmen"** (server-autoritativer Eintrag,
+  Zeitpunkt (bei Status `commented` statt „kommentiert" der **API-Kommentar** `comment.shortDescription`,
+  z.B. „Techn. Störung"); mit etb-Schreibrecht ein **„In ETB übernehmen"** (server-autoritativer Eintrag,
   Invariante #6 — wie „Wetter ins ETB"). **Client-lokaler Toggle** (localStorage, nicht im CRDT;
   Daten lazy beim Einschalten, alle 5 Min aktualisiert). **Rohdaten-Hinweis:** die WSV-Werte sind
   vorläufig und je Pegel unterschiedlich bezogen (Einheit stets mit anzeigen) — passt zum

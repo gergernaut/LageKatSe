@@ -34,6 +34,7 @@ export interface PegelStation {
   unit: string; // z.B. "cm" | "m+NN" | "m+PNP" (variiert je Pegel!)
   timestamp: string; // ISO-8601, Zeitpunkt der Messung
   state: PegelState;
+  comment: string | null; // Kurztext bei state="commented" (z.B. "Techn. Störung"), sonst null
 }
 
 /** Punktfarbe je Status — konkrete Hex-Werte (Canvas löst keine CSS-Variablen auf),
@@ -56,6 +57,16 @@ export const PEGEL_STATUS_LABEL: Record<PegelState, string> = {
 
 export function pegelStatusColor(state: PegelState): string {
   return STATUS_COLORS[state] ?? STATUS_COLORS.unknown;
+}
+
+/**
+ * Anzuzeigender Status-Text: bei `commented` der API-Kommentar (z.B. "Techn. Störung",
+ * "Funktionsstörung"), sonst das generische Label. So steht bei kommentierten Pegeln
+ * die Ursache statt eines nichtssagenden "kommentiert" (Popup + ETB-Eintrag).
+ */
+export function pegelStatusText(station: Pick<PegelStation, "state" | "comment">): string {
+  if (station.state === "commented" && station.comment) return station.comment;
+  return PEGEL_STATUS_LABEL[station.state];
 }
 
 function rec(value: unknown): Record<string, unknown> {
@@ -99,6 +110,7 @@ export function coercePegelStations(raw: unknown): PegelStation[] {
       unit: typeof w.unit === "string" ? w.unit : "",
       timestamp: typeof cm.timestamp === "string" ? cm.timestamp : "",
       state: asState(cm.stateMnwMhw),
+      comment: typeof rec(w.comment).shortDescription === "string" ? (rec(w.comment).shortDescription as string) : null,
     });
   }
   return out;
