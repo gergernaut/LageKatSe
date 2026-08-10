@@ -823,11 +823,10 @@ und gleicht beim Reconnect ab. Der Live-Indikator in der Topbar zeigt drei State
 > Store. Offline-Edits einer RO-Monitor-Rolle persistieren in IDB. Oeffnet spaeter ein
 > Writer-Tab im selben Browser denselben Raum, laedt deren Doc diese Edits aus demselben
 > Store und pusht sie WS-seitig — der Server akzeptiert sie mit den Rechten des Writers.
-> Sehr enger Grenzfall (gleicher Browser, RO+Writer); praktisch unkritisch, weil der
-> Server-Authoritative-Pfad sicherstellt, dass nur legitime Writer-Aenderungen den
-> geteilten Stand erreichen. Eine striktere Loesung (RO-Rollen gar nicht cachen) ist
-> moeglich, aber bewusst nicht umgesetzt — sie wuerde den Cache-Vorteil fuer den Monitor
-> (Sofort-Anzeige) aufheben.
+> Sehr enger Grenzfall (gleicher Browser, RO+Writer): RO-erzeugter Inhalt wird so ueber
+> den Writer-Tab eingeschleust und dem Writer zugerechnet. Die bewusste Akzeptanz ist fuer
+> ein LAN-UEbungstool vertretbar; eine striktere Loesung (RO-Rollen gar nicht cachen) ist
+> moeglich, wuerde aber den Cache-Vorteil fuer den Monitor (Sofort-Anzeige) aufheben.
 
 ### 13.2 Skalierung
 
