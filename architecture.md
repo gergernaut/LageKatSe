@@ -408,6 +408,16 @@ Das Herzstück: eine OpenStreetMap-Karte, auf der der Stab die Lage grafisch fü
   Bildlayer, um die Zellfarben nicht zu uebermalen. Wie das Regenradar
   **client-lokal** (localStorage, nicht im CRDT; wirkt auch fuer den Nur-Lese-Monitor).
   Bild-Kacheln direkt vom DWD (kein Server/CORS). Quelle: Deutscher Wetterdienst.
+- **Pegelstände (optional, #84):** schaltbares Overlay der Bundeswasserstraßen-Pegel
+  (**PEGELONLINE**, WSV). Ein CORS-offener Abruf (`stations.json` mit `currentMeasurement`,
+  `pegel.ts`) liefert Koordinaten + aktuellen Wasserstand + Status (`stateMnwMhw`); je Pegel
+  ein **Canvas-CircleMarker**, eingefärbt nach Status (Hochwasser rot / normal grün /
+  Niedrigwasser blau / unbekannt grau). **Klick** öffnet ein Popup mit Messwert, Status und
+  Zeitpunkt; mit etb-Schreibrecht ein **„In ETB übernehmen"** (server-autoritativer Eintrag,
+  Invariante #6 — wie „Wetter ins ETB"). **Client-lokaler Toggle** (localStorage, nicht im CRDT;
+  Daten lazy beim Einschalten, alle 5 Min aktualisiert). **Rohdaten-Hinweis:** die WSV-Werte sind
+  vorläufig und je Pegel unterschiedlich bezogen (Einheit stets mit anzeigen) — passt zum
+  „kein primäres Einsatzmittel"-Charakter. Quelle: PEGELONLINE / WSV.
 - **Taktische Zeichen (DV 102) platzieren:** aus einer durchsuchbaren, **nach Typ
   gruppierten** Symbol-Palette (Untermenüs je Organisation — `Org_Typ`-Kategorien werden
   unter dem Typ einsortiert, 34 → 12 Top-Level) per Klick auf die Karte setzen;

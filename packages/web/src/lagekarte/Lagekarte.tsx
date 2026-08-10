@@ -15,6 +15,9 @@ import type { Session } from "../session";
 import { connectModule } from "../sync/provider";
 import { uid } from "../uid";
 import { dug } from "../dug";
+import { formatDateTime } from "../format";
+import { api } from "../api";
+import { fetchPegelStations, pegelStatusColor, PEGEL_STATUS_LABEL, type PegelStation } from "../pegel";
 import { Palette, type PaletteSymbol } from "./Palette";
 
 interface SymbolIndex {
@@ -42,6 +45,7 @@ const SYMBOL_SIZE_KEY = "lagekatse.symbolSize";
 const LABELS_VISIBLE_KEY = "lagekatse.labelsVisible";
 const RADAR_VISIBLE_KEY = "lagekatse.radarVisible";
 const KONRAD_VISIBLE_KEY = "lagekatse.konradVisible";
+const PEGEL_VISIBLE_KEY = "lagekatse.pegelVisible";
 const SYMBOL_SIZE_MIN = 0.6;
 const SYMBOL_SIZE_MAX = 2;
 
@@ -333,7 +337,26 @@ export function Lagekarte({
   // GetFeatureInfo die Zell-Attribute ab und zeigt sie als Popup.
   const [konradInfoActive, setKonradInfoActive] = useState(false);
   const konradInfoActiveRef = useRef(konradInfoActive);
+  // Pegelstände-Overlay (#84, PEGELONLINE/WSV): client-lokale Anzeige-Option
+  // (localStorage, Invariante #4) — wie Radar/KONRAD3D, nicht im CRDT.
+  const [pegelVisible, setPegelVisible] = useState(() => {
+    try {
+      return localStorage.getItem(PEGEL_VISIBLE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
+  const pegelVisibleRef = useRef(pegelVisible);
+  const pegelLayerRef = useRef<L.LayerGroup | null>(null);
+  const pegelLoadedRef = useRef(false);
+  const [pegelLoading, setPegelLoading] = useState(false);
+  const loadPegelRef = useRef<(() => void) | null>(null);
   const writable = !readOnly && canWrite(session.roles, "lagekarte", {
+    allowMonitorChat: session.room.settings.allowMonitorChat,
+  });
+  // Pegel→ETB ist ein server-autoritativer ETB-Eintrag (Invariante #6) → braucht
+  // etb-Schreibrecht und ist in der eingebetteten Read-only-Karte deaktiviert.
+  const etbWritable = !readOnly && canWrite(session.roles, "etb", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
   });
 
@@ -390,6 +413,24 @@ export function Lagekarte({
       else layer.remove();
     }
   }, [konradVisible]);
+
+  useEffect(() => {
+    pegelVisibleRef.current = pegelVisible;
+    try {
+      localStorage.setItem(PEGEL_VISIBLE_KEY, String(pegelVisible));
+    } catch {
+      // The preference remains active for this session when storage is unavailable.
+    }
+    const map = mapRef.current;
+    const layer = pegelLayerRef.current;
+    if (!map || !layer) return; // vor Map-Init: der Init-Effekt lädt initial selbst
+    if (pegelVisible) {
+      layer.addTo(map);
+      loadPegelRef.current?.(); // erster Abruf beim Einschalten (Guard in loadPegel)
+    } else {
+      layer.remove();
+    }
+  }, [pegelVisible]);
 
   useEffect(() => {
     konradInfoActiveRef.current = konradInfoActive;
@@ -748,6 +789,101 @@ export function Lagekarte({
     };
     const wmsRefreshTimer = window.setInterval(refreshWmsLayers, 5 * 60 * 1000);
 
+    // --- Pegelstände-Overlay (#84, PEGELONLINE/WSV) ---
+    // Punkte via Canvas-Renderer (performant bei ~700 Pegeln); Daten lazy beim
+    // ersten Einschalten, danach alle 5 Min aktualisiert. API ist CORS-offen →
+    // reiner Client-Abruf, kein Server-/CRDT-Anteil (Invariante #4).
+    const pegelCanvas = L.canvas({ padding: 0.5 });
+    const pegelLayer = L.layerGroup();
+    pegelLayerRef.current = pegelLayer;
+    if (pegelVisibleRef.current) pegelLayer.addTo(map);
+
+    const buildPegelPopup = (st: PegelStation): HTMLElement => {
+      const el = document.createElement("div");
+      el.className = "pegel-popup";
+      const title = document.createElement("b");
+      title.textContent = st.water ? `${st.name} · ${st.water}` : st.name;
+      el.appendChild(title);
+      const table = document.createElement("table");
+      const addRow = (k: string, v: string) => {
+        const tr = document.createElement("tr");
+        const tdK = document.createElement("td");
+        tdK.textContent = k;
+        const tdV = document.createElement("td");
+        tdV.textContent = v;
+        tr.append(tdK, tdV);
+        table.appendChild(tr);
+      };
+      addRow("Wasserstand", `${st.value} ${st.unit}`.trim());
+      addRow("Status", PEGEL_STATUS_LABEL[st.state]);
+      addRow("Stand", formatDateTime(st.timestamp));
+      el.appendChild(table);
+      // Pegel→ETB (Bonus): server-autoritativer Eintrag (Invariante #6), nur mit
+      // etb-Schreibrecht. Textcontent statt innerHTML → keine Injection über Namen.
+      if (etbWritable) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "pegel-etb-btn";
+        btn.textContent = "In ETB übernehmen";
+        btn.onclick = async () => {
+          btn.disabled = true;
+          btn.textContent = "…";
+          try {
+            await api.createEtbEntry(session.room.joinCode, session.token, {
+              inhalt: `Pegel ${st.name}${st.water ? ` (${st.water})` : ""}: ${st.value} ${st.unit} (${PEGEL_STATUS_LABEL[st.state]}), Stand ${formatDateTime(st.timestamp)}`,
+              von: "PEGELONLINE/WSV",
+            });
+            btn.textContent = "✓ im ETB";
+          } catch {
+            btn.disabled = false;
+            btn.textContent = "Fehler — erneut";
+          }
+        };
+        el.appendChild(btn);
+      }
+      return el;
+    };
+
+    const buildPegelMarkers = (stations: PegelStation[]) => {
+      pegelLayer.clearLayers();
+      for (const st of stations) {
+        const marker = L.circleMarker([st.lat, st.lon], {
+          renderer: pegelCanvas,
+          radius: 5,
+          weight: 1.5,
+          color: "#ffffff",
+          fillColor: pegelStatusColor(st.state),
+          fillOpacity: 0.9,
+        });
+        marker.bindPopup(() => buildPegelPopup(st), { className: "pegel-popup-wrapper", maxWidth: 260 });
+        pegelLayer.addLayer(marker);
+      }
+    };
+
+    let pegelCancelled = false;
+    const loadPegel = async () => {
+      if (pegelLoadedRef.current) return; // in diesem Mount bereits geladen — Marker liegen im Layer
+      setPegelLoading(true);
+      try {
+        const stations = await fetchPegelStations();
+        if (pegelCancelled) return; // Karte inzwischen abgebaut (StrictMode-Remount / Modulwechsel)
+        pegelLoadedRef.current = true;
+        buildPegelMarkers(stations);
+      } catch (err) {
+        console.debug("Pegel-Abruf fehlgeschlagen", err);
+      } finally {
+        if (!pegelCancelled) setPegelLoading(false);
+      }
+    };
+    loadPegelRef.current = loadPegel;
+    if (pegelVisibleRef.current) void loadPegel();
+
+    const pegelRefreshTimer = window.setInterval(() => {
+      if (!pegelVisibleRef.current) return;
+      pegelLoadedRef.current = false; // erneutes Laden zulassen
+      void loadPegel();
+    }, 5 * 60 * 1000);
+
     map.pm.setGlobalOptions({ pathOptions: {} });
 
     const layers = new Map<string, L.Layer>();
@@ -908,7 +1044,11 @@ export function Lagekarte({
       if (mapRef.current === map) mapRef.current = null;
       radarLayerRef.current = null;
       konradLayerRef.current = null;
+      pegelCancelled = true;
       window.clearInterval(wmsRefreshTimer);
+      window.clearInterval(pegelRefreshTimer);
+      pegelLayerRef.current = null;
+      loadPegelRef.current = null;
       if (renderForRightsRef.current === renderAll) renderForRightsRef.current = null;
       if (refreshSymbolsRef.current === refreshSymbols) refreshSymbolsRef.current = null;
       conn.destroy();
@@ -980,6 +1120,15 @@ export function Lagekarte({
               ℹ
             </button>
           )}
+          <label className="lagekarte-radar-toggle" title="Pegelstände der Bundeswasserstraßen (PEGELONLINE/WSV)">
+            <input
+              type="checkbox"
+              checked={pegelVisible}
+              aria-label="Pegelstände anzeigen"
+              onChange={(event) => setPegelVisible(event.currentTarget.checked)}
+            />
+            <span>Pegel{pegelLoading ? " …" : ""}</span>
+          </label>
           {writable && (
             <>
               <button

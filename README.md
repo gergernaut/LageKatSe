@@ -9,7 +9,8 @@ Fach- und Architekturkonzept: **[architecture.md](./architecture.md)**.
 > die kollaborative **Lagekarte** (M1 — Leaflet + OSM, taktische Zeichen DV 102 in
 > nach Typ gruppierter Palette, Flächen, Tooltips, JSON-Im-/Export, schaltbares
 > **DWD-Regenradar** und **KONRAD3D**-Gewitterzellen-Overlay mit Zell-Info per
-> Klick, raumweise gemerkte Kartenansicht), das **Einsatztagebuch** (M2 — Tabelle
+> Klick, **Pegelstände** der Bundeswasserstraßen (PEGELONLINE/WSV) als schaltbarer
+> Layer, raumweise gemerkte Kartenansicht), das **Einsatztagebuch** (M2 — Tabelle
 > mit server-vergebener, lückenloser Lfd-Nr. und Serverzeit, Live-Feld-Edits,
 > Storno, **JSON- und PDF-Export**) und das **Taktische Arbeitsblatt** (M3 —
 > IdF-Vorderseite Felder A–F live-synchron, Gefahren-Randfelder, Feld B als
@@ -121,6 +122,11 @@ Lagekarte, in die der Stab die Lage grafisch führt.
   zeigt per GetFeatureInfo deren Kennwerte (Hagel, Windböen, VIL, Echo-Top …) als
   Popup. Die Ein/Aus-Schalter sind **betrachter-lokal** (localStorage) — greifen
   also auch für den Nur-Lese-Monitor.
+- **Pegelstände (optional).** Schaltbarer Layer der Bundeswasserstraßen-Pegel
+  (PEGELONLINE/WSV): gefärbte Punkte je Wasserstand-Status (Hochwasser/normal/
+  Niedrigwasser), Klick zeigt Messwert + Zeitpunkt; mit ETB-Schreibrecht lässt sich
+  ein Pegel per Klick ins Einsatztagebuch übernehmen. Rohdaten (vorläufig), rein
+  client-seitig abgerufen.
 - **Kartenansicht-Persistenz.** Kartenmitte und Zoomstufe werden **pro Raum**
   betrachter-lokal gemerkt (localStorage) und überleben Modul-Wechsel und Reload.
 - **Zeichensatz.** 894 gemeinfreie SVGs (CC0) aus
