@@ -18,9 +18,10 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   **+ ETB-Bundle-Import**), `sync/gateway.ts` (Auth + WS-Upgrade), `sync/room-hub.ts`
   (Yjs-Docs, Persistenz, Fan-out; `appendEtbEntry`/`replaceEtbEntries`), `store/` (`memory` | `postgres`).
 - `packages/web` — `@lagekatse/web`: React/Vite-SPA. `lobby/`, `uebersicht/`, `lagekarte/`
-  (Karte + `Palette.tsx` + DWD-Regenradar/KONRAD3D-Overlays), `etb/`,
+  (Karte + `Palette.tsx` + DWD-Regenradar/KONRAD3D-Overlays + Pegel-Layer), `etb/`,
   `arbeitsblatt/` (`Arbeitsblatt.tsx`, `Wetter.tsx`), `sync/provider.ts` (`connectModule`).
-  Client-Utilities: `wetter.ts` (BrightSky-Abruf), `pdf.ts` (`etbToPdf`/`arbeitsblattToPdf`
+  Client-Utilities: `wetter.ts` (BrightSky-Abruf), `pegel.ts` (PEGELONLINE/WSV-Pegelstände,
+  CORS-offen; reine Coercion + Status→Farbe, unit-getestet), `pdf.ts` (`etbToPdf`/`arbeitsblattToPdf`
   via pdf-lib, Schrift `public/fonts/DejaVuSans.ttf`), `exportAll.ts` (Gesamt-Export) +
   `importAll.ts` (Bundle-Import, beide ZIP via fflate), `*/applyImport.ts` (geteilte, React-freie
   Import-Apply-Logik für Lagekarte/Arbeitsblatt — von Einzeldatei- **und** Bundle-Import genutzt),
