@@ -578,6 +578,15 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .lagekarte-opacity { min-width: 112px; }
 .lagekarte-opacity span { white-space: nowrap; }
 .lagekarte-opacity input { width: 100%; accent-color: var(--signal); }
+.lagekarte-rotation small { color: var(--ink-3); font-weight: 400; }
+.lagekarte-rotation__row { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.lagekarte-rotation__row input[type="range"] { flex: 1; accent-color: var(--signal); }
+.lagekarte-rotation__num { width: 64px; flex: none; text-align: right; }
+.lagekarte-rotation__preview {
+  flex: none; width: 28px; height: 28px; display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: 50%; background: var(--surface-2);
+  font-size: 15px; line-height: 1; color: var(--ink); transition: transform .08s;
+}
 .lagekarte-panel__head { display: flex; align-items: center; gap: 12px; padding: 14px 15px 12px; border-bottom: 1px solid var(--line-2); }
 .lagekarte-panel__head h2 { margin: 2px 0 0; font-size: 15px; }
 .lagekarte-panel__count { margin-left: auto; font: 11px var(--mono); color: var(--ink-3); }

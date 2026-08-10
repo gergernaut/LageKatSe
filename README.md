@@ -113,7 +113,8 @@ Lagekarte, in die der Stab die Lage grafisch führt.
 - **Karte & Bedienung.** Leaflet mit OpenStreetMap-Kacheln. Taktische Zeichen
   (DV 102) werden aus einer durchsuchbaren, **nach Typ gruppierten Palette**
   (Untermenüs je Organisation, statt einer flachen Liste) per Klick platziert, per
-  Drag verschoben, beschriftet (Bezeichnung + Beschreibung) und gelöscht. Flächen
+  Drag verschoben, **ausgerichtet** (Rotation je Symbol per Slider/Winkel-Eingabe),
+  beschriftet (Bezeichnung + Beschreibung) und gelöscht. Flächen
   (Polygon/Rechteck/Kreis) werden mit Leaflet-Geoman gezeichnet und tragen Farbe
   und Deckkraft. Bezeichnung + Beschreibung erscheinen als Tooltip.
 - **DWD-Wetterlayer (optional).** Zwei schaltbare Overlays direkt vom Deutschen
