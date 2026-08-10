@@ -101,7 +101,7 @@ export async function exportAll(session: Session): Promise<void> {
 
   // --- Lagekarte ---
   {
-    const conn = connectModule(session.room.id, "lagekarte", session.token);
+    const conn = connectModule(session.room.id, "lagekarte", session.token, { cache: false });
     try {
       await waitForSync(conn);
       const features = conn.doc.getMap<unknown>(LAGEKARTE_FEATURES);
@@ -121,7 +121,7 @@ export async function exportAll(session: Session): Promise<void> {
 
   // --- ETB ---
   {
-    const conn = connectModule(session.room.id, "etb", session.token);
+    const conn = connectModule(session.room.id, "etb", session.token, { cache: false });
     try {
       await waitForSync(conn);
       const entries = conn.doc.getArray<Y.Map<unknown>>(ETB_ENTRIES);
@@ -142,7 +142,7 @@ export async function exportAll(session: Session): Promise<void> {
 
   // --- Arbeitsblatt ---
   {
-    const conn = connectModule(session.room.id, "arbeitsblatt", session.token);
+    const conn = connectModule(session.room.id, "arbeitsblatt", session.token, { cache: false });
     try {
       await waitForSync(conn);
       const payload = extractArbeitsblatt(conn.doc);
