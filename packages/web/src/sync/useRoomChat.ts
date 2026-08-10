@@ -16,6 +16,8 @@ export interface RoomChat {
   messages: ChatMessage[];
   online: PresenceState[];
   connected: boolean;
+  /** "connected" | "connecting" | "disconnected" — feingranularer als `connected`. */
+  connectionStatus: "connected" | "connecting" | "disconnected";
   canChat: boolean;
   send: (body: string) => void;
 }
@@ -24,6 +26,7 @@ export function useRoomChat(session: Session): RoomChat {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [online, setOnline] = useState<PresenceState[]>([]);
   const [connected, setConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<"connected" | "connecting" | "disconnected">("connecting");
   const connRef = useRef<ModuleConnection | null>(null);
 
   const canChat = canWrite(session.roles, "chat", {
@@ -60,7 +63,12 @@ export function useRoomChat(session: Session): RoomChat {
     awareness.on("change", refreshPresence);
     refreshPresence();
 
-    const onStatus = (event: { status: string }) => setConnected(event.status === "connected");
+    const onStatus = (event: { status: string }) => {
+      setConnected(event.status === "connected");
+      if (event.status === "connected" || event.status === "connecting" || event.status === "disconnected") {
+        setConnectionStatus(event.status);
+      }
+    };
     conn.provider.on("status", onStatus);
 
     return () => {
@@ -88,5 +96,5 @@ export function useRoomChat(session: Session): RoomChat {
     ]);
   };
 
-  return { messages, online, connected, canChat, send };
+  return { messages, online, connected, connectionStatus, canChat, send };
 }

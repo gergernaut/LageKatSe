@@ -79,7 +79,7 @@ export async function importBundle(session: Session, file: File): Promise<Bundle
     if (!result) {
       skipped.push("Lagekarte (ungültiges Format)");
     } else {
-      const conn = connectModule(session.room.id, "lagekarte", session.token);
+      const conn = connectModule(session.room.id, "lagekarte", session.token, { cache: false });
       try {
         await waitForSync(conn);
         const featuresMap = conn.doc.getMap<MapFeature>(LAGEKARTE_FEATURES);
@@ -99,7 +99,7 @@ export async function importBundle(session: Session, file: File): Promise<Bundle
     if (!isRecord(parsed) || parsed.format !== AB_EXPORT_FORMAT || !isRecord(parsed.sheet)) {
       skipped.push("Arbeitsblatt (ungültiges Format)");
     } else {
-      const conn = connectModule(session.room.id, "arbeitsblatt", session.token);
+      const conn = connectModule(session.room.id, "arbeitsblatt", session.token, { cache: false });
       try {
         await waitForSync(conn);
         applyArbeitsblattImport(conn.doc, parsed.sheet, uid);
