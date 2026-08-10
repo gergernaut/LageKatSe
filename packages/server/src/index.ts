@@ -38,11 +38,36 @@ async function main(): Promise<void> {
     `LageKatSe backend listening on :${config.port} — store: ${config.databaseUrl ? "postgres" : "memory"}`,
   );
 
+  // --- Automatische Inaktivitäts-Retention (E10/#66) ---
+  // Periodischer Sweep: Räume deren last_active_at älter als die Frist ist,
+  // werden per Cascade-DELETE entfernt (nur Postgres relevant — Memory-Store
+  // vergisst beim Neustart ohnehin, aber die Implementierung ist dieselbe).
+  const retentionMs = config.retention.days * 24 * 60 * 60 * 1000;
+  const runRetention = async () => {
+    try {
+      const stale = await store.getStaleRooms(retentionMs);
+      if (stale.length === 0) return;
+      for (const room of stale) {
+        await store.deleteRoom(room.id);
+        app.log.info(`[retention] deleted stale room: ${room.name} (${room.joinCode}), last_active ${room.lastActiveAt}`);
+      }
+      app.log.info(`[retention] swept ${stale.length} stale room(s) (frist: ${config.retention.days}d)`);
+    } catch (err) {
+      app.log.error(err, "[retention] sweep failed");
+    }
+  };
+  // Erster Sweep kurz nach Start (nicht sofort — gibt der DB Zeit hochzufahren),
+  // danach im konfigurierten Intervall.
+  const retentionTimer = setTimeout(() => void runRetention(), 10_000);
+  const retentionInterval = setInterval(() => void runRetention(), config.retention.intervalMs);
+
   let closing = false;
   const shutdown = async (signal: string) => {
     if (closing) return;
     closing = true;
     app.log.info(`received ${signal}, shutting down…`);
+    clearTimeout(retentionTimer);
+    clearInterval(retentionInterval);
     try {
       wss.close();
       for (const ws of wss.clients) ws.terminate();
