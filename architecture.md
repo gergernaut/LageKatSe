@@ -819,6 +819,16 @@ und gleicht beim Reconnect ab. Der Live-Indikator in der Topbar zeigt drei State
 „Live synchronisiert" (connected), „Verbinde…" (connecting), „Offline — lokal zwischengespeichert"
 (disconnected).
 
+> **Grenzfall (Invariante #2):** IndexedDB ist ein origin-weiter, tabuebergreifender
+> Store. Offline-Edits einer RO-Monitor-Rolle persistieren in IDB. Oeffnet spaeter ein
+> Writer-Tab im selben Browser denselben Raum, laedt deren Doc diese Edits aus demselben
+> Store und pusht sie WS-seitig — der Server akzeptiert sie mit den Rechten des Writers.
+> Sehr enger Grenzfall (gleicher Browser, RO+Writer); praktisch unkritisch, weil der
+> Server-Authoritative-Pfad sicherstellt, dass nur legitime Writer-Aenderungen den
+> geteilten Stand erreichen. Eine striktere Loesung (RO-Rollen gar nicht cachen) ist
+> moeglich, aber bewusst nicht umgesetzt — sie wuerde den Cache-Vorteil fuer den Monitor
+> (Sofort-Anzeige) aufheben.
+
 ### 13.2 Skalierung
 
 Ein Yjs-Dokument hat im Betrieb genau **einen** autoritativen Besitzer-Prozess. Für horizontale
