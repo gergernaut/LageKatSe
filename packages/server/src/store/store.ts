@@ -29,6 +29,10 @@ export interface Store {
   getRoomById(id: string): Promise<RoomRecord | null>;
   getRoomByJoinCode(code: string): Promise<RoomRecord | null>;
   touchRoom(id: string, lastActiveAt: string): Promise<void>;
+  /** Räume deren last_active_at älter als der Schwellwert ist (E10/#66). */
+  getStaleRooms(olderThanMs: number): Promise<RoomRecord[]>;
+  /** Löscht einen Raum + alle abhängigen Daten per Cascade (E10/#66). */
+  deleteRoom(id: string): Promise<void>;
 
   /** Base snapshot plus every update logged since it (architecture.md §7.2). */
   loadDoc(roomId: string, module: string): Promise<DocState>;

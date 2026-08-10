@@ -31,6 +31,26 @@ export class MemoryStore implements Store {
     if (rec) rec.lastActiveAt = lastActiveAt;
   }
 
+  async getStaleRooms(olderThanMs: number): Promise<RoomRecord[]> {
+    const threshold = Date.now() - olderThanMs;
+    return [...this.rooms.values()].filter((r) => new Date(r.lastActiveAt).getTime() < threshold);
+  }
+
+  async deleteRoom(id: string): Promise<void> {
+    const rec = this.rooms.get(id);
+    if (!rec) return;
+    this.codeToId.delete(rec.joinCode.toUpperCase());
+    this.rooms.delete(id);
+    // Remove all module docs + updates for this room.
+    const prefix = `${id}::`;
+    for (const k of [...this.snapshots.keys(), ...this.updates.keys()]) {
+      if (k.startsWith(prefix)) {
+        this.snapshots.delete(k);
+        this.updates.delete(k);
+      }
+    }
+  }
+
   async loadDoc(roomId: string, module: string): Promise<DocState> {
     const k = key(roomId, module);
     return {
