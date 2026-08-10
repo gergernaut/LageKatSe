@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coercePegelStations, pegelStatusColor, PEGEL_STATUS_LABEL, type PegelState } from "./pegel";
+import { coercePegelStations, pegelStatusColor, pegelStatusText, PEGEL_STATUS_LABEL, type PegelState } from "./pegel";
 
 // Rohform wie von PEGELONLINE (stations.json?includeCurrentMeasurement&includeTimeseries).
 const station = (over: Record<string, unknown> = {}) => ({
@@ -31,7 +31,24 @@ describe("coercePegelStations", () => {
       unit: "cm",
       timestamp: "2026-08-10T11:00:00+02:00",
       state: "normal",
+      comment: null,
     });
+  });
+
+  it("übernimmt bei kommentierten Pegeln den comment.shortDescription", () => {
+    const s = station({
+      timeseries: [
+        {
+          shortname: "W",
+          unit: "cm",
+          currentMeasurement: { value: 91, stateMnwMhw: "commented", timestamp: "t" },
+          comment: { shortDescription: "Funktionsstörung, fehlerhafte Messwerte", longDescription: "…" },
+        },
+      ],
+    });
+    const [p] = coercePegelStations([s]);
+    expect(p.state).toBe("commented");
+    expect(p.comment).toBe("Funktionsstörung, fehlerhafte Messwerte");
   });
 
   it("überspringt Stationen ohne Koordinaten", () => {
@@ -88,5 +105,20 @@ describe("pegelStatusColor / PEGEL_STATUS_LABEL", () => {
     for (const s of ["low", "normal", "high", "unknown", "commented"] as PegelState[]) {
       expect(PEGEL_STATUS_LABEL[s]).toBeTruthy();
     }
+  });
+});
+
+describe("pegelStatusText", () => {
+  it("zeigt bei commented den Kommentar statt des generischen Labels", () => {
+    expect(pegelStatusText({ state: "commented", comment: "Techn. Störung" })).toBe("Techn. Störung");
+  });
+
+  it("fällt bei commented ohne Kommentar auf das Label zurück", () => {
+    expect(pegelStatusText({ state: "commented", comment: null })).toBe(PEGEL_STATUS_LABEL.commented);
+  });
+
+  it("nutzt für andere Status das Label (Kommentar ignoriert)", () => {
+    expect(pegelStatusText({ state: "normal", comment: "egal" })).toBe(PEGEL_STATUS_LABEL.normal);
+    expect(pegelStatusText({ state: "high", comment: null })).toBe(PEGEL_STATUS_LABEL.high);
   });
 });

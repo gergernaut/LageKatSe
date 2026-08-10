@@ -17,7 +17,7 @@ import { uid } from "../uid";
 import { dug } from "../dug";
 import { formatDateTime } from "../format";
 import { api } from "../api";
-import { fetchPegelStations, pegelStatusColor, PEGEL_STATUS_LABEL, type PegelStation } from "../pegel";
+import { fetchPegelStations, pegelStatusColor, pegelStatusText, type PegelStation } from "../pegel";
 import { Palette, type PaletteSymbol } from "./Palette";
 
 interface SymbolIndex {
@@ -815,7 +815,7 @@ export function Lagekarte({
         table.appendChild(tr);
       };
       addRow("Wasserstand", `${st.value} ${st.unit}`.trim());
-      addRow("Status", PEGEL_STATUS_LABEL[st.state]);
+      addRow(st.state === "commented" ? "Hinweis" : "Status", pegelStatusText(st));
       addRow("Stand", formatDateTime(st.timestamp));
       el.appendChild(table);
       // Pegel→ETB (Bonus): server-autoritativer Eintrag (Invariante #6), nur mit
@@ -830,7 +830,7 @@ export function Lagekarte({
           btn.textContent = "…";
           try {
             await api.createEtbEntry(session.room.joinCode, session.token, {
-              inhalt: `Pegel ${st.name}${st.water ? ` (${st.water})` : ""}: ${st.value} ${st.unit} (${PEGEL_STATUS_LABEL[st.state]}), Stand ${formatDateTime(st.timestamp)}`,
+              inhalt: `Pegel ${st.name}${st.water ? ` (${st.water})` : ""}: ${st.value} ${st.unit} (${pegelStatusText(st)}), Stand ${formatDateTime(st.timestamp)}`,
               von: "PEGELONLINE/WSV",
             });
             btn.textContent = "✓ im ETB";
