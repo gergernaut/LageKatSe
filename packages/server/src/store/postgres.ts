@@ -89,6 +89,20 @@ export class PostgresStore implements Store {
     await this.pool.query(`UPDATE room SET last_active_at = $2 WHERE id = $1`, [id, lastActiveAt]);
   }
 
+  async getStaleRooms(olderThanMs: number): Promise<RoomRecord[]> {
+    const threshold = new Date(Date.now() - olderThanMs).toISOString();
+    const res = await this.pool.query<RoomRow>(
+      `SELECT * FROM room WHERE last_active_at < $1`,
+      [threshold],
+    );
+    return res.rows.map(rowToRoom);
+  }
+
+  async deleteRoom(id: string): Promise<void> {
+    // ON DELETE CASCADE in schema.sql removes module_doc + doc_update rows.
+    await this.pool.query(`DELETE FROM room WHERE id = $1`, [id]);
+  }
+
   async loadDoc(roomId: string, module: string): Promise<DocState> {
     const snap = await this.pool.query<{ snapshot: Buffer }>(
       `SELECT snapshot FROM module_doc WHERE room_id = $1 AND module = $2`,

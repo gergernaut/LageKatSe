@@ -879,7 +879,10 @@ Skalierung:
   Ergänzend ein **Self-Service „Lage abschließen"** durch die S-Rollen (Doppel-Bestätigung → Abschluss-
   ETB-Eintrag + Gesamt/PDF-Export → Landing-Page → serverseitiges Löschen; passt zu E8, kein
   Admin-Account). Zweckbindung, Auftragsverarbeitung, Server-Standort EU. Nur für den Postgres-Deploy
-  relevant (Memory-Store vergisst beim Neustart). Umsetzung: #66 (Auto-Retention), #75 (Self-Service).
+  relevant (Memory-Store vergisst beim Neustart). Umsetzung: **#66 (Auto-Retention) umgesetzt** —
+  periodischer Server-Sweep (`store.getStaleRooms` + `deleteRoom` per Cascade), Frist konfigurierbar
+  (`RETENTION_DAYS`, Default 28; `RETENTION_INTERVAL_MS`, Default 24 h); `last_active_at` wird bei
+  jeder Aktivität (Connect, CRDT-Write) per `touchRoom` gebumpt. #75 (Self-Service) noch offen.
 - **Rate-Limiting — umgesetzt (#64):** globales Limit pro IP + strengeres auf Beitritts-/Raum-Anlegen-
   Endpunkten (Brute-Force/Enumeration auf Lobby-Codes bremsen → zusätzlich ausreichend lange, zufällige
   Codes). Konfigurierbar; `TRUST_PROXY` für die echte Client-IP hinter einem Reverse-Proxy.
@@ -939,7 +942,7 @@ Stand der Entscheidungen (2026-07-29  geklärt) — ✅ = entschieden, ▫ = Def
 | E7 | Rückseite Arbeitsblatt (ABC/MANV/Wetter) | ✅ Wetter umgesetzt (§10.5, DWD/BrightSky); ABC/MANV/Dekon verworfen (#42 geschlossen) |
 | E8 | Nutzerkonten statt Raumcode? | ✅ Vorerst **Raumcode**, keine Accounts in M0; Accounts erst bei raumübergreifender Historie |
 | E9 | Symbolgröße pro Symbol oder global? | ✅ **Global pro Betrachter** (lokaler Slider, `localStorage`); `SymbolFeature.scale` entfernt – Größe ist bei DV-102 nicht bedeutungstragend, Bedarf = Lesbarkeit (Beamer/Tablet) und muss auch für den RO-Monitor gehen. Rotation bleibt pro Symbol (§8.1/§8.3) |
-| E10 | Alte Räume bei Postgres-Persistenz | ✅ **Entschieden (Zielgruppe, #73): Frist 4 Wochen** Inaktivität (Default, konfigurierbar) → geplanter Cascade-DELETE auf `last_active_at`; **vor** dem Löschen Stabsraum-Bundle-Export (§12). Ergänzend **Self-Service „Lage abschließen"** durch S-Rollen (kein Admin-Account, passt zu E8). Kein Admin-Portal nötig → #68 geschlossen. Nur Postgres-Deploy. Umsetzung: **#66** (Auto-Retention), **#75** (Self-Service). Vorarbeit: `last_active_at` auch bei Aktivität bumpen |
+| E10 | Alte Räume bei Postgres-Persistenz | ✅ **Entschieden (Zielgruppe, #73): Frist 4 Wochen** Inaktivität (Default, konfigurierbar) → geplanter Cascade-DELETE auf `last_active_at`; **vor** dem Löschen Stabsraum-Bundle-Export (§12). Ergänzend **Self-Service „Lage abschließen"** durch S-Rollen (kein Admin-Account, passt zu E8). Kein Admin-Portal nötig → #68 geschlossen. Nur Postgres-Deploy. Umsetzung: **#66 umgesetzt** (Auto-Retention), **#75** (Self-Service) offen. Vorarbeit: `last_active_at` auch bei Aktivität bumpen |
 
 **Tooling (M0):** Monorepo mit **pnpm-Workspaces**, gemeinsames `shared`-Paket. Frontend React+Vite, Backend Fastify + `ws` + Yjs, PostgreSQL.
 
@@ -988,7 +991,7 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
 - ✅ **Startseiten-Disclaimer** (#76): „kein primäres Einsatzmittel" in der Lobby
 - ✅ **Fachliche Klärung** mit der Zielgruppe (#73): Auth schlank genügt (E3), ETB-Storno reicht (E2),
   Retention **4 Wochen** (E10) — Details in §14/§17
-- ⏳ Offen: Retention/Löschkonzept umsetzen (#66) + Self-Service „Lage abschließen" (#75),
+- ⏳ Offen: Self-Service „Lage abschließen" (#75),
   Reverse-Proxy/TLS-Betrieb (#65), Offline-Robustheit (#70)
 - ✅ **Test-Framework** (#72): Vitest (`pnpm test`) für reine Logik (Rollen/Rechte, Import-Coercion,
   `format`/`dug`, PDF-Umbruch), in CI eingehängt; `.mjs`-Smoke-Tests bleiben ergänzend.
