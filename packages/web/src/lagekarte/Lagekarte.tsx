@@ -294,6 +294,9 @@ export function Lagekarte({
   const [areaOpacity, setAreaOpacity] = useState(0.3);
   const [label, setLabel] = useState("");
   const [description, setDescription] = useState("");
+  // Ausrichtung des ausgewählten Symbols (0–359°, 0 = Norden). Pro Symbol, nicht global
+  // (anders als Symbolgröße/E9); wird beim Speichern über die Feature-Y.Map gesetzt (#69).
+  const [rotation, setRotation] = useState(0);
   const [symbolSize, setSymbolSize] = useState(() => {
     try {
       const stored = Number.parseFloat(localStorage.getItem(SYMBOL_SIZE_KEY) ?? "");
@@ -463,6 +466,8 @@ export function Lagekarte({
     if (selectedFeature.kind === "area") {
       setAreaColor(selectedFeature.color);
       setAreaOpacity(selectedFeature.opacity);
+    } else {
+      setRotation(selectedFeature.rotation ?? 0);
     }
   }, [selectedFeature]);
 
@@ -557,6 +562,7 @@ export function Lagekarte({
     } else {
       featuresMap.set(current.id, {
         ...current,
+        rotation: ((Math.round(rotation) % 360) + 360) % 360, // auf 0–359 normalisieren
         label,
         description,
         updatedAt,
@@ -1277,6 +1283,41 @@ export function Lagekarte({
                     />
                   </label>
                 </>
+              )}
+              {selectedFeature.kind === "symbol" && (
+                <div className="lagekarte-field lagekarte-rotation">
+                  <span>
+                    Ausrichtung {(((Math.round(rotation) % 360) + 360) % 360)}° <small>(0° = Norden)</small>
+                  </span>
+                  <div className="lagekarte-rotation__row">
+                    <span
+                      className="lagekarte-rotation__preview"
+                      style={{ transform: `rotate(${rotation}deg)` }}
+                      aria-hidden="true"
+                    >
+                      ↑
+                    </span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="360"
+                      step="5"
+                      value={rotation}
+                      aria-label="Ausrichtung (Grad)"
+                      onChange={(event) => setRotation(Number(event.target.value))}
+                    />
+                    <input
+                      type="number"
+                      className="lagekarte-rotation__num"
+                      min="0"
+                      max="360"
+                      step="5"
+                      value={rotation}
+                      aria-label="Ausrichtung in Grad"
+                      onChange={(event) => setRotation(Number(event.target.value))}
+                    />
+                  </div>
+                </div>
               )}
               <label className="lagekarte-field">
                 <span>Bezeichnung</span>
