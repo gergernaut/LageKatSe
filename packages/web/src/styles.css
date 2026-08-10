@@ -580,8 +580,16 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .lagekarte-opacity input { width: 100%; accent-color: var(--signal); }
 .lagekarte-rotation small { color: var(--ink-3); font-weight: 400; }
 .lagekarte-rotation__row { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
-.lagekarte-rotation__row input[type="range"] { flex: 1; accent-color: var(--signal); }
-.lagekarte-rotation__num { width: 64px; flex: none; text-align: right; }
+/* Höher spezifisch als die generische `.lagekarte-field input`-Regel: der Range darf
+   nicht als Textfeld (Border/Padding/Hintergrund/width:100%) gerendert werden, sonst
+   verschwindet der Slider; das Zahlenfeld muss schmal bleiben, sonst sprengt es das Popup. */
+.lagekarte-rotation__row input[type="range"] {
+  flex: 1; min-width: 0; width: auto; padding: 0; border: none; background: transparent;
+  accent-color: var(--signal);
+}
+.lagekarte-rotation__row input[type="number"] {
+  width: 64px; flex: none; text-align: right;
+}
 .lagekarte-rotation__preview {
   flex: none; width: 28px; height: 28px; display: grid; place-items: center;
   border: 1px solid var(--line); border-radius: 50%; background: var(--surface-2);

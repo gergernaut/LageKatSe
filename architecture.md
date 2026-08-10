@@ -495,7 +495,9 @@ interface AreaFeature {
 > nicht synchronisiert. So wählt jeder (auch der read-only Monitor/Beamer) die für seinen
 > Bildschirm passende Größe, ohne den geteilten Zustand zu ändern. Rotation dagegen ist eine
 > echte geteilte Eigenschaft und bleibt am Feature — editierbar im Auswahl-Panel (Slider 0–360°
-> + Winkel-Eingabe mit Vorschau, beim Speichern über die Feature-`Y.Map` gesetzt, #69).
+> + Winkel-Eingabe). Das Ziehen dreht das Symbol **lokal live** (nur die Icon-Transform, kein
+> CRDT-Write); **persistiert** wird erst beim Speichern über die Feature-`Y.Map`. Ein Abbruch
+> (Schließen ohne Speichern) setzt das Icon auf den gespeicherten Stand zurück (#69).
 
 **Konfliktverhalten (wie in M1 umgesetzt):** Jedes Feature ist **ein** Wert im `Y.Map`, als Ganzes
 per `Y.Map.set(id, feature)` gesetzt. Änderungen an *verschiedenen* Features stören sich nicht;

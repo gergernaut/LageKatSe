@@ -282,6 +282,9 @@ export function Lagekarte({
   const writableRef = useRef(false);
   const renderForRightsRef = useRef<(() => void) | null>(null);
   const refreshSymbolsRef = useRef<(() => void) | null>(null);
+  // Lokale Rotations-Vorschau: dreht das Icon des ausgewählten Symbols direkt beim
+  // Slider-Ziehen, ohne ins CRDT zu schreiben (persistiert wird erst beim Speichern).
+  const previewRotationRef = useRef<((id: string, deg: number) => void) | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const [symbols, setSymbols] = useState<PaletteSymbol[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<PaletteSymbol | null>(null);
@@ -485,6 +488,13 @@ export function Lagekarte({
   }, []);
 
   const clearFeatureSelection = () => {
+    // Marker mit dem persistierten Stand abgleichen: bei Abbruch revertiert das die
+    // lokale Vorschau, beim Speichern (CRDT bereits gesetzt) bestätigt es den neuen Wert.
+    const prevId = selectedFeatureIdRef.current;
+    if (prevId) {
+      const feature = featuresMapRef.current?.get(prevId);
+      if (feature?.kind === "symbol") previewRotationRef.current?.(prevId, feature.rotation);
+    }
     selectedFeatureIdRef.current = null;
     setSelectedFeature(null);
   };
@@ -961,6 +971,13 @@ export function Lagekarte({
     };
     renderForRightsRef.current = renderAll;
     refreshSymbolsRef.current = refreshSymbols;
+    // Nur die Icon-Rotation des Markers lokal setzen (kein CRDT-Write, kein Broadcast).
+    previewRotationRef.current = (id, deg) => {
+      const layer = layers.get(id);
+      const element = layer instanceof L.Marker ? layer.getElement() : null;
+      const image = element?.querySelector("img");
+      if (image) image.style.transform = `rotate(${deg}deg)`;
+    };
 
     const abortController = new AbortController();
     void fetch("/taktische-zeichen/index.json", { signal: abortController.signal })
@@ -1057,6 +1074,7 @@ export function Lagekarte({
       loadPegelRef.current = null;
       if (renderForRightsRef.current === renderAll) renderForRightsRef.current = null;
       if (refreshSymbolsRef.current === refreshSymbols) refreshSymbolsRef.current = null;
+      previewRotationRef.current = null;
       conn.destroy();
       map.remove();
       layers.clear();
@@ -1304,7 +1322,11 @@ export function Lagekarte({
                       step="5"
                       value={rotation}
                       aria-label="Ausrichtung (Grad)"
-                      onChange={(event) => setRotation(Number(event.target.value))}
+                      onChange={(event) => {
+                        const value = Number(event.target.value);
+                        setRotation(value);
+                        if (selectedFeature) previewRotationRef.current?.(selectedFeature.id, value);
+                      }}
                     />
                     <input
                       type="number"
@@ -1314,7 +1336,11 @@ export function Lagekarte({
                       step="5"
                       value={rotation}
                       aria-label="Ausrichtung in Grad"
-                      onChange={(event) => setRotation(Number(event.target.value))}
+                      onChange={(event) => {
+                        const value = Number(event.target.value);
+                        setRotation(value);
+                        if (selectedFeature) previewRotationRef.current?.(selectedFeature.id, value);
+                      }}
                     />
                   </div>
                 </div>
