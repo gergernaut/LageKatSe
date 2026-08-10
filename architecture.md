@@ -812,6 +812,21 @@ schlankes, **server-authored, nicht-persistiertes** Signal:
 Server-Neustart: Räume werden **lazy** beim ersten Beitritt aus Snapshot + Update-Log rekonstruiert.
 Da der komplette Zustand in der DB liegt, gehen keine Daten verloren (L3). Client-seitig überbrückt
 `y-indexeddb` kurze Ausfälle; beim Reconnect gleicht Yjs automatisch ab (L6).
+**Umgesetzt (#70):** die vier langlebigen Modul-Dokumente (chat, lagekarte, etb, arbeitsblatt)
+werden pro Raum × Modul in IndexedDB gecacht (`connectModule`, `disableBc` bleibt — Invariante #2).
+Sofort-Anzeige beim Laden aus dem Cache, Weiterarbeit offline; der Server bleibt autoritativ
+und gleicht beim Reconnect ab. Der Live-Indikator in der Topbar zeigt drei States:
+„Live synchronisiert" (connected), „Verbinde…" (connecting), „Offline — lokal zwischengespeichert"
+(disconnected).
+
+> **Grenzfall (Invariante #2):** IndexedDB ist ein origin-weiter, tabuebergreifender
+> Store. Offline-Edits einer RO-Monitor-Rolle persistieren in IDB. Oeffnet spaeter ein
+> Writer-Tab im selben Browser denselben Raum, laedt deren Doc diese Edits aus demselben
+> Store und pusht sie WS-seitig — der Server akzeptiert sie mit den Rechten des Writers.
+> Sehr enger Grenzfall (gleicher Browser, RO+Writer): RO-erzeugter Inhalt wird so ueber
+> den Writer-Tab eingeschleust und dem Writer zugerechnet. Die bewusste Akzeptanz ist fuer
+> ein LAN-UEbungstool vertretbar; eine striktere Loesung (RO-Rollen gar nicht cachen) ist
+> moeglich, wuerde aber den Cache-Vorteil fuer den Monitor (Sofort-Anzeige) aufheben.
 
 ### 13.2 Skalierung
 
