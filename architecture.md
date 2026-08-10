@@ -465,7 +465,7 @@ interface SymbolFeature {
   kind: "symbol";
   symbolId: string;           // Referenz in den DV-102-Symbol-Index
   position: [number, number]; // [lat, lng]
-  rotation: number;           // Grad, 0 = Norden (gerendert, aber noch keine Bearbeitungs-UI)
+  rotation: number;           // Grad, 0 = Norden (Bearbeitung im Auswahl-Panel: Slider + Winkel-Eingabe, #69)
   label?: string;             // Kurzbeschriftung an der Karte
   description?: string;       // Tooltip bei MouseOver
   createdBy: string;          // Anzeigename
@@ -494,7 +494,8 @@ interface AreaFeature {
 > Einstellung (globaler Slider, in `localStorage` je Client), kein Feld am Feature – sie wird
 > nicht synchronisiert. So wählt jeder (auch der read-only Monitor/Beamer) die für seinen
 > Bildschirm passende Größe, ohne den geteilten Zustand zu ändern. Rotation dagegen ist eine
-> echte geteilte Eigenschaft und bleibt am Feature.
+> echte geteilte Eigenschaft und bleibt am Feature — editierbar im Auswahl-Panel (Slider 0–360°
+> + Winkel-Eingabe mit Vorschau, beim Speichern über die Feature-`Y.Map` gesetzt, #69).
 
 **Konfliktverhalten (wie in M1 umgesetzt):** Jedes Feature ist **ein** Wert im `Y.Map`, als Ganzes
 per `Y.Map.set(id, feature)` gesetzt. Änderungen an *verschiedenen* Features stören sich nicht;
@@ -990,7 +991,8 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
 - ✅ **Test-Framework** (#72): Vitest (`pnpm test`) für reine Logik (Rollen/Rechte, Import-Coercion,
   `format`/`dug`, PDF-Umbruch), in CI eingehängt; `.mjs`-Smoke-Tests bleiben ergänzend.
   Ein UI-Happy-Path via Playwright ist als optionales Follow-up ausgegliedert.
-- ⏳ Ausbaustufen: DV-102-Rotations-UI (#69), Live-Cursor, eigener Tile-Server
+- ✅ **DV-102-Rotations-UI** (#69): Ausrichtung pro Symbol im Auswahl-Panel (Slider + Winkel-Eingabe)
+- ⏳ Ausbaustufen: Live-Cursor, eigener Tile-Server
 - ❌ Verworfen (per #73): Auth-Proxy/SSO als Pflicht (#67, optional bleibt möglich), Admin-Auth/-Portal (#68)
 
 ---
