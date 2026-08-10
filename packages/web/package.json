@@ -19,6 +19,7 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "y-websocket": "^3.0.0",
+    "y-indexeddb": "^9.0.12",
     "yjs": "^13.6.20"
   },
   "devDependencies": {
