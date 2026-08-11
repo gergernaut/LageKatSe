@@ -12,7 +12,7 @@ COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/server/package.json packages/server/
 
-# Install server + shared deps (prod only).
+# Install server + shared deps (tsx is needed at runtime, so no --prod).
 RUN pnpm install --frozen-lockfile --filter @lagekatse/server --filter @lagekatse/shared
 
 # Copy source.
