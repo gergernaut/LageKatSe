@@ -66,6 +66,52 @@ erreichbare* Adresse zeigen (nicht `localhost`): `VITE_API_URL` (Backend-URL) un
 `CORS_ORIGIN` (Origin, unter dem die Web-App geöffnet wird). Der Vite-Dev-Server
 bindet dank `host: true` auf alle Interfaces.
 
+## Deployment (Reverse-Proxy + TLS, Docker Compose)
+
+Für den Produktiv-/Pilotbetrieb liegt eine `docker-compose.yml` mit vier Services
+bereit: **Caddy** (Reverse-Proxy, TLS), **Web** (statische SPA), **Backend**
+(Node), **PostgreSQL**. Caddy terminiert TLS (Let's-Encrypt für öffentliche
+Domains, `tls internal` für geschlossene Netze) und routet `/api` + `/ws` ans
+Backend, `/` ans statische Frontend.
+
+### Einrichtung
+
+```bash
+cp .env.example .env
+# In .env mindestens setzen:
+#   DOMAIN=lagekatse.example.org      # öffentliche Domain (für Let's-Encrypt)
+#   CADDY_EMAIL=admin@example.org     # Let's-Encrypt-Benachrichtigungen
+#   JWT_SECRET=<starkes, zufälliges Passwort>
+#   POSTGRES_PASSWORD=<sicheres Passwort>
+
+docker compose up -d
+```
+
+Caddy holt automatisch ein Let's-Encrypt-Zertifikat für `DOMAIN`. Die App ist
+dann unter `https://<DOMAIN>` erreichbar — inkl. Secure Context (Desktop-
+Benachrichtigungen greifen automatisch).
+
+### Dual-Mode (HTTPS-Internet + HTTP-LAN)
+
+- **HTTPS-Internet** (Pilot): `DOMAIN` gesetzt → Caddy + Let's-Encrypt.
+- **HTTP-LAN** (Übungsbetrieb, kein TLS): `DOMAIN` leer oder `tls internal` →
+  kein Secure Context, aber einfachste Variante für geschlossene Netzwerke.
+
+`VITE_API_URL` ist per Default `""` (Same-Origin) — der Bundle ist
+deployment-unabhängig. Für Dev oder Split-Deployments auf eine absolute URL setzen.
+
+### Verifikation
+
+```bash
+curl -I https://<DOMAIN>/            # Frontend (200, Caddy)
+curl https://<DOMAIN>/api/health     # Backend (200, { ok: true })
+```
+
+In zwei Browsern dem Raum beitreten, Sync sichtbar (Symbol platzieren, ETB-Eintrag)
+→ WSS-Handshake funktioniert. Bei HTTPS: Desktop-Notifications aktivierbar.
+
+Details: [architecture.md §16](./architecture.md#16-deployment).
+
 ## Skripte
 
 | Befehl | Wirkung |
