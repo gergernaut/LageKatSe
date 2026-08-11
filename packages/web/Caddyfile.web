@@ -1,0 +1,7 @@
+# Caddyfile for the web container (static SPA serving).
+# Serves dist/ and falls back to index.html for client-side routing.
+:80 {
+	root * /srv
+	try_files {path} /index.html
+	file_server
+}

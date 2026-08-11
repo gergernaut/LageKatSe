@@ -1,18 +1,30 @@
-# Optional durable persistence for LageKatSe.
-# The app runs without this (in-memory store) — bring this up when you want
-# stabsräume to survive a server restart.
+# LageKatSe production deployment (reverse-proxy + TLS).
 #
-#   docker compose up -d db
-#   DATABASE_URL=postgres://lagekatse:lagekatse@localhost:5432/lagekatse pnpm dev:server
+# Bring everything up:
+#   docker compose up -d
+#
+# The reverse proxy (Caddy) terminates TLS and routes:
+#   /api/*, /ws/* → backend, /* → web (static SPA).
+#
+# For local dev (without Docker), just run `pnpm dev` — this compose file
+# is for production/pilot deployments. The `db` service can also be used
+# standalone for dev (`docker compose up -d db`).
+#
+# Required env (set in .env or environment):
+#   DOMAIN       — public hostname, e.g. lagekatse.example.org
+#   CADDY_EMAIL  — email for Let's-Encrypt certificate notifications
+#   JWT_SECRET   — a strong random string (NOT the default)
+#   DATABASE_URL — postgres connection string
+#   CORS_ORIGIN  — the origin the browser uses (https://<DOMAIN>); irrelevant
+#                  for same-origin behind the proxy, but set it to be safe.
+
 services:
   db:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: lagekatse
-      POSTGRES_PASSWORD: lagekatse
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lagekatse}
       POSTGRES_DB: lagekatse
-    ports:
-      - "5432:5432"
     volumes:
       - lagekatse_pg:/var/lib/postgresql/data
       - ./packages/server/src/store/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
@@ -22,5 +34,48 @@ services:
       timeout: 3s
       retries: 10
 
+  backend:
+    build: packages/server
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      DATABASE_URL: postgres://lagekatse:${POSTGRES_PASSWORD:-lagekatse}@db:5432/lagekatse
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://${DOMAIN}}
+      TRUST_PROXY: "true"
+      RATE_LIMIT_MAX: "300"
+      RATE_LIMIT_SENSITIVE_MAX: "30"
+      RATE_LIMIT_WINDOW_MS: "60000"
+      RETENTION_DAYS: "28"
+      RETENTION_INTERVAL_MS: "86400000"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: packages/web/Dockerfile
+    restart: unless-stopped
+
+  proxy:
+    image: caddy:2-alpine
+    depends_on:
+      - backend
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN must be set}
+      CADDY_EMAIL: ${CADDY_EMAIL:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
 volumes:
   lagekatse_pg:
+  caddy_data:
+  caddy_config:
