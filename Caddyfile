@@ -1,9 +1,9 @@
 # LageKatSe reverse-proxy (Caddy).
 #
 # Routes:
-#   /api/*  → backend (Fastify, HTTP + WebSocket)
-#   /ws/*   → backend WebSocket (WSS upgrade)
-#   /*      → web container (static SPA files)
+#   /api/*   → backend (Fastify, HTTP)
+#   /sync/*  → backend (y-websocket WSS, /sync/:roomId/:module)
+#   /*       → web container (static SPA files)
 #
 # TLS mode is controlled by the DOMAIN env var:
 #   Public domain (e.g. lagekatse.example.org) → Caddy auto-provisions
