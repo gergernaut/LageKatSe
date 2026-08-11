@@ -7,7 +7,9 @@ import type {
   SessionResponse,
 } from "@lagekatse/shared";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+// Default "" = same-origin (API served by the reverse-proxy alongside the
+// SPA). Set VITE_API_URL to an absolute URL for dev or split deployments.
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -50,7 +52,13 @@ export const api = {
     }),
 };
 
-/** Derive the WebSocket origin from the HTTP API base. */
+/**
+ * Derive the WebSocket origin. When an explicit `VITE_API_URL` is set (dev or
+ * split deployment), use it. Otherwise build from `window.location` so WSS
+ * works behind the reverse-proxy on the same origin (#65).
+ */
 export function wsBase(): string {
-  return API_BASE.replace(/^http/, "ws");
+  if (API_BASE) return API_BASE.replace(/^http/, "ws");
+  const proto = window.location.protocol === "https:" ? "wss" : "ws";
+  return `${proto}://${window.location.host}`;
 }

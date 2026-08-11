@@ -1,0 +1,29 @@
+# LageKatSe reverse-proxy (Caddy).
+# Terminates TLS (Let's-Encrypt for public domains, `tls internal` for
+# closed networks) and routes:
+#   /api/*  → backend (Fastify)
+#   /ws/*   → backend WebSocket (WSS upgrade)
+#   /*      → web container (static SPA files)
+#
+# The hostname is set via the {domain} env var (docker-compose).
+{
+	email {$CADDY_EMAIL}
+}
+
+{$DOMAIN} {
+	# API + WebSocket → backend
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+	handle /ws/* {
+		reverse_proxy backend:8080
+	}
+
+	# Everything else → static frontend
+	handle {
+		reverse_proxy web:80
+	}
+
+	# Fallback for SPA routing (client-side paths like /lobby, /uebersicht)
+	# Not needed because the web container handles this itself.
+}
