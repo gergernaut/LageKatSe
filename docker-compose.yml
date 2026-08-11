@@ -70,7 +70,7 @@ services:
       - "443:443"
     environment:
       DOMAIN: ${DOMAIN:?DOMAIN must be set}
-      CADDY_EMAIL: ${CADDY_EMAIL:-}
+      CADDY_EMAIL: ${CADDY_EMAIL:-admin@example.org}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
