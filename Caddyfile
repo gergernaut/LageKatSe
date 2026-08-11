@@ -13,9 +13,10 @@
 #   Plain HTTP (LAN, no TLS) → use `:80` as DOMAIN and remove/comment
 #     the tls directive.
 #
-# Email for Let's-Encrypt notifications (optional for internal mode).
+# Let's-Encrypt email (set via CADDY_EMAIL env, defaults to admin@example.org
+# in docker-compose). For internal/HTTP mode it is unused but must not be empty.
 {
-	email {$CADDY_EMAIL:admin@example.org}
+	email {$CADDY_EMAIL}
 }
 
 {$DOMAIN} {
