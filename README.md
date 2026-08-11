@@ -22,7 +22,7 @@ Fach- und Architekturkonzept: **[architecture.md](./architecture.md)**.
 > etwas tut — und immer auch als **Zähler im Browser-Tab-Titel**. Wo HTTPS/localhost
 > vorhanden ist, gibt es zusätzlich optionale **Desktop-Benachrichtigungen** (pro
 > Nutzer per Glocke aktivierbar). **M4 begonnen:** PDF-Export und Rate-Limiting
-> ausgeliefert; offen u.a. Reverse-Proxy/TLS-Betrieb, Aufbewahrungs-/Löschkonzept.
+> ausgeliefert; offen u.a. Self-Service „Lage abschließen".
 
 ## Schnellstart
 
@@ -208,6 +208,6 @@ Sync und Rechte-Durchsetzung deckt ein Smoke-Test ab:
 - ~~**M1** Gemeinsame Lagekarte~~ ✅ umgesetzt (PR #2)
 - ~~**M2** Einsatztagebuch (Tabelle, Auto-Lfd-Nr./Zeit, Storno, JSON/PDF-Export)~~ ✅ umgesetzt (PR #31)
 - ~~**M3** Taktisches Arbeitsblatt (Felder A–F, eingebettetes Live-Lagebild, Gefahren-Randfelder, Wetter, JSON-Im-/Export, PDF)~~ ✅ umgesetzt
-- **M4 — Härtung & Ausbau** (angelaufen): PDF-Export ✅, DWD-Wetter ✅, Gesamt-Export ✅, Bundle-Import ✅, Rate-Limiting ✅, Test-Framework (Vitest) + CI ✅, Startseiten-Disclaimer ✅; **offen:** Reverse-Proxy/TLS-Betrieb, Aufbewahrungs-/Löschkonzept (E10)
+- **M4 — Härtung & Ausbau** (angelaufen): PDF-Export ✅, DWD-Wetter ✅, Gesamt-Export ✅, Bundle-Import ✅, Rate-Limiting ✅, Test-Framework (Vitest) + CI ✅, Startseiten-Disclaimer ✅, Auto-Retention ✅, Reverse-Proxy/TLS ✅; **offen:** Self-Service „Lage abschließen"
 
 Offene Punkte mit ⚠️ in [architecture.md §17](./architecture.md).

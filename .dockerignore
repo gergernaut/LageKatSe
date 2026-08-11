@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.env
+*.md
+lagekatse_logo.png
+mockup.html
+LageKatSe.txt
+vitest.config.ts
