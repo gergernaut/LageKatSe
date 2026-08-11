@@ -1,16 +1,27 @@
 # LageKatSe reverse-proxy (Caddy).
-# Terminates TLS (Let's-Encrypt for public domains, `tls internal` for
-# closed networks) and routes:
-#   /api/*  → backend (Fastify)
+#
+# Routes:
+#   /api/*  → backend (Fastify, HTTP + WebSocket)
 #   /ws/*   → backend WebSocket (WSS upgrade)
 #   /*      → web container (static SPA files)
 #
-# The hostname is set via the {domain} env var (docker-compose).
+# TLS mode is controlled by the DOMAIN env var:
+#   Public domain (e.g. lagekatse.example.org) → Caddy auto-provisions
+#     a Let's-Encrypt certificate.
+#   Internal hostname / IP → add `tls internal` below for a self-signed
+#     cert (closed network without public DNS).
+#   Plain HTTP (LAN, no TLS) → use `:80` as DOMAIN and remove/comment
+#     the tls directive.
+#
+# Email for Let's-Encrypt notifications (optional for internal mode).
 {
-	email {$CADDY_EMAIL}
+	email {$CADDY_EMAIL:admin@example.org}
 }
 
 {$DOMAIN} {
+	# For closed networks without public DNS, replace with: tls internal
+	# For plain HTTP (LAN, no TLS), comment this out and use :80 as DOMAIN.
+
 	# API + WebSocket → backend
 	handle /api/* {
 		reverse_proxy backend:8080
@@ -23,7 +34,4 @@
 	handle {
 		reverse_proxy web:80
 	}
-
-	# Fallback for SPA routing (client-side paths like /lobby, /uebersicht)
-	# Not needed because the web container handles this itself.
 }
