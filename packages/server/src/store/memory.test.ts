@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MemoryStore } from "./memory";
+import { DEFAULT_ROOM_SETTINGS } from "@lagekatse/shared";
 import type { RoomRecord } from "./store";
 
 const now = Date.now();
@@ -11,7 +12,7 @@ function room(id: string, lastActiveOffsetMs: number): RoomRecord {
     name: `Room ${id}`,
     joinCode: `CODE-${id}`,
     passwordHash: null,
-    settings: {},
+    settings: { ...DEFAULT_ROOM_SETTINGS },
     createdAt: iso(-60_000),
     lastActiveAt: iso(lastActiveOffsetMs),
   };
