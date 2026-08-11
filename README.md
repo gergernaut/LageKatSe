@@ -93,9 +93,14 @@ Benachrichtigungen greifen automatisch).
 
 ### Dual-Mode (HTTPS-Internet + HTTP-LAN)
 
-- **HTTPS-Internet** (Pilot): `DOMAIN` gesetzt → Caddy + Let's-Encrypt.
-- **HTTP-LAN** (Übungsbetrieb, kein TLS): `DOMAIN` leer oder `tls internal` →
-  kein Secure Context, aber einfachste Variante für geschlossene Netzwerke.
+- **HTTPS-Internet** (Pilot): `DOMAIN=lagekatse.example.org` → Caddy holt
+  automatisch ein Let's-Encrypt-Zertifikat. Secure Context greift → Desktop-
+  Benachrichtigungen funktionieren.
+- **Geschlossenes Netz** (kein öffentliches DNS): gleiche Einrichtung, aber im
+  `Caddyfile` `tls internal` aktivieren (selbstsigniertes Zertifikat) oder die
+  `tls`-Direktive auskommentieren für plain HTTP (`DOMAIN=:80`). Letzteres ist
+  die einfachste Variante für Übungsbetrieb im LAN — kein Secure Context, aber
+  keine Browser-Warnung.
 
 `VITE_API_URL` ist per Default `""` (Same-Origin) — der Bundle ist
 deployment-unabhängig. Für Dev oder Split-Deployments auf eine absolute URL setzen.
