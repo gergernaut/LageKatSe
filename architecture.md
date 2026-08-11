@@ -883,6 +883,9 @@ Skalierung:
   periodischer Server-Sweep (`store.getStaleRooms` + `deleteRoom` per Cascade), Frist konfigurierbar
   (`RETENTION_DAYS`, Default 28; `RETENTION_INTERVAL_MS`, Default 24 h); `last_active_at` wird bei
   jeder Aktivität (Connect, CRDT-Write) per `touchRoom` gebumpt. #75 (Self-Service) noch offen.
+  > **Betriebshinweis:** Nach einem Server-Ausfall länger als die Frist würde der erste Sweep
+  > (10 s nach Start) sofort alle dann „überfälligen" Räume löschen — inhärent bei zeitbasierter
+  > Retention; bei längeren Ausfällen ggf. Frist temporär erhöhen (`RETENTION_DAYS`).
 - **Rate-Limiting — umgesetzt (#64):** globales Limit pro IP + strengeres auf Beitritts-/Raum-Anlegen-
   Endpunkten (Brute-Force/Enumeration auf Lobby-Codes bremsen → zusätzlich ausreichend lange, zufällige
   Codes). Konfigurierbar; `TRUST_PROXY` für die echte Client-IP hinter einem Reverse-Proxy.
@@ -942,7 +945,7 @@ Stand der Entscheidungen (2026-07-29  geklärt) — ✅ = entschieden, ▫ = Def
 | E7 | Rückseite Arbeitsblatt (ABC/MANV/Wetter) | ✅ Wetter umgesetzt (§10.5, DWD/BrightSky); ABC/MANV/Dekon verworfen (#42 geschlossen) |
 | E8 | Nutzerkonten statt Raumcode? | ✅ Vorerst **Raumcode**, keine Accounts in M0; Accounts erst bei raumübergreifender Historie |
 | E9 | Symbolgröße pro Symbol oder global? | ✅ **Global pro Betrachter** (lokaler Slider, `localStorage`); `SymbolFeature.scale` entfernt – Größe ist bei DV-102 nicht bedeutungstragend, Bedarf = Lesbarkeit (Beamer/Tablet) und muss auch für den RO-Monitor gehen. Rotation bleibt pro Symbol (§8.1/§8.3) |
-| E10 | Alte Räume bei Postgres-Persistenz | ✅ **Entschieden (Zielgruppe, #73): Frist 4 Wochen** Inaktivität (Default, konfigurierbar) → geplanter Cascade-DELETE auf `last_active_at`; **vor** dem Löschen Stabsraum-Bundle-Export (§12). Ergänzend **Self-Service „Lage abschließen"** durch S-Rollen (kein Admin-Account, passt zu E8). Kein Admin-Portal nötig → #68 geschlossen. Nur Postgres-Deploy. Umsetzung: **#66 umgesetzt** (Auto-Retention), **#75** (Self-Service) offen. Vorarbeit: `last_active_at` auch bei Aktivität bumpen |
+| E10 | Alte Räume bei Postgres-Persistenz | ✅ **Entschieden (Zielgruppe, #73): Frist 4 Wochen** Inaktivität (Default, konfigurierbar) → geplanter Cascade-DELETE auf `last_active_at`. **Auto-Retention (#66, umgesetzt):** inaktive Räume werden *still* gelöscht (kein aktiver Nutzer, der einen Export vermisst). Der **Export vor dem Löschen (§12)** gilt nur für den **#75-Self-Service** („Lage abschließen" durch S-Rollen, offen). Ergänzend kein Admin-Portal nötig → #68 geschlossen. Nur Postgres-Deploy. Vorarbeit: `last_active_at` auch bei Aktivität bumpen |
 
 **Tooling (M0):** Monorepo mit **pnpm-Workspaces**, gemeinsames `shared`-Paket. Frontend React+Vite, Backend Fastify + `ws` + Yjs, PostgreSQL.
 
