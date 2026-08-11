@@ -13,6 +13,14 @@ export interface Config {
     /** Strengeres Limit für sensible Endpunkte (Lobby-Join, Raum-Anlegen) — gegen Brute-Force/Enumeration. */
     sensitiveMax: number;
   };
+  /** Automatische Inaktivitäts-Retention (E10/#66): Räume deren last_active_at
+   *  älter als retentionDays ist, werden periodisch per Cascade-DELETE gelöscht. */
+  retention: {
+    /** Frist in Tagen (Default 28 = 4 Wochen, #73). */
+    days: number;
+    /** Intervall des Cleanup-Sweeps in ms (Default 24 h). */
+    intervalMs: number;
+  };
 }
 
 function intFromEnv(name: string, fallback: number): number {
@@ -33,9 +41,13 @@ export function loadConfig(): Config {
     max: intFromEnv("RATE_LIMIT_MAX", 300),
     sensitiveMax: intFromEnv("RATE_LIMIT_SENSITIVE_MAX", 30),
   };
+  const retention = {
+    days: intFromEnv("RETENTION_DAYS", 28),
+    intervalMs: intFromEnv("RETENTION_INTERVAL_MS", 24 * 60 * 60 * 1000),
+  };
 
   if (jwtSecret === "dev-only-change-me") {
     console.warn("[config] Using the default JWT secret — set JWT_SECRET before any real deployment.");
   }
-  return { port, jwtSecret, databaseUrl, corsOrigin, trustProxy, rateLimit };
+  return { port, jwtSecret, databaseUrl, corsOrigin, trustProxy, rateLimit, retention };
 }
