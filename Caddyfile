@@ -22,11 +22,12 @@
 	# For closed networks without public DNS, replace with: tls internal
 	# For plain HTTP (LAN, no TLS), comment this out and use :80 as DOMAIN.
 
-	# API + WebSocket → backend
+	# API → backend (HTTP)
 	handle /api/* {
 		reverse_proxy backend:8080
 	}
-	handle /ws/* {
+	# WebSocket-Sync → backend (y-websocket verbindet auf /sync/:roomId/:module)
+	handle /sync/* {
 		reverse_proxy backend:8080
 	}
 
