@@ -8,6 +8,7 @@ import { WebSocket } from "ws";
 import {
   ACTIVITY_CHANNEL,
   ACTIVITY_COUNTERS,
+  ACTIVITY_META,
   ACTIVITY_SUMMARIES,
   ETB_ENTRIES,
   type LogEntry,
@@ -164,6 +165,50 @@ export class RoomHub {
     void this.bumpActivity(roomId, "etb", "Einsatztagebuch importiert");
 
     return sorted.length;
+  }
+
+  /**
+   * „Lage abschließen" (#75): signalisiert allen Clients über den Activity-Kanal
+   * das Ende, löscht den Raum server-autoritativ und räumt die In-Memory-Docs ab.
+   * Reihenfolge: erst der `meta`-closed-Broadcast (der `doc.on("update")`-Fan-out
+   * ist synchron → erreicht die Clients, bevor wir ihre WS schließen), dann Delete,
+   * dann lokale Aufräumung.
+   */
+  async closeRoom(roomId: string, closedBy: string): Promise<void> {
+    try {
+      const md = await this.getDoc(roomId, ACTIVITY_CHANNEL);
+      const meta = md.doc.getMap(ACTIVITY_META);
+      md.doc.transact(() => {
+        meta.set("closed", true);
+        meta.set("closedBy", closedBy);
+      }, SERVER_ORIGIN);
+    } catch (err) {
+      console.error(`[hub] closeRoom broadcast failed for ${roomId}`, err);
+    }
+
+    // In-Memory-Docs des Raums abräumen. updatesSinceSnapshot=0 unterbindet den
+    // Snapshot beim Verbindungsabbau (sonst FK-Fehler nach dem Delete, da CASCADE).
+    const prefix = `${roomId}::`;
+    for (const [k, md] of [...this.docs]) {
+      if (!k.startsWith(prefix)) continue;
+      if (md.snapshotTimer) {
+        clearTimeout(md.snapshotTimer);
+        md.snapshotTimer = null;
+      }
+      md.updatesSinceSnapshot = 0;
+      for (const conn of md.conns) {
+        try {
+          conn.ws.close();
+        } catch {
+          /* connection is going away */
+        }
+      }
+      this.docs.delete(k);
+      this.activityLastBumpedAt.delete(k);
+    }
+    this.roomLastTouchedAt.delete(roomId);
+
+    await this.store.deleteRoom(roomId);
   }
 
   async bumpActivity(roomId: string, module: Module, summary = ""): Promise<void> {

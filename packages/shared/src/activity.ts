@@ -32,6 +32,21 @@ export const ACTIVITY_SUMMARIES = "summaries" as const;
 export type ActivitySummaries = Partial<Record<Module, string>>;
 
 /**
+ * Y.Map inside the activity doc: raumweite Meta-Signale (kein Modul-Bezug). Aktuell
+ * das „Lage abschließen"-Signal (#75): der Server setzt `closed=true` + `closedBy`
+ * unmittelbar vor dem serverseitigen Löschen; alle Clients (read-only) sehen es und
+ * leiten auf die Abschluss-Landing um. Wie der Rest des Kanals server-authored und
+ * nicht persistiert.
+ */
+export const ACTIVITY_META = "meta" as const;
+
+export interface ActivityMeta {
+  closed?: boolean;
+  /** Anzeige-String dessen, der die Lage abgeschlossen hat („Name (Rollen)"). */
+  closedBy?: string;
+}
+
+/**
  * A y-websocket sync target: either a real (permission-scoped) module or the
  * activity channel. Used by the client provider and the server gateway, which
  * accept both but treat `activity` as always read-only.

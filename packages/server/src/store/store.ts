@@ -8,6 +8,8 @@ export interface RoomRecord {
   settings: RoomSettings;
   createdAt: string;
   lastActiveAt: string;
+  /** Anzeige-String des Erstellers „Name (Rollen)" (#75); optional (Alt-Räume: leer). */
+  createdBy?: string;
 }
 
 /** Persisted CRDT state for one (room, module) document. */

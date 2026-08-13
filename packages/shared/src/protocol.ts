@@ -29,6 +29,8 @@ export interface RoomPublic {
   hasPassword: boolean;
   settings: RoomSettings;
   createdAt: string;
+  /** Anzeige-String des Erstellers „Name (Rollen)" — für den Abschluss-ETB-Eintrag (#75). */
+  createdBy?: string;
 }
 
 // ---- HTTP request / response contracts ----
@@ -37,6 +39,8 @@ export interface CreateRoomRequest {
   name: string;
   password?: string;
   settings?: Partial<RoomSettings>;
+  /** Anzeige-String des Erstellers „Name (Rollen)" — beim Anlegen mitgegeben (#75). */
+  createdBy?: string;
 }
 
 export interface JoinRoomRequest {

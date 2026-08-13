@@ -1,7 +1,9 @@
 import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
-import { hasStabRole, MODULE_LABELS, type Module } from "@lagekatse/shared";
+import { buildCloseEtbText, hasStabRole, MODULE_LABELS, type Module } from "@lagekatse/shared";
 import type { Session } from "../session";
 import type { RoomChat } from "../sync/useRoomChat";
+import { api } from "../api";
+import { dug } from "../dug";
 import { exportAll } from "../exportAll";
 import { importBundle } from "../importAll";
 
@@ -47,11 +49,13 @@ export function Uebersicht({
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
   const chatLogRef = useRef<HTMLDivElement>(null);
 
-  // Bundle-Import ist destruktiv (ersetzt den geteilten Stand) → nur Stabsrollen.
+  // Bundle-Import + Lage abschließen sind destruktiv → nur Stabsrollen.
   const canImport = hasStabRole(session.roles);
+  const canClose = hasStabRole(session.roles);
 
   // Auto-Scroll: bei neuen Nachrichten und beim initialen Laden ans Ende scrollen.
   useEffect(() => {
@@ -105,6 +109,35 @@ export function Uebersicht({
     }
   };
 
+  // Lage abschließen (#75): Doppel-Bestätigung → finaler ETB-Eintrag (server-
+  // autoritativ) → Gesamt-Export → serverseitiges Löschen. Der Redirect aller
+  // Clients läuft danach über das „closed"-Broadcast (AppShell/useRoomActivity).
+  const handleClose = async () => {
+    if (closing) return;
+    if (!window.confirm("Lage abschließen? Dies schließt und löscht den Stabsraum!")) return;
+    if (!window.confirm("Wirklich unwiderruflich abschließen? Vorher wird automatisch ein Gesamt-Export erstellt.")) return;
+    setClosing(true);
+    try {
+      const closedBy = `${session.name} (${session.roles.join("/")})`;
+      const inhalt = buildCloseEtbText({
+        startDug: dug(new Date(session.room.createdAt)),
+        createdBy: session.room.createdBy,
+        endDug: dug(),
+        closedBy,
+      });
+      // 1) Abschluss-Eintrag server-autoritativ (Invariante #6) — VOR dem Export.
+      await api.createEtbEntry(session.room.joinCode, session.token, { inhalt, von: closedBy });
+      // 2) Gesamt-Export (ZIP) — enthält den Abschluss-Eintrag.
+      await exportAll(session);
+      // 3) Serverseitig schließen + löschen; Broadcast leitet alle auf die Landing.
+      await api.closeRoom(session.room.joinCode, session.token);
+    } catch (err) {
+      console.error("Lage abschließen fehlgeschlagen", err);
+      setClosing(false);
+      window.alert("Lage abschließen fehlgeschlagen. Bitte erneut versuchen.");
+    }
+  };
+
   return (
     <div className="wrap">
       <div className="uebersicht-head">
@@ -141,6 +174,17 @@ export function Uebersicht({
                 onChange={handleImportFile}
               />
             </>
+          )}
+          {canClose && (
+            <button
+              className="btn btn--danger"
+              type="button"
+              onClick={handleClose}
+              disabled={closing}
+              title="Lage abschließen: Abschluss-Eintrag + Gesamt-Export, dann Raum schließen und löschen"
+            >
+              {closing ? "Schließe…" : "Lage abschließen"}
+            </button>
           )}
         </div>
       </div>

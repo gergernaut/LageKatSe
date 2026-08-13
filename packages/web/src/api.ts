@@ -50,6 +50,15 @@ export const api = {
       body: JSON.stringify({ entries }),
       headers: { authorization: `Bearer ${token}` },
     }),
+  // Lage abschließen (#75): schließt + löscht den Raum server-autoritativ (nur S-Rollen).
+  // Leerer JSON-Body {} nötig — request() setzt content-type: application/json, und
+  // Fastify lehnt einen leeren Body bei json-Content-Type mit 400 ab.
+  closeRoom: (code: string, token: string) =>
+    request<{ ok: true }>(`/api/rooms/${encodeURIComponent(code)}/close`, {
+      method: "POST",
+      body: JSON.stringify({}),
+      headers: { authorization: `Bearer ${token}` },
+    }),
 };
 
 /**
