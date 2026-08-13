@@ -9,8 +9,12 @@ CREATE TABLE IF NOT EXISTS room (
   password_hash  text,
   settings       jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at     timestamptz NOT NULL DEFAULT now(),
-  last_active_at timestamptz NOT NULL DEFAULT now()
+  last_active_at timestamptz NOT NULL DEFAULT now(),
+  created_by     text
 );
+
+-- Idempotente Migration für bestehende DBs (init() spielt das Schema bei jedem Start ein).
+ALTER TABLE room ADD COLUMN IF NOT EXISTS created_by text;
 
 CREATE INDEX IF NOT EXISTS room_join_code_idx ON room (upper(join_code));
 

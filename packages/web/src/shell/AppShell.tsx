@@ -165,7 +165,7 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
   const [seen, setSeen] = useState<ActivityCounters>(() => loadActivitySeen(session.room.id));
   const [notificationsEnabled, setNotificationsEnabled] = useState(loadNotificationsEnabled);
   const chat = useRoomChat(session);
-  const { counters: activity, summaries, synced } = useRoomActivity(session);
+  const { counters: activity, summaries, synced, closed } = useRoomActivity(session);
   // Baseline "seen" to the server's current counters on the first sync of a fresh
   // join (no prior seen) so pre-existing activity does not dot.
   const hadStoredSeenRef = useRef<boolean | null>(null);
@@ -257,6 +257,33 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
     setNotificationsEnabled(enabled);
     saveNotificationsEnabled(enabled);
   };
+
+  // Lage abgeschlossen (#75): der Server hat den Raum geschlossen → Abschluss-Landing
+  // für alle Clients (inkl. Initiator), danach automatisch zurück zur Startseite.
+  useEffect(() => {
+    if (!closed) return;
+    const timer = window.setTimeout(onLeave, 12_000);
+    return () => window.clearTimeout(timer);
+  }, [closed, onLeave]);
+
+  if (closed) {
+    return (
+      <div className="room-closed">
+        <div className="room-closed__card">
+          <img className="room-closed__mark" src="/lagekatse_logo.png" alt="LageKatSe Logo" />
+          <h1>Lage abgeschlossen</h1>
+          <p>
+            Der Raum wurde von <b>{closed.by || "einer Stabsfunktion"}</b> beendet.
+            <br />
+            Vielen Dank für die Nutzung von LageKatSe!
+          </p>
+          <button className="btn btn--primary" type="button" onClick={onLeave}>
+            Zur Startseite
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
