@@ -46,6 +46,19 @@ input, select, textarea { font-family: inherit; }
 .btn--primary:hover:not(:disabled) { background: #ffb733; }
 .btn--ghost { background: transparent; color: var(--on-dark); border-color: var(--line-dark); }
 .btn--ghost:hover { border-color: var(--on-dark-3); }
+.btn--danger { background: var(--danger); color: #fff; }
+.btn--danger:hover:not(:disabled) { background: #e0483c; }
+
+/* Abschluss-Landing (#75) — Vollbild nach „Lage abschließen". */
+.room-closed {
+  position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center;
+  background: linear-gradient(180deg, var(--ground), var(--ground-2)); color: var(--on-dark);
+  padding: 24px;
+}
+.room-closed__card { max-width: 460px; text-align: center; }
+.room-closed__mark { width: 56px; height: 56px; border-radius: 14px; object-fit: contain; margin-bottom: 18px; }
+.room-closed h1 { font-size: 26px; margin: 0 0 12px; }
+.room-closed p { color: var(--on-dark-2); font-size: 15px; line-height: 1.6; margin: 0 0 22px; }
 
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .lab { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--on-dark-3); }

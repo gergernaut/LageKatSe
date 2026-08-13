@@ -38,6 +38,7 @@ interface RoomRow {
   settings: Partial<RoomSettings> | null;
   created_at: Date;
   last_active_at: Date;
+  created_by: string | null;
 }
 
 function rowToRoom(row: RoomRow): RoomRecord {
@@ -49,6 +50,7 @@ function rowToRoom(row: RoomRow): RoomRecord {
     settings: { ...DEFAULT_ROOM_SETTINGS, ...(row.settings ?? {}) },
     createdAt: row.created_at.toISOString(),
     lastActiveAt: row.last_active_at.toISOString(),
+    createdBy: row.created_by ?? undefined,
   };
 }
 
@@ -69,9 +71,9 @@ export class PostgresStore implements Store {
 
   async createRoom(rec: RoomRecord): Promise<void> {
     await this.pool.query(
-      `INSERT INTO room (id, name, join_code, password_hash, settings, created_at, last_active_at)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7)`,
-      [rec.id, rec.name, rec.joinCode, rec.passwordHash, JSON.stringify(rec.settings), rec.createdAt, rec.lastActiveAt],
+      `INSERT INTO room (id, name, join_code, password_hash, settings, created_at, last_active_at, created_by)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)`,
+      [rec.id, rec.name, rec.joinCode, rec.passwordHash, JSON.stringify(rec.settings), rec.createdAt, rec.lastActiveAt, rec.createdBy ?? null],
     );
   }
 

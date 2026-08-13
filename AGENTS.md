@@ -14,9 +14,10 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   `effectiveWriteScopes`, `WRITE_SCOPES`), Module (`modules.ts`), Protokoll, Datenmodelle
   (`lagekarte.ts`). Von Client **und** Server genutzt — die gemeinsame Quelle der Wahrheit.
 - `packages/server` — `@lagekatse/server`: Fastify HTTP-API + WebSocket-Sync-Gateway.
-  `index.ts` (Bootstrap + Shutdown), `http.ts` (REST: Räume, Join, autoritatives ETB-Anlegen
-  **+ ETB-Bundle-Import**), `sync/gateway.ts` (Auth + WS-Upgrade), `sync/room-hub.ts`
-  (Yjs-Docs, Persistenz, Fan-out; `appendEtbEntry`/`replaceEtbEntries`), `store/` (`memory` | `postgres`).
+  `index.ts` (Bootstrap + Shutdown + Auto-Retention-Sweep), `http.ts` (REST: Räume, Join, autoritatives
+  ETB-Anlegen **+ ETB-Bundle-Import + Lage-abschließen `/close`**), `sync/gateway.ts` (Auth + WS-Upgrade),
+  `sync/room-hub.ts` (Yjs-Docs, Persistenz, Fan-out; `appendEtbEntry`/`replaceEtbEntries`/`closeRoom`),
+  `store/` (`memory` | `postgres`; `getStaleRooms`/`deleteRoom`, Room mit `createdBy`).
 - `packages/web` — `@lagekatse/web`: React/Vite-SPA. `lobby/`, `uebersicht/`, `lagekarte/`
   (Karte + `Palette.tsx` + DWD-Regenradar/KONRAD3D-Overlays + Pegel-Layer), `etb/`,
   `arbeitsblatt/` (`Arbeitsblatt.tsx`, `Wetter.tsx`), `sync/provider.ts` (`connectModule`).
