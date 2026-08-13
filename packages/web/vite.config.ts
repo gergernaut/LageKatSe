@@ -12,5 +12,13 @@ export default defineConfig({
     // testing on a remote server), not just localhost.
     host: true,
     port: 5173,
+    // Dev-Proxy: seit #65 ist VITE_API_URL per Default "" (same-origin hinter dem
+    // Reverse-Proxy). Damit `pnpm dev` ohne .env funktioniert, proxyt der Dev-Server
+    // dieselben Pfade ans lokale Backend wie Caddy in Produktion: /api (HTTP) und
+    // /sync (WebSocket-Upgrade). Zielport überschreibbar via VITE_DEV_BACKEND.
+    proxy: {
+      "/api": { target: process.env.VITE_DEV_BACKEND ?? "http://localhost:8080", changeOrigin: true },
+      "/sync": { target: process.env.VITE_DEV_BACKEND ?? "http://localhost:8080", ws: true, changeOrigin: true },
+    },
   },
 });
