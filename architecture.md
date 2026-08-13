@@ -913,11 +913,20 @@ Skalierung:
 ## 16. Deployment
 
 - **Container:** Frontend (statisch, via Reverse-Proxy) + Backend (Node) + PostgreSQL, orchestriert
-  per **Docker Compose**.
-- **Reverse-Proxy** (Traefik/Nginx/Caddy) terminiert TLS und leitet `/api` + `/ws` ans Backend.
+  per **Docker Compose** (`docker-compose.yml`). Vier Services: `proxy` (Caddy), `web` (statische
+  SPA), `backend` (Node/tsx), `db` (PostgreSQL).
+- **Reverse-Proxy** (**Caddy**, umgesetzt #65): terminiert TLS (Let's-Encrypt für öffentliche
+  Domains, `tls internal` für geschlossene Netze) und leitet `/api` + `/ws` ans Backend (inkl.
+  WebSocket-Upgrade), `/` ans statische Frontend.
+- **Dual-Mode:** HTTPS-Internet (Pilot, Let's-Encrypt → Secure Context für Desktop-Notifications #32)
+  und HTTP-LAN (einfachste Variante, kein TLS). `VITE_API_URL` Default `""` = Same-Origin;
+  `wsBase()` baut die WSS-URL aus `window.location` (nicht aus leerem Base).
+- **Dockerfiles:** Backend (`packages/server/Dockerfile`, Node + tsx), Web (Multi-Stage:
+  `pnpm build` → `dist/` per Caddy `file_server`, `packages/web/Dockerfile`).
 - **OSM-Tiles:** MVP nutzt öffentliche OSM-Tiles (Tile-Usage-Policy beachten!). Für Produktion/Einsatz
   **eigener Tile-Server** oder ein OSM-Tile-Anbieter → Offline-/Datenschutz-Vorteil.
-- **Konfiguration** über Umgebungsvariablen (DB-URL, JWT-Secret, Tile-URL, Retention-Fristen).
+- **Konfiguration** über Umgebungsvariablen (`DOMAIN`, `CADDY_EMAIL`, `JWT_SECRET`,
+  `POSTGRES_PASSWORD`, `CORS_ORIGIN`, Retention-Fristen; siehe `.env.example`).
 
 ```mermaid
 flowchart LR
@@ -994,8 +1003,9 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
 - ✅ **Startseiten-Disclaimer** (#76): „kein primäres Einsatzmittel" in der Lobby
 - ✅ **Fachliche Klärung** mit der Zielgruppe (#73): Auth schlank genügt (E3), ETB-Storno reicht (E2),
   Retention **4 Wochen** (E10) — Details in §14/§17
-- ⏳ Offen: Self-Service „Lage abschließen" (#75),
-  Reverse-Proxy/TLS-Betrieb (#65), Offline-Robustheit (#70)
+- ✅ **Auto-Retention** (#66, §14): Inaktivitäts-Retention (4 Wochen, konfigurierbar)
+- ✅ **Reverse-Proxy + TLS** (#65, §16): Caddy + Docker Compose (Dual-Mode HTTPS/LAN)
+- ⏳ Offen: Self-Service „Lage abschließen" (#75), Offline-Robustheit (#70)
 - ✅ **Test-Framework** (#72): Vitest (`pnpm test`) für reine Logik (Rollen/Rechte, Import-Coercion,
   `format`/`dug`, PDF-Umbruch), in CI eingehängt; `.mjs`-Smoke-Tests bleiben ergänzend.
   Ein UI-Happy-Path via Playwright ist als optionales Follow-up ausgegliedert.
