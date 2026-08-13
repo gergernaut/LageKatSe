@@ -22,7 +22,7 @@ Fach- und Architekturkonzept: **[architecture.md](./architecture.md)**.
 > etwas tut — und immer auch als **Zähler im Browser-Tab-Titel**. Wo HTTPS/localhost
 > vorhanden ist, gibt es zusätzlich optionale **Desktop-Benachrichtigungen** (pro
 > Nutzer per Glocke aktivierbar). **M4 begonnen:** PDF-Export und Rate-Limiting
-> ausgeliefert; offen u.a. Reverse-Proxy/TLS-Betrieb, Aufbewahrungs-/Löschkonzept.
+> ausgeliefert; offen u.a. Self-Service „Lage abschließen".
 
 ## Schnellstart
 
@@ -65,6 +65,57 @@ Beim Testen **auf einem Server** müssen zwei Werte auf die *vom Browser
 erreichbare* Adresse zeigen (nicht `localhost`): `VITE_API_URL` (Backend-URL) und
 `CORS_ORIGIN` (Origin, unter dem die Web-App geöffnet wird). Der Vite-Dev-Server
 bindet dank `host: true` auf alle Interfaces.
+
+## Deployment (Reverse-Proxy + TLS, Docker Compose)
+
+Für den Produktiv-/Pilotbetrieb liegt eine `docker-compose.yml` mit vier Services
+bereit: **Caddy** (Reverse-Proxy, TLS), **Web** (statische SPA), **Backend**
+(Node), **PostgreSQL**. Caddy terminiert TLS (Let's-Encrypt für öffentliche
+Domains, `tls internal` für geschlossene Netze) und routet `/api` + `/ws` ans
+Backend, `/` ans statische Frontend.
+
+### Einrichtung
+
+```bash
+cp .env.example .env
+# In .env mindestens setzen:
+#   DOMAIN=lagekatse.example.org      # öffentliche Domain (für Let's-Encrypt)
+#   CADDY_EMAIL=admin@example.org     # Let's-Encrypt-Benachrichtigungen
+#   JWT_SECRET=<starkes, zufälliges Passwort>
+#   POSTGRES_PASSWORD=<sicheres Passwort>
+
+docker compose up -d
+```
+
+Caddy holt automatisch ein Let's-Encrypt-Zertifikat für `DOMAIN`. Die App ist
+dann unter `https://<DOMAIN>` erreichbar — inkl. Secure Context (Desktop-
+Benachrichtigungen greifen automatisch).
+
+### Dual-Mode (HTTPS-Internet + HTTP-LAN)
+
+- **HTTPS-Internet** (Pilot): `DOMAIN=lagekatse.example.org` → Caddy holt
+  automatisch ein Let's-Encrypt-Zertifikat. Secure Context greift → Desktop-
+  Benachrichtigungen funktionieren.
+- **Geschlossenes Netz** (kein öffentliches DNS): gleiche Einrichtung, aber im
+  `Caddyfile` `tls internal` aktivieren (selbstsigniertes Zertifikat) oder die
+  `tls`-Direktive auskommentieren für plain HTTP (`DOMAIN=:80`). Letzteres ist
+  die einfachste Variante für Übungsbetrieb im LAN — kein Secure Context, aber
+  keine Browser-Warnung.
+
+`VITE_API_URL` ist per Default `""` (Same-Origin) — der Bundle ist
+deployment-unabhängig. Für Dev oder Split-Deployments auf eine absolute URL setzen.
+
+### Verifikation
+
+```bash
+curl -I https://<DOMAIN>/            # Frontend (200, Caddy)
+curl https://<DOMAIN>/api/health     # Backend (200, { ok: true })
+```
+
+In zwei Browsern dem Raum beitreten, Sync sichtbar (Symbol platzieren, ETB-Eintrag)
+→ WSS-Handshake funktioniert. Bei HTTPS: Desktop-Notifications aktivierbar.
+
+Details: [architecture.md §16](./architecture.md#16-deployment).
 
 ## Skripte
 
@@ -208,6 +259,6 @@ Sync und Rechte-Durchsetzung deckt ein Smoke-Test ab:
 - ~~**M1** Gemeinsame Lagekarte~~ ✅ umgesetzt (PR #2)
 - ~~**M2** Einsatztagebuch (Tabelle, Auto-Lfd-Nr./Zeit, Storno, JSON/PDF-Export)~~ ✅ umgesetzt (PR #31)
 - ~~**M3** Taktisches Arbeitsblatt (Felder A–F, eingebettetes Live-Lagebild, Gefahren-Randfelder, Wetter, JSON-Im-/Export, PDF)~~ ✅ umgesetzt
-- **M4 — Härtung & Ausbau** (angelaufen): PDF-Export ✅, DWD-Wetter ✅, Gesamt-Export ✅, Bundle-Import ✅, Rate-Limiting ✅, Test-Framework (Vitest) + CI ✅, Startseiten-Disclaimer ✅; **offen:** Reverse-Proxy/TLS-Betrieb, Aufbewahrungs-/Löschkonzept (E10)
+- **M4 — Härtung & Ausbau** (angelaufen): PDF-Export ✅, DWD-Wetter ✅, Gesamt-Export ✅, Bundle-Import ✅, Rate-Limiting ✅, Test-Framework (Vitest) + CI ✅, Startseiten-Disclaimer ✅, Auto-Retention ✅, Reverse-Proxy/TLS ✅; **offen:** Self-Service „Lage abschließen"
 
 Offene Punkte mit ⚠️ in [architecture.md §17](./architecture.md).
