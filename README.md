@@ -61,10 +61,15 @@ Datei. Werte werden **einmal beim Start** gelesen — nach Änderungen `pnpm dev
 neu starten (und für einen Web-Prod-Build `pnpm build` erneut ausführen). Ohne
 `.env` laufen sinnvolle Defaults (Port 8080, Memory-Store, CORS auf `localhost:5173`).
 
-Beim Testen **auf einem Server** müssen zwei Werte auf die *vom Browser
-erreichbare* Adresse zeigen (nicht `localhost`): `VITE_API_URL` (Backend-URL) und
-`CORS_ORIGIN` (Origin, unter dem die Web-App geöffnet wird). Der Vite-Dev-Server
-bindet dank `host: true` auf alle Interfaces.
+Lokal braucht es dafür **keine** `.env`: Der Vite-Dev-Server proxyt `/api` und
+`/sync` (WebSocket) automatisch ans Backend auf `http://localhost:8080` (Same-Origin,
+wie Caddy in Produktion). Läuft das Backend woanders, den Zielport per
+`VITE_DEV_BACKEND` überschreiben.
+
+Für ein **Split-Deployment** (Web und Backend auf getrennten Origins, ohne
+gemeinsamen Proxy) stattdessen `VITE_API_URL` auf die *vom Browser erreichbare*
+Backend-URL setzen und `CORS_ORIGIN` (Origin der Web-App) am Backend passend
+konfigurieren. Der Vite-Dev-Server bindet dank `host: true` auf alle Interfaces.
 
 ## Deployment (Reverse-Proxy + TLS, Docker Compose)
 
