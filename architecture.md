@@ -877,12 +877,23 @@ Skalierung:
   älter als die **Frist (Default 4 Wochen, konfigurierbar)** ist — kein Admin-Portal nötig. Da das ETB
   ein Nachweisdokument ist, **vor** dem Hard-Delete das Stabsraum-Bundle exportieren/archivieren (§12).
   Ergänzend ein **Self-Service „Lage abschließen"** durch die S-Rollen (Doppel-Bestätigung → Abschluss-
-  ETB-Eintrag + Gesamt/PDF-Export → Landing-Page → serverseitiges Löschen; passt zu E8, kein
-  Admin-Account). Zweckbindung, Auftragsverarbeitung, Server-Standort EU. Nur für den Postgres-Deploy
+  ETB-Eintrag + Gesamt-Export → Landing-Page → serverseitiges Löschen; passt zu E8, kein
+  Admin-Account) — **umgesetzt (#75)**. Zweckbindung, Auftragsverarbeitung, Server-Standort EU. Nur für den Postgres-Deploy
   relevant (Memory-Store vergisst beim Neustart). Umsetzung: **#66 (Auto-Retention) umgesetzt** —
   periodischer Server-Sweep (`store.getStaleRooms` + `deleteRoom` per Cascade), Frist konfigurierbar
   (`RETENTION_DAYS`, Default 28; `RETENTION_INTERVAL_MS`, Default 24 h); `last_active_at` wird bei
-  jeder Aktivität (Connect, CRDT-Write) per `touchRoom` gebumpt. #75 (Self-Service) noch offen.
+  jeder Aktivität (Connect, CRDT-Write) per `touchRoom` gebumpt.
+  **#75 (Self-Service „Lage abschließen") umgesetzt:** Button in der Übersicht **nur für S-Rollen**
+  (`hasStabRole`), Doppel-`window.confirm`. Ablauf **client-getrieben in dieser Reihenfolge**:
+  (1) abschließender **ETB-Eintrag** server-autoritativ (`buildCloseEtbText` aus `shared` → „Lagebeginn
+  <DUG der Erstellung>, eröffnet durch <createdBy>, Lageende <DUG>, geschlossen von <Claims>"; der
+  Ersteller wird jetzt beim Anlegen als `createdBy` erfasst), (2) **Gesamt-Export** (ZIP), (3)
+  `POST /api/rooms/:code/close` (S-Rollen-Gate, `closedBy` server-seitig aus den JWT-Claims). Der Server
+  (`RoomHub.closeRoom`) setzt ein **`closed`-Signal in den Activity-Kanal** (`ACTIVITY_META`,
+  server-authored, read-only) → alle Clients (via `useRoomActivity`) zeigen die **Abschluss-Landing**
+  und verlassen den Raum (Button oder Auto-Leave nach 12 s) → danach `store.deleteRoom` (Cascade) +
+  In-Memory-Docs/WS aufräumen. PDF-Auto-Export ist bewusst nicht Teil des Abschlusses (der ZIP-Export
+  ist verlustfrei/komplett).
   > **Betriebshinweis:** Nach einem Server-Ausfall länger als die Frist würde der erste Sweep
   > (10 s nach Start) sofort alle dann „überfälligen" Räume löschen — inhärent bei zeitbasierter
   > Retention; bei längeren Ausfällen ggf. Frist temporär erhöhen (`RETENTION_DAYS`).
@@ -954,7 +965,7 @@ Stand der Entscheidungen (2026-07-29 mit K. Kelker geklärt) — ✅ = entschied
 | E7 | Rückseite Arbeitsblatt (ABC/MANV/Wetter) | ✅ Wetter umgesetzt (§10.5, DWD/BrightSky); ABC/MANV/Dekon verworfen (#42 geschlossen) |
 | E8 | Nutzerkonten statt Raumcode? | ✅ Vorerst **Raumcode**, keine Accounts in M0; Accounts erst bei raumübergreifender Historie |
 | E9 | Symbolgröße pro Symbol oder global? | ✅ **Global pro Betrachter** (lokaler Slider, `localStorage`); `SymbolFeature.scale` entfernt – Größe ist bei DV-102 nicht bedeutungstragend, Bedarf = Lesbarkeit (Beamer/Tablet) und muss auch für den RO-Monitor gehen. Rotation bleibt pro Symbol (§8.1/§8.3) |
-| E10 | Alte Räume bei Postgres-Persistenz | ✅ **Entschieden (Zielgruppe, #73): Frist 4 Wochen** Inaktivität (Default, konfigurierbar) → geplanter Cascade-DELETE auf `last_active_at`. **Auto-Retention (#66, umgesetzt):** inaktive Räume werden *still* gelöscht (kein aktiver Nutzer, der einen Export vermisst). Der **Export vor dem Löschen (§12)** gilt nur für den **#75-Self-Service** („Lage abschließen" durch S-Rollen, offen). Ergänzend kein Admin-Portal nötig → #68 geschlossen. Nur Postgres-Deploy. Vorarbeit: `last_active_at` auch bei Aktivität bumpen |
+| E10 | Alte Räume bei Postgres-Persistenz | ✅ **Entschieden (Zielgruppe, #73): Frist 4 Wochen** Inaktivität (Default, konfigurierbar) → geplanter Cascade-DELETE auf `last_active_at`. **Auto-Retention (#66, umgesetzt):** inaktive Räume werden *still* gelöscht (kein aktiver Nutzer, der einen Export vermisst). Der **Export vor dem Löschen (§12)** gilt nur für den **#75-Self-Service** („Lage abschließen" durch S-Rollen, **umgesetzt**: Abschluss-ETB-Eintrag + Gesamt-Export vor dem serverseitigen Löschen). Ergänzend kein Admin-Portal nötig → #68 geschlossen. Nur Postgres-Deploy. Vorarbeit: `last_active_at` auch bei Aktivität bumpen |
 
 **Tooling (M0):** Monorepo mit **pnpm-Workspaces**, gemeinsames `shared`-Paket. Frontend React+Vite, Backend Fastify + `ws` + Yjs, PostgreSQL.
 
@@ -1005,7 +1016,9 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
   Retention **4 Wochen** (E10) — Details in §14/§17
 - ✅ **Auto-Retention** (#66, §14): Inaktivitäts-Retention (4 Wochen, konfigurierbar)
 - ✅ **Reverse-Proxy + TLS** (#65, §16): Caddy + Docker Compose (Dual-Mode HTTPS/LAN)
-- ⏳ Offen: Self-Service „Lage abschließen" (#75), Offline-Robustheit (#70)
+- ✅ **Self-Service „Lage abschließen"** (#75, §14): S-Rollen, Abschluss-ETB-Eintrag + Gesamt-Export,
+  Broadcast über den Activity-Kanal, serverseitiges Löschen
+- ✅ **Offline-Robustheit** (#70, §13.1): `y-indexeddb`-Cache je Raum×Modul, dreistufiger Live-Indikator
 - ✅ **Test-Framework** (#72): Vitest (`pnpm test`) für reine Logik (Rollen/Rechte, Import-Coercion,
   `format`/`dug`, PDF-Umbruch), in CI eingehängt; `.mjs`-Smoke-Tests bleiben ergänzend.
   Ein UI-Happy-Path via Playwright ist als optionales Follow-up ausgegliedert.

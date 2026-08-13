@@ -47,6 +47,7 @@ export class RoomService {
       settings,
       createdAt: now,
       lastActiveAt: now,
+      createdBy: req.createdBy?.trim() || undefined,
     };
     await this.store.createRoom(rec);
     return rec;
@@ -97,5 +98,6 @@ export function toPublic(rec: RoomRecord): RoomPublic {
     hasPassword: rec.passwordHash !== null,
     settings: rec.settings,
     createdAt: rec.createdAt,
+    createdBy: rec.createdBy,
   };
 }

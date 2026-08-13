@@ -21,8 +21,10 @@ Fach- und Architekturkonzept: **[architecture.md](./architecture.md)**.
 > kleinen **Aktivitäts-Punkt**, wenn sich in einem gerade nicht geöffneten Modul
 > etwas tut — und immer auch als **Zähler im Browser-Tab-Titel**. Wo HTTPS/localhost
 > vorhanden ist, gibt es zusätzlich optionale **Desktop-Benachrichtigungen** (pro
-> Nutzer per Glocke aktivierbar). **M4 begonnen:** PDF-Export und Rate-Limiting
-> ausgeliefert; offen u.a. Self-Service „Lage abschließen".
+> Nutzer per Glocke aktivierbar). Eine S-Funktion kann die **Lage abschließen**
+> (Abschluss-Eintrag + Gesamt-Export, dann Raum schließen & löschen). **M4** ist
+> weitgehend ausgeliefert (PDF-Export, Rate-Limiting, Auto-Retention, Reverse-Proxy/TLS,
+> Bundle-Im-/Export, Offline-Cache).
 
 ## Schnellstart
 

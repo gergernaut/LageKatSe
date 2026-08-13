@@ -14,6 +14,7 @@ const createSchema = z.object({
     .max(120, "Bezeichnung ist zu lang (max. 120 Zeichen)."),
   password: z.string().min(1).max(200, "Raum-Passwort ist zu lang (max. 200 Zeichen).").optional(),
   settings: z.object({ allowMonitorChat: z.boolean() }).partial().optional(),
+  createdBy: z.string().max(120).optional(),
 });
 
 const joinSchema = z.object({
@@ -149,6 +150,30 @@ export function registerRoutes(
     const body = etbImportSchema.parse(req.body ?? {});
     const count = await hub.replaceEtbEntries(rec.id, body.entries);
     return reply.send({ count });
+  });
+
+  // „Lage abschließen" (#75): schließt + löscht den Raum server-autoritativ.
+  // Destruktiv → nur Stabsrollen (wie /etb/import). Der abschließende ETB-Eintrag
+  // und der Export laufen client-seitig VOR diesem Aufruf.
+  app.post<{ Params: { code: string } }>("/api/rooms/:code/close", async (req, reply) => {
+    const authorization = req.headers.authorization ?? "";
+    const token = authorization.startsWith("Bearer ") ? authorization.slice("Bearer ".length) : "";
+    const claims = await verifySession(token, config.jwtSecret);
+    if (!claims) throw new HttpError(401, "unauthorized", "Ungültige oder fehlende Anmeldung.");
+
+    const rec = await rooms.getByCode(req.params.code);
+    if (!rec) throw new HttpError(404, "room_not_found", "Kein Stabsraum mit diesem Lobby-Code.");
+    if (claims.room !== rec.id) {
+      throw new HttpError(403, "room_mismatch", "Die Anmeldung gehört nicht zu diesem Stabsraum.");
+    }
+    if (!hasStabRole(claims.roles)) {
+      throw new HttpError(403, "forbidden", "Lage abschließen erfordert eine Stabsrolle (S1–S6).");
+    }
+
+    // closedBy server-seitig aus den Claims komponieren (kein Client-Vertrauen).
+    const closedBy = `${claims.name} (${claims.roles.join("/")})`;
+    await hub.closeRoom(rec.id, closedBy);
+    return reply.send({ ok: true });
   });
 
   app.setErrorHandler((err, _req, reply) => {
