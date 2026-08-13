@@ -62,6 +62,8 @@ export function Lobby({ onEnter }: { onEnter: (session: Session) => void }) {
         name: roomName.trim(),
         password: password || undefined,
         settings: { allowMonitorChat },
+        // Ersteller-Identität für den Abschluss-ETB-Eintrag (#75): „Name (Rollen)".
+        createdBy: name.trim() ? `${name.trim()} (${[...roles].join("/")})` : undefined,
       });
       await enter(created.room.joinCode, password || undefined);
     } catch (err) {
