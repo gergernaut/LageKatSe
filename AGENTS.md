@@ -42,7 +42,7 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   Import-Coercion (`shared/arbeitsblatt.ts`), `format`/`dug`, PDF-Textumbruch. Tests liegen als
   `*.test.ts` **neben** dem Code (Node-Umgebung, kein DOM). Neue reine Helfer bitte mit Test.
 - Smoke-Tests sind handgeschriebene `.mjs` unter `packages/web/scripts/` (`e2e.mjs`,
-  `lagekarte-e2e.mjs`, `arbeitsblatt-e2e.mjs`, `bundle-import-e2e.mjs`, `ratelimit-e2e.mjs`), mit `node` **gegen einen
+  `lagekarte-e2e.mjs`, `arbeitsblatt-e2e.mjs`, `bundle-import-e2e.mjs`, `close-e2e.mjs`, `ratelimit-e2e.mjs`), mit `node` **gegen einen
   laufenden Server** ausgeführt — sie bleiben **ergänzend** zu den Unit-Tests. Server-Default
   = **Memory-Store** (`pnpm dev:server`); Postgres via `pnpm db:up` + `DATABASE_URL`.
 - Konfiguration: `.env` **im Repo-Root** (Backend via dotenv, Vite via envDir), **einmal beim
