@@ -934,8 +934,13 @@ Skalierung:
   `wsBase()` baut die WSS-URL aus `window.location` (nicht aus leerem Base).
 - **Dockerfiles:** Backend (`packages/server/Dockerfile`, Node + tsx), Web (Multi-Stage:
   `pnpm build` → `dist/` per Caddy `file_server`, `packages/web/Dockerfile`).
-- **OSM-Tiles:** MVP nutzt öffentliche OSM-Tiles (Tile-Usage-Policy beachten!). Für Produktion/Einsatz
-  **eigener Tile-Server** oder ein OSM-Tile-Anbieter → Offline-/Datenschutz-Vorteil (getrackt als #96).
+- **OSM-Tiles / Grundkarten-URL:** MVP nutzt öffentliche OSM-Tiles (Tile-Usage-Policy beachten!).
+  Die Kachel-URL ist **konfigurierbar** (#96, Phase 1): Auflösung in `packages/web/src/config.ts`
+  mit Priorität Laufzeit (`packages/web/public/config.js` → `window.__LAGEKATSE_CONFIG__.tileUrl`,
+  pro Deployment überschreibbar **ohne** Neu-Build) → Build-Zeit (`VITE_TILE_URL`) → OSM-Public-Default.
+  Die OSM-Attribution (ODbL) bleibt in jedem Fall erhalten. Damit kann im geschlossenen Netz auf einen
+  **eigenen Tile-Server** gezeigt werden → Offline-/Datenschutz-Vorteil; dessen Bereitstellung
+  (Compose-Profil + Regionalauszug-Import) ist Phase 2 von #96.
 - **Konfiguration** über Umgebungsvariablen (`DOMAIN`, `CADDY_EMAIL`, `JWT_SECRET`,
   `POSTGRES_PASSWORD`, `CORS_ORIGIN`, Retention-Fristen; siehe `.env.example`).
 
@@ -1025,7 +1030,8 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
 - ✅ **Pegelstände-Layer** (#84, §8.1): zuschaltbares PEGELONLINE/WSV-Overlay + „In ETB übernehmen"
 - ✅ **Favicon** (#91) aus dem LageKatSe-Logo
 - ❌ **Playwright-UI-E2E** (#81) bewusst verworfen: geringer Nutzen, hoher Admin-/Wartungsaufwand — Happy-Path deckt die `.mjs`-Smoke-Suite ab, reine Logik Vitest.
-- ⏳ Ausbaustufen: **eigener Tile-Server** für die Grundkarte (Offline/geschlossene Netze) — getrackt als **#96**; Live-Cursor (offen, nicht getrackt)
+- ✅ **Grundkarten-URL konfigurierbar** (#96, Phase 1): Laufzeit (`public/config.js`) → `VITE_TILE_URL` → OSM-Default, Attribution bleibt erhalten (`src/config.ts`)
+- ⏳ Ausbaustufen: **eigener Tile-Server** als Compose-Profil (Offline/geschlossene Netze) — #96, Phase 2; Live-Cursor (offen, nicht getrackt)
 - ❌ Verworfen (per #73): Auth-Proxy/SSO als Pflicht (#67, optional bleibt möglich), Admin-Auth/-Portal (#68)
 
 ---

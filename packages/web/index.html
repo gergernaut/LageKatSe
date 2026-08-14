@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <title>LageKatSe</title>
+    <!-- Laufzeit-Konfiguration (#96): nicht gebündelt, pro Deployment
+         überschreibbar. Klassisches Script im <head> läuft vor dem
+         (deferred) Modul-Script, daher ist window.__LAGEKATSE_CONFIG__
+         gesetzt, bevor die App startet. -->
+    <script src="/config.js"></script>
   </head>
   <body>
     <div id="root"></div>
