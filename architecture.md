@@ -1,7 +1,7 @@
 # LageKatSe – Architektur- und Fachkonzept
 
 > Modulare, browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz.
-> Version 0.4 · Stand: 2026-08-07 · Konzept + Umsetzungsstand: **M0–M3 komplett inkl. Phase-2-Ausbau, M4 (Härtung & Ausbau) angelaufen — PDF-Export ausgeliefert**
+> Version 0.5 · Stand: 2026-08-14 · Konzept + Umsetzungsstand: **M0–M4 komplett — Kern-Module + Phase-2-Ausbau + Härtung & Ausbau (M4) abgeschlossen; GitHub-Tracker leer**
 
 Dieses Dokument überführt das Brainstorming (`LageKatSe.txt`) in ein tragfähiges technisches Konzept.
 Es beschreibt Zielbild, Architektur, Datenmodell, Rechtemodell und einen Umsetzungsfahrplan.
@@ -927,7 +927,7 @@ Skalierung:
   per **Docker Compose** (`docker-compose.yml`). Vier Services: `proxy` (Caddy), `web` (statische
   SPA), `backend` (Node/tsx), `db` (PostgreSQL).
 - **Reverse-Proxy** (**Caddy**, umgesetzt #65): terminiert TLS (Let's-Encrypt für öffentliche
-  Domains, `tls internal` für geschlossene Netze) und leitet `/api` + `/ws` ans Backend (inkl.
+  Domains, `tls internal` für geschlossene Netze) und leitet `/api` + `/sync` ans Backend (inkl.
   WebSocket-Upgrade), `/` ans statische Frontend.
 - **Dual-Mode:** HTTPS-Internet (Pilot, Let's-Encrypt → Secure Context für Desktop-Notifications #32)
   und HTTP-LAN (einfachste Variante, kein TLS). `VITE_API_URL` Default `""` = Same-Origin;
@@ -943,7 +943,7 @@ Skalierung:
 flowchart LR
     Browser --> Proxy["Reverse-Proxy<br/>(TLS, Routing)"]
     Proxy -->|"/"| FE["Frontend<br/>(statische SPA)"]
-    Proxy -->|"/api, /ws"| BE["Backend<br/>(Node.js)"]
+    Proxy -->|"/api, /sync"| BE["Backend<br/>(Node.js)"]
     BE --> PG[("PostgreSQL")]
     Browser -.->|Kacheln| Tiles["OSM-Tile-Server"]
 ```
@@ -1006,7 +1006,7 @@ Nach den drei Kern-Modulen ausgeliefert: Gefahren-Randfelder (Feld B), DWD-Regen
 Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Import**, **Wetter-Rückseite**
 (DWD/BrightSky, §10.5). Damit ist #42 (nur Wetter) abgeschlossen und #41 erledigt.
 
-### M4 – Härtung & Ausbau — angelaufen
+### M4 – Härtung & Ausbau — abgeschlossen
 - ✅ **PDF-Export** (ETB + Arbeitsblatt, client-seitig via pdf-lib; §9.5/§10.4)
 - ✅ **Gesamt-Export + Bundle-Import** als ZIP (§12, #71): Restore aller Module; ETB server-autoritativ
   (`/etb/import`), nur S-Rollen. ETB-Export dabei auf verlustfreies JSON umgestellt (CSV entfiel).
@@ -1021,9 +1021,11 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
 - ✅ **Offline-Robustheit** (#70, §13.1): `y-indexeddb`-Cache je Raum×Modul, dreistufiger Live-Indikator
 - ✅ **Test-Framework** (#72): Vitest (`pnpm test`) für reine Logik (Rollen/Rechte, Import-Coercion,
   `format`/`dug`, PDF-Umbruch), in CI eingehängt; `.mjs`-Smoke-Tests bleiben ergänzend.
-  Ein UI-Happy-Path via Playwright ist als optionales Follow-up ausgegliedert.
-- ✅ **DV-102-Rotations-UI** (#69): Ausrichtung pro Symbol im Auswahl-Panel (Slider + Winkel-Eingabe)
-- ⏳ Ausbaustufen: Live-Cursor, eigener Tile-Server
+- ✅ **DV-102-Rotations-UI** (#69): Ausrichtung pro Symbol im Auswahl-Panel (Slider + Winkel-Eingabe, Live-Vorschau)
+- ✅ **Pegelstände-Layer** (#84, §8.1): zuschaltbares PEGELONLINE/WSV-Overlay + „In ETB übernehmen"
+- ✅ **Favicon** (#91) aus dem LageKatSe-Logo
+- ❌ **Playwright-UI-E2E** (#81) bewusst verworfen: geringer Nutzen, hoher Admin-/Wartungsaufwand — Happy-Path deckt die `.mjs`-Smoke-Suite ab, reine Logik Vitest.
+- ⏳ Ausbaustufen (offen, nicht getrackt): Live-Cursor, eigener Tile-Server
 - ❌ Verworfen (per #73): Auth-Proxy/SSO als Pflicht (#67, optional bleibt möglich), Admin-Auth/-Portal (#68)
 
 ---
