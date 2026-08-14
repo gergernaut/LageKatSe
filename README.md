@@ -3,7 +3,7 @@
 Modulare, browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz.
 Fach- und Architekturkonzept: **[architecture.md](./architecture.md)**.
 
-> **Status: M0–M3 ✅ komplett, M4 (Härtung & Ausbau) angelaufen.** Auf dem
+> **Status: M0–M4 ✅ komplett (Härtung & Ausbau abgeschlossen).** Auf dem
 > M0-Fundament (Stabsräume anlegen/beitreten, Rollen & Rechte, Live-Präsenz & Chat,
 > autoritative Echtzeit-Sync-Engine mit Persistenz) laufen alle drei Fachmodule:
 > die kollaborative **Lagekarte** (M1 — Leaflet + OSM, taktische Zeichen DV 102 in
@@ -22,9 +22,9 @@ Fach- und Architekturkonzept: **[architecture.md](./architecture.md)**.
 > etwas tut — und immer auch als **Zähler im Browser-Tab-Titel**. Wo HTTPS/localhost
 > vorhanden ist, gibt es zusätzlich optionale **Desktop-Benachrichtigungen** (pro
 > Nutzer per Glocke aktivierbar). Eine S-Funktion kann die **Lage abschließen**
-> (Abschluss-Eintrag + Gesamt-Export, dann Raum schließen & löschen). **M4** ist
-> weitgehend ausgeliefert (PDF-Export, Rate-Limiting, Auto-Retention, Reverse-Proxy/TLS,
-> Bundle-Im-/Export, Offline-Cache).
+> (Abschluss-Eintrag + Gesamt-Export, dann Raum schließen & löschen). **M4 ist
+> abgeschlossen** (PDF-Export, Rate-Limiting, Auto-Retention, Reverse-Proxy/TLS,
+> Bundle-Im-/Export, Offline-Cache, Pegel-Layer, Rotations-UI).
 
 ## Schnellstart
 
@@ -78,7 +78,7 @@ konfigurieren. Der Vite-Dev-Server bindet dank `host: true` auf alle Interfaces.
 Für den Produktiv-/Pilotbetrieb liegt eine `docker-compose.yml` mit vier Services
 bereit: **Caddy** (Reverse-Proxy, TLS), **Web** (statische SPA), **Backend**
 (Node), **PostgreSQL**. Caddy terminiert TLS (Let's-Encrypt für öffentliche
-Domains, `tls internal` für geschlossene Netze) und routet `/api` + `/ws` ans
+Domains, `tls internal` für geschlossene Netze) und routet `/api` + `/sync` ans
 Backend, `/` ans statische Frontend.
 
 ### Einrichtung
@@ -266,6 +266,6 @@ Sync und Rechte-Durchsetzung deckt ein Smoke-Test ab:
 - ~~**M1** Gemeinsame Lagekarte~~ ✅ umgesetzt (PR #2)
 - ~~**M2** Einsatztagebuch (Tabelle, Auto-Lfd-Nr./Zeit, Storno, JSON/PDF-Export)~~ ✅ umgesetzt (PR #31)
 - ~~**M3** Taktisches Arbeitsblatt (Felder A–F, eingebettetes Live-Lagebild, Gefahren-Randfelder, Wetter, JSON-Im-/Export, PDF)~~ ✅ umgesetzt
-- **M4 — Härtung & Ausbau** (angelaufen): PDF-Export ✅, DWD-Wetter ✅, Gesamt-Export ✅, Bundle-Import ✅, Rate-Limiting ✅, Test-Framework (Vitest) + CI ✅, Startseiten-Disclaimer ✅, Auto-Retention ✅, Reverse-Proxy/TLS ✅; **offen:** Self-Service „Lage abschließen"
+- ~~**M4 — Härtung & Ausbau**~~ ✅ **abgeschlossen**: PDF-Export, DWD-Wetter, Pegel-Layer, DV-102-Rotations-UI, Gesamt-Export + Bundle-Import, Rate-Limiting, Auto-Retention, Reverse-Proxy/TLS, Offline-Cache, Test-Framework (Vitest) + CI, Startseiten-Disclaimer, Self-Service „Lage abschließen". (Playwright-E2E bewusst verworfen — Happy-Path via `.mjs`-Smoke + Vitest abgedeckt.)
 
 Offene Punkte mit ⚠️ in [architecture.md §17](./architecture.md).
