@@ -17,6 +17,7 @@ import { uid } from "../uid";
 import { dug } from "../dug";
 import { formatDateTime } from "../format";
 import { api } from "../api";
+import { tileConfig } from "../config";
 import { fetchPegelStations, pegelStatusColor, pegelStatusText, type PegelStation } from "../pegel";
 import { Palette, type PaletteSymbol } from "./Palette";
 
@@ -669,9 +670,12 @@ export function Lagekarte({
     const savedView = loadMapView(session.room.id);
     const map = L.map(mapElement).setView(savedView?.center ?? [51.16, 10.45], savedView?.zoom ?? 6);
     mapRef.current = map;
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "&copy; OpenStreetMap-Mitwirkende",
+    // Grundkarte: URL/Zoom/Attribution kommen aus der Konfiguration (#96),
+    // damit im geschlossenen Netz auf einen lokalen Tile-Server gezeigt werden
+    // kann. Default bleibt OSM-Public. Siehe src/config.ts.
+    L.tileLayer(tileConfig.url, {
+      maxZoom: tileConfig.maxZoom,
+      attribution: tileConfig.attribution,
     }).addTo(map);
 
     // DWD-Regenradar als optionales WMS-Overlay (Bild-Kacheln → kein CORS, kein Server).
