@@ -935,7 +935,7 @@ Skalierung:
 - **Dockerfiles:** Backend (`packages/server/Dockerfile`, Node + tsx), Web (Multi-Stage:
   `pnpm build` → `dist/` per Caddy `file_server`, `packages/web/Dockerfile`).
 - **OSM-Tiles:** MVP nutzt öffentliche OSM-Tiles (Tile-Usage-Policy beachten!). Für Produktion/Einsatz
-  **eigener Tile-Server** oder ein OSM-Tile-Anbieter → Offline-/Datenschutz-Vorteil.
+  **eigener Tile-Server** oder ein OSM-Tile-Anbieter → Offline-/Datenschutz-Vorteil (getrackt als #96).
 - **Konfiguration** über Umgebungsvariablen (`DOMAIN`, `CADDY_EMAIL`, `JWT_SECRET`,
   `POSTGRES_PASSWORD`, `CORS_ORIGIN`, Retention-Fristen; siehe `.env.example`).
 
@@ -1025,7 +1025,7 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
 - ✅ **Pegelstände-Layer** (#84, §8.1): zuschaltbares PEGELONLINE/WSV-Overlay + „In ETB übernehmen"
 - ✅ **Favicon** (#91) aus dem LageKatSe-Logo
 - ❌ **Playwright-UI-E2E** (#81) bewusst verworfen: geringer Nutzen, hoher Admin-/Wartungsaufwand — Happy-Path deckt die `.mjs`-Smoke-Suite ab, reine Logik Vitest.
-- ⏳ Ausbaustufen (offen, nicht getrackt): Live-Cursor, eigener Tile-Server
+- ⏳ Ausbaustufen: **eigener Tile-Server** für die Grundkarte (Offline/geschlossene Netze) — getrackt als **#96**; Live-Cursor (offen, nicht getrackt)
 - ❌ Verworfen (per #73): Auth-Proxy/SSO als Pflicht (#67, optional bleibt möglich), Admin-Auth/-Portal (#68)
 
 ---
