@@ -25,8 +25,12 @@ import {
   AB_WETTER_SNAPSHOT,
   ETB_ENTRIES,
   ETB_EXPORT_FORMAT,
+  KRAFT_EXPORT_FORMAT,
+  KRAFT_VEHICLES,
   LAGEKARTE_FEATURES,
   type EtbExport,
+  type KraftExport,
+  type KraftVehicle,
   type LogEntry,
 } from "@lagekatse/shared";
 import type { Session } from "./session";
@@ -147,6 +151,26 @@ export async function exportAll(session: Session): Promise<void> {
       await waitForSync(conn);
       const payload = extractArbeitsblatt(conn.doc);
       files[`arbeitsblatt-${code}-${stamp}.json`] = new TextEncoder().encode(
+        JSON.stringify(payload, null, 2),
+      );
+    } finally {
+      conn.destroy();
+    }
+  }
+
+  // --- Kräfteübersicht ---
+  {
+    const conn = connectModule(session.room.id, "kraefteubersicht", session.token, { cache: false });
+    try {
+      await waitForSync(conn);
+      const vehicles = conn.doc.getArray<Y.Map<unknown>>(KRAFT_VEHICLES);
+      const payload: KraftExport = {
+        format: KRAFT_EXPORT_FORMAT,
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        vehicles: vehicles.toArray().map((v) => v.toJSON() as KraftVehicle),
+      };
+      files[`kraefteuebersicht-${code}-${stamp}.json`] = new TextEncoder().encode(
         JSON.stringify(payload, null, 2),
       );
     } finally {
