@@ -12,19 +12,23 @@ const Etb = lazy(() => import("../etb/Etb").then((m) => ({ default: m.Etb })));
 const Arbeitsblatt = lazy(() =>
   import("../arbeitsblatt/Arbeitsblatt").then((m) => ({ default: m.Arbeitsblatt })),
 );
+const Kraefteubersicht = lazy(() =>
+  import("../kraefteubersicht/Kraefteubersicht").then((m) => ({ default: m.Kraefteubersicht })),
+);
 
 const ACTIVE_VIEW_KEY = "lagekatse.activeView";
 const NOTIFICATIONS_KEY = "lagekatse.notifications";
 
-export type ActiveView = "uebersicht" | "lagekarte" | "etb" | "arbeitsblatt";
+export type ActiveView = "uebersicht" | "lagekarte" | "etb" | "arbeitsblatt" | "kraefteubersicht";
 
-const VIEWS: ActiveView[] = ["uebersicht", "lagekarte", "etb", "arbeitsblatt"];
+const VIEWS: ActiveView[] = ["uebersicht", "lagekarte", "etb", "arbeitsblatt", "kraefteubersicht"];
 
 const RAIL_ACTIVITY: Record<ActiveView, Module> = {
   uebersicht: "chat",
   lagekarte: "lagekarte",
   etb: "etb",
   arbeitsblatt: "arbeitsblatt",
+  kraefteubersicht: "kraefteubersicht",
 };
 
 function activitySeenKey(roomId: string): string {
@@ -124,6 +128,13 @@ function ViewIcon({ view }: { view: ActiveView }) {
       </svg>
     );
   }
+  if (view === "kraefteubersicht") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M4 17V7a2 2 0 0 1 2-2h9l4 4v8M4 17h16M7 17a2 2 0 1 1-4 0M21 17a2 2 0 1 1-4 0" />
+      </svg>
+    );
+  }
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
       <rect x="5" y="4" width="14" height="17" rx="2" />
@@ -158,6 +169,7 @@ const RAIL_LABELS: Record<ActiveView, string> = {
   lagekarte: "Lagekarte",
   etb: "ETB",
   arbeitsblatt: "takt. Arbeitsblatt",
+  kraefteubersicht: "Kräfte",
 };
 
 export function AppShell({ session, onLeave }: { session: Session; onLeave: () => void }) {
@@ -360,7 +372,11 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
 
       <main
         className={`canvas ${
-          activeView === "lagekarte" ? "canvas--lagekarte" : activeView === "etb" ? "canvas--work" : ""
+          activeView === "lagekarte"
+            ? "canvas--lagekarte"
+            : activeView === "etb" || activeView === "kraefteubersicht"
+              ? "canvas--work"
+              : ""
         }`}
       >
         {activeView === "uebersicht" && (
@@ -388,6 +404,11 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
         {activeView === "arbeitsblatt" && (
           <Suspense fallback={<div className="shell-loading">Arbeitsblatt wird geladen…</div>}>
             <Arbeitsblatt session={session} />
+          </Suspense>
+        )}
+        {activeView === "kraefteubersicht" && (
+          <Suspense fallback={<div className="shell-loading">Kräfteübersicht wird geladen…</div>}>
+            <Kraefteubersicht session={session} />
           </Suspense>
         )}
       </main>
