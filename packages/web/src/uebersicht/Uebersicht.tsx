@@ -11,6 +11,7 @@ const MODULE_CARDS: { key: Exclude<Module, "chat">; icon: string; tint: string; 
   { key: "lagekarte", icon: "🗺️", tint: "rgba(47,107,216,.12)", desc: "Taktische Zeichen (DV 102) & Bereiche auf OpenStreetMap." },
   { key: "etb", icon: "📓", tint: "rgba(46,158,91,.12)", desc: "Fortlaufendes Einsatztagebuch, Lfd-Nr. & Zeit automatisch." },
   { key: "arbeitsblatt", icon: "📋", tint: "rgba(247,168,27,.14)", desc: "Taktisches Arbeitsblatt mit eingebettetem Lagebild." },
+  { key: "kraefteubersicht", icon: "🚒", tint: "rgba(208,71,127,.12)", desc: "Fahrzeuge & Kräfte: Bereitstellungsraum / Im Einsatz mit DV-100-Stärke." },
 ];
 
 const AV_COLORS = ["#2f6bd8", "#d5372b", "#2e9e5b", "#e08a1e", "#7c5ad8", "#0e9aa7", "#c2477f"];
