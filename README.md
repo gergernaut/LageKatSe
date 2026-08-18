@@ -81,17 +81,45 @@ bereit: **Caddy** (Reverse-Proxy, TLS), **Web** (statische SPA), **Backend**
 Domains, `tls internal` für geschlossene Netze) und routet `/api` + `/sync` ans
 Backend, `/` ans statische Frontend.
 
-### Einrichtung
+Die Images für **Web** und **Backend** werden per CI (`.github/workflows/docker.yml`)
+nach GHCR veröffentlicht: `ghcr.io/gergernaut/lagekatse-web` und
+`…-backend` (Tags `latest`, `sha-…`, sowie `x.y.z` bei Release-Tags).
+
+### Variante A — aus GHCR ziehen (empfohlen, ohne Repo-Klon)
+
+Man braucht nur zwei Dateien plus eine `.env` — kein `git clone`:
 
 ```bash
-cp .env.example .env
-# In .env mindestens setzen:
+# 1) Die beiden Deploy-Dateien holen (z.B. per curl):
+curl -O https://raw.githubusercontent.com/gergernaut/LageKatSe/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/gergernaut/LageKatSe/main/Caddyfile
+
+# 2) .env anlegen und mindestens setzen:
 #   DOMAIN=lagekatse.example.org      # öffentliche Domain (für Let's-Encrypt)
 #   CADDY_EMAIL=admin@example.org     # Let's-Encrypt-Benachrichtigungen
 #   JWT_SECRET=<starkes, zufälliges Passwort>
 #   POSTGRES_PASSWORD=<sicheres Passwort>
+#   # optional: LAGEKATSE_IMAGE_TAG=1.2.3   (Version festnageln; Default latest)
 
+# 3) Ziehen und starten:
+docker compose pull
 docker compose up -d
+```
+
+> Hinweis: Die GHCR-**Package**-Sichtbarkeit ist unabhängig von der Repo-Sichtbarkeit
+> und muss einmalig auf „public" gestellt werden, damit anonymes `pull` klappt —
+> sonst vorher `docker login ghcr.io`.
+
+Grundkarten-Tile-URL überschreiben (#96, optional, ohne Neu-Build): `config.js.example`
+nach `config.js` kopieren, `tileUrl` setzen und im `web`-Service den Volume-Mount
+`./config.js:/srv/config.js:ro` aktivieren.
+
+### Variante B — aus dem Quellcode bauen
+
+Repo klonen und mit dem Build-Override bauen statt zu ziehen:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
 Caddy holt automatisch ein Let's-Encrypt-Zertifikat für `DOMAIN`. Die App ist
