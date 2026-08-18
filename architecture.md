@@ -1,7 +1,7 @@
 # LageKatSe – Architektur- und Fachkonzept
 
 > Modulare, browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz.
-> Version 0.5 · Stand: 2026-08-14 · Konzept + Umsetzungsstand: **M0–M4 komplett — Kern-Module + Phase-2-Ausbau + Härtung & Ausbau (M4) abgeschlossen; GitHub-Tracker leer**
+> Version 0.6 · Stand: 2026-08-18 · Konzept + Umsetzungsstand: **M0–M4 komplett — Kern-Module + Phase-2-Ausbau + Härtung & Ausbau (M4) abgeschlossen; danach #96 (Grundkarten-URL) und Modul 4 „Kräfteübersicht" (#100) ergänzt**
 
 Dieses Dokument überführt das Brainstorming (`LageKatSe.txt`) in ein tragfähiges technisches Konzept.
 Es beschreibt Zielbild, Architektur, Datenmodell, Rechtemodell und einen Umsetzungsfahrplan.
@@ -1033,6 +1033,29 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
 - ✅ **Grundkarten-URL konfigurierbar** (#96, Phase 1): Laufzeit (`public/config.js`) → `VITE_TILE_URL` → OSM-Default, Attribution bleibt erhalten (`src/config.ts`)
 - ⏳ Ausbaustufen: **eigener Tile-Server** als Compose-Profil (Offline/geschlossene Netze) — #96, Phase 2; Live-Cursor (offen, nicht getrackt)
 - ❌ Verworfen (per #73): Auth-Proxy/SSO als Pflicht (#67, optional bleibt möglich), Admin-Auth/-Portal (#68)
+
+### Modul 4 – Kräfteübersicht (#100) — ✅ umgesetzt
+Kollaborative Kräfte-/Fahrzeugübersicht (Bereitstellungsraum ↔ Im Einsatz), aus dem Realbetrieb
+angefragt. Wie das Arbeitsblatt **ohne** server-autoritative Felder → reine Client-CRDT-Writes.
+
+- **Datenstruktur** (Yjs-Dokument `kraefteubersicht`, `shared/src/kraefteubersicht.ts`): **eine**
+  `Y.Array` `vehicles`; jede Zeile eine `Y.Map` (Feld-Level-Merge wie ETB-Zeilen). Die zwei Tabellen
+  (BR / Im Einsatz) sind eine **gefilterte Sicht** über das Feld `status` (`"br" | "einsatz"`) —
+  „Verschieben" ist **ein** Feld-Write (merge-sicher, kein Cross-Array-Transfer).
+- **Spalten:** Org (FW/RD/HiOrg/THW/Polizei/Sonstige), Fahrzeugtyp (frei), Funkrufname (frei),
+  Stärke nach **DV 100** (Führer/Unterführer/Helfer, Gesamt **abgeleitet**). Zwei Übersichtskarten
+  (Gesamtstärke BR + Fahrzeuganzahl mit Typ-Aufschlüsselung) aus reinen, unit-getesteten Helfern
+  (`sumStaerke`/`formatStaerke`/`countByTyp`).
+- **Rechte:** Schreiben dürfen S1–S6 **sowie** LAGEKARTE und ETB (Modulrollen); Monitor read-only.
+- **ETB-Kopplung:** Verschieben (BR↔Einsatz) und „Entlassen" (Zeile löschen) schreiben einen
+  **server-autoritativen** ETB-Eintrag (Invariante #6, lückenlose lfdNr) über
+  `POST /api/rooms/:code/kraft/etb-log` — gated durch *kraefteubersicht*-Schreibrecht (nicht etb),
+  damit auch ein Lagekartenführer protokollieren kann. Text via `buildKraftEtbText` (rein, testbar).
+- **Export/Import:** verlustfreies JSON (`lagekatse.kraefteubersicht`), Teil des Bundles (§12);
+  Apply client-CRDT über `kraefteubersicht/applyImport.ts` (React-frei, von Einzeldatei- **und**
+  Bundle-Import geteilt). Smoke: `packages/web/scripts/kraefteubersicht-e2e.mjs`.
+- **Bewusst v1:** keine Qualifikations-Checkboxen (spätere Ausbaustufe); keine Auto-Übernahme aus
+  der Lagekarte (manuelle Tabellen laut Zielgruppen-Abstimmung); PDF-Export offen (Phase 2).
 
 ---
 
