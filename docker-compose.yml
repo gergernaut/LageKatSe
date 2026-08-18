@@ -27,7 +27,8 @@ services:
       POSTGRES_DB: lagekatse
     volumes:
       - lagekatse_pg:/var/lib/postgresql/data
-      - ./packages/server/src/store/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+      # Kein schema.sql-Init-Mount mehr: das Backend wendet das Schema selbst
+      # autoritativ bei jedem Start an (PostgresStore.init(), idempotent).
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U lagekatse -d lagekatse"]
       interval: 5s
