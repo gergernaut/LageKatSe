@@ -20,12 +20,13 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   `store/` (`memory` | `postgres`; `getStaleRooms`/`deleteRoom`, Room mit `createdBy`).
 - `packages/web` — `@lagekatse/web`: React/Vite-SPA. `lobby/`, `uebersicht/`, `lagekarte/`
   (Karte + `Palette.tsx` + DWD-Regenradar/KONRAD3D-Overlays + Pegel-Layer), `etb/`,
-  `arbeitsblatt/` (`Arbeitsblatt.tsx`, `Wetter.tsx`), `sync/provider.ts` (`connectModule`).
+  `arbeitsblatt/` (`Arbeitsblatt.tsx`, `Wetter.tsx`), `kraefteubersicht/` (`Kraefteubersicht.tsx`
+  — Bereitstellungsraum/Im-Einsatz, DV-100-Stärke, #100), `sync/provider.ts` (`connectModule`).
   Client-Utilities: `wetter.ts` (BrightSky-Abruf), `pegel.ts` (PEGELONLINE/WSV-Pegelstände,
   CORS-offen; reine Coercion + Status→Farbe, unit-getestet), `pdf.ts` (`etbToPdf`/`arbeitsblattToPdf`
   via pdf-lib, Schrift `public/fonts/DejaVuSans.ttf`), `exportAll.ts` (Gesamt-Export) +
   `importAll.ts` (Bundle-Import, beide ZIP via fflate), `*/applyImport.ts` (geteilte, React-freie
-  Import-Apply-Logik für Lagekarte/Arbeitsblatt — von Einzeldatei- **und** Bundle-Import genutzt),
+  Import-Apply-Logik für Lagekarte/Arbeitsblatt/Kräfteübersicht — von Einzeldatei- **und** Bundle-Import genutzt),
   `dug.ts` (Datum-Uhrzeit-Gruppe für Dateinamen), `format.ts` (`formatDateTime`, PDF-Export).
 - **Aktivitäts-Dots (#32):** server-authored, nicht-persistierter **`activity`**-Kanal
   (`shared/src/activity.ts`) signalisiert Modul-Änderungen; `RoomHub.bumpActivity` (gedrosselt)
