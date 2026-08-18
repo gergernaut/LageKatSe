@@ -43,6 +43,14 @@ export const api = {
       body: JSON.stringify(body),
       headers: { authorization: `Bearer ${token}` },
     }),
+  // Kräfteübersicht → ETB (#100): protokolliert eine Kräftebewegung server-autoritativ
+  // (Invariante #6). Gated durch kraefteubersicht-Schreibrecht, nicht etb.
+  kraftEtbLog: (code: string, token: string, inhalt: string) =>
+    request<{ entry: LogEntry }>(`/api/rooms/${encodeURIComponent(code)}/kraft/etb-log`, {
+      method: "POST",
+      body: JSON.stringify({ inhalt }),
+      headers: { authorization: `Bearer ${token}` },
+    }),
   // Bundle-Import (#71): ersetzt das gesamte ETB server-autoritativ (nur S-Rollen).
   importEtb: (code: string, token: string, entries: LogEntry[]) =>
     request<{ count: number }>(`/api/rooms/${encodeURIComponent(code)}/etb/import`, {
