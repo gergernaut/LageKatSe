@@ -47,6 +47,11 @@ const LABELS_VISIBLE_KEY = "lagekatse.labelsVisible";
 const RADAR_VISIBLE_KEY = "lagekatse.radarVisible";
 const KONRAD_VISIBLE_KEY = "lagekatse.konradVisible";
 const PEGEL_VISIBLE_KEY = "lagekatse.pegelVisible";
+// Quellenvermerk der Pegeldaten (WSV/PEGELONLINE, Behördendaten mit
+// Namensnennung). Analog zu den DWD-Overlays; nur sichtbar wenn das Overlay an
+// ist. Anders als bei tileLayern trägt eine layerGroup ihre attribution nicht
+// automatisch, daher verwalten wir sie am Toggle selbst.
+const PEGEL_ATTRIBUTION = "Pegel: PEGELONLINE (WSV)";
 const SYMBOL_SIZE_MIN = 0.6;
 const SYMBOL_SIZE_MAX = 2;
 
@@ -433,9 +438,11 @@ export function Lagekarte({
     if (!map || !layer) return; // vor Map-Init: der Init-Effekt lädt initial selbst
     if (pegelVisible) {
       layer.addTo(map);
+      map.attributionControl.addAttribution(PEGEL_ATTRIBUTION);
       loadPegelRef.current?.(); // erster Abruf beim Einschalten (Guard in loadPegel)
     } else {
       layer.remove();
+      map.attributionControl.removeAttribution(PEGEL_ATTRIBUTION);
     }
   }, [pegelVisible]);
 
@@ -816,7 +823,10 @@ export function Lagekarte({
     const pegelCanvas = L.canvas({ padding: 0.5 });
     const pegelLayer = L.layerGroup();
     pegelLayerRef.current = pegelLayer;
-    if (pegelVisibleRef.current) pegelLayer.addTo(map);
+    if (pegelVisibleRef.current) {
+      pegelLayer.addTo(map);
+      map.attributionControl.addAttribution(PEGEL_ATTRIBUTION);
+    }
 
     const buildPegelPopup = (st: PegelStation): HTMLElement => {
       const el = document.createElement("div");
