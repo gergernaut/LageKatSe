@@ -205,12 +205,12 @@ export function Kraefteubersicht({ session }: { session: Session }) {
           <thead>
             <tr>
               <th style={{ width: 120 }}>Org</th>
-              <th>Fahrzeugtyp</th>
-              <th style={{ width: 160 }}>Funkrufname</th>
-              <th style={{ width: 190 }} title="Führer / Unterführer / Helfer // Gesamtstärke">
+              <th style={{ width: 130 }}>Fahrzeugtyp</th>
+              <th style={{ width: 220 }}>Funkrufname</th>
+              <th style={{ width: 200 }} title="Führer / Unterführer / Helfer // Gesamtstärke">
                 Stärke (DV 100)
               </th>
-              <th style={{ width: 150 }}>Aktion</th>
+              <th style={{ width: 180 }}>Aktion</th>
             </tr>
           </thead>
           <tbody>

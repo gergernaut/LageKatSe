@@ -376,7 +376,9 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   font-variant-numeric: tabular-nums;
 }
 .kraft-section .table-scroll { border: 1px solid var(--line); border-radius: 10px; overflow: hidden auto; }
-.kraft-section table.etb { min-width: 720px; }
+/* Fixed layout, damit die th-Breiten exakt gelten (auto-Layout ignoriert sie,
+   weil ein <input> seine Spalte nicht am Textinhalt aufbläht). */
+.kraft-section table.etb { min-width: 850px; table-layout: fixed; }
 
 .kraft-staerke { display: inline-flex; align-items: center; gap: 4px; }
 .kraft-num {
