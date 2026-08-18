@@ -1,0 +1,73 @@
+# Baut die beiden Container-Images (Backend + Web) und pusht sie in die GitHub
+# Container Registry (GHCR), damit man sie per `docker pull` beziehen kann,
+# ohne das Repo zu klonen (#99).
+#
+#   - Push auf main            → Tags `latest` + `sha-<kurz>`
+#   - Tag `v1.2.3`             → zusätzlich `1.2.3` und `1.2` (semver, festnagelbar)
+#   - Pull Request             → nur BAUEN (kein Push), validiert die Dockerfiles
+#
+# Images: ghcr.io/<owner>/lagekatse-backend  und  ghcr.io/<owner>/lagekatse-web
+# Auth läuft über den automatischen GITHUB_TOKEN — keine separaten Credentials.
+# Hinweis: Die GHCR-*Package*-Sichtbarkeit ist unabhängig von der Repo-Sichtbarkeit
+# und muss einmalig auf „public" gestellt werden, damit anonymes Pull klappt.
+name: Docker images
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: lagekatse-backend
+            dockerfile: packages/server/Dockerfile
+          - image: lagekatse-web
+            dockerfile: packages/web/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Nur bei echten Pushes/Tags anmelden — PRs bauen nur (kein Push).
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata (tags + labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          # amd64-only für den Start; arm64 (Raspberry Pi o.ä.) wäre eine spätere
+          # Ausbaustufe (braucht qemu, deutlich langsamer).
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
