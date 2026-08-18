@@ -88,7 +88,7 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
 
 ## Workflow
 - Feature-Code entsteht i. d. R. via Codex/Claude Code, in kleinen Schritten (je Schritt ein Commit).
-- **PRs merged Kevin selbst.** Vor dem Öffnen `pnpm typecheck` + `pnpm build` grün.
+- **PRs merged Repo-Owner selbst.** Vor dem Öffnen `pnpm typecheck` + `pnpm build` grün.
 - Neue Fläche/Feld/Migration? Zuerst prüfen, ob eine der Invarianten oben betroffen ist.
 
 ## Deployment (#65, #99/#108)
