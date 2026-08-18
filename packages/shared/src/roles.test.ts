@@ -16,6 +16,29 @@ describe("effectiveWriteScopes / canWrite", () => {
     }
   });
 
+  it("LdS / Einsatzleiter darf in alle Module schreiben (#102)", () => {
+    const scopes = effectiveWriteScopes(["LDS"], CHAT_ON);
+    expect([...scopes].sort()).toEqual([...MODULES].sort());
+  });
+
+  it("LdS / Einsatzleiter ist eine Stabsrolle (hasStabRole, #102)", () => {
+    expect(hasStabRole(["LDS"])).toBe(true);
+    expect(hasStabRole(["MONITOR", "LDS"])).toBe(true);
+  });
+
+  it("Leiter BR darf nur Kräfteübersicht + Chat, Rest read-only (#102)", () => {
+    const scopes = effectiveWriteScopes(["BR_LEITER"], CHAT_ON);
+    expect([...scopes].sort()).toEqual(["chat", "kraefteubersicht"]);
+    expect(canWrite(["BR_LEITER"], "kraefteubersicht", CHAT_ON)).toBe(true);
+    expect(canWrite(["BR_LEITER"], "lagekarte", CHAT_ON)).toBe(false);
+    expect(canWrite(["BR_LEITER"], "etb", CHAT_ON)).toBe(false);
+    expect(canWrite(["BR_LEITER"], "arbeitsblatt", CHAT_ON)).toBe(false);
+  });
+
+  it("Leiter BR ist KEINE Stabsrolle (kein Bundle-Import/Lage abschließen, #102)", () => {
+    expect(hasStabRole(["BR_LEITER"])).toBe(false);
+  });
+
   it("LAGEKARTE darf Lagekarte + Kräfteübersicht + Chat (#100)", () => {
     const scopes = effectiveWriteScopes(["LAGEKARTE"], CHAT_ON);
     expect([...scopes].sort()).toEqual(["chat", "kraefteubersicht", "lagekarte"]);

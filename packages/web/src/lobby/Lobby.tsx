@@ -5,8 +5,8 @@ import type { Session } from "../session";
 
 type Mode = "join" | "create";
 
-const S_ROLES: Role[] = ["S1", "S2", "S3", "S4", "S5", "S6"];
-const OTHER_ROLES: Role[] = ["LAGEKARTE", "ETB", "MONITOR"];
+const S_ROLES: Role[] = ["S1", "S2", "S3", "S4", "S5", "S6", "LDS"];
+const OTHER_ROLES: Role[] = ["LAGEKARTE", "ETB", "MONITOR", "BR_LEITER"];
 
 export function Lobby({ onEnter }: { onEnter: (session: Session) => void }) {
   const [mode, setMode] = useState<Mode>("join");
@@ -14,7 +14,7 @@ export function Lobby({ onEnter }: { onEnter: (session: Session) => void }) {
   const [error, setError] = useState<string | null>(null);
 
   const [name, setName] = useState("");
-  const [roles, setRoles] = useState<Set<Role>>(() => new Set<Role>(["S3"]));
+  const [roles, setRoles] = useState<Set<Role>>(() => new Set<Role>());
   const [password, setPassword] = useState("");
 
   const [code, setCode] = useState("");
@@ -90,6 +90,7 @@ export function Lobby({ onEnter }: { onEnter: (session: Session) => void }) {
           </label>
         ))}
       </div>
+      {roles.size === 0 && <span className="role-hint">Bitte mindestens eine Rolle wählen.</span>}
     </div>
   );
 
@@ -155,7 +156,7 @@ export function Lobby({ onEnter }: { onEnter: (session: Session) => void }) {
             <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="optional" />
           </label>
           {error && <div className="error-note">{error}</div>}
-          <button className="btn btn--primary" style={{ width: "100%", marginTop: 6 }} disabled={busy}>
+          <button className="btn btn--primary" style={{ width: "100%", marginTop: 6 }} disabled={busy || roles.size === 0}>
             {busy ? "…" : "Beitreten →"}
           </button>
         </form>
@@ -178,7 +179,7 @@ export function Lobby({ onEnter }: { onEnter: (session: Session) => void }) {
             Monitor-Rolle darf chatten
           </label>
           {error && <div className="error-note">{error}</div>}
-          <button className="btn btn--primary" style={{ width: "100%" }} disabled={busy}>
+          <button className="btn btn--primary" style={{ width: "100%" }} disabled={busy || roles.size === 0}>
             {busy ? "…" : "Erstellen & beitreten →"}
           </button>
         </form>
