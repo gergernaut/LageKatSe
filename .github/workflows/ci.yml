@@ -64,6 +64,7 @@ jobs:
           node packages/web/scripts/e2e.mjs
           node packages/web/scripts/lagekarte-e2e.mjs
           node packages/web/scripts/arbeitsblatt-e2e.mjs
+          node packages/web/scripts/kraefteubersicht-e2e.mjs
           node packages/web/scripts/bundle-import-e2e.mjs
           node packages/web/scripts/close-e2e.mjs
           # Muss ZULETZT laufen: trippt das Join-Rate-Limit für diese IP/dieses Fenster.
