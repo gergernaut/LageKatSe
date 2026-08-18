@@ -10,8 +10,11 @@ CREATE TABLE IF NOT EXISTS room (
   password_hash  text,
   settings       jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at     timestamptz NOT NULL DEFAULT now(),
-  last_active_at timestamptz NOT NULL DEFAULT now()
+  last_active_at timestamptz NOT NULL DEFAULT now(),
+  created_by     text
 );
+-- Idempotente Migration für Bestands-DBs (init() spielt das Schema bei jedem Start ein).
+ALTER TABLE room ADD COLUMN IF NOT EXISTS created_by text;
 CREATE INDEX IF NOT EXISTS room_join_code_idx ON room (upper(join_code));
 CREATE TABLE IF NOT EXISTS module_doc (
   room_id    uuid NOT NULL REFERENCES room(id) ON DELETE CASCADE,
@@ -101,7 +104,7 @@ export class PostgresStore implements Store {
   }
 
   async deleteRoom(id: string): Promise<void> {
-    // ON DELETE CASCADE in schema.sql removes module_doc + doc_update rows.
+    // ON DELETE CASCADE in SCHEMA_SQL removes module_doc + doc_update rows.
     await this.pool.query(`DELETE FROM room WHERE id = $1`, [id]);
   }
 
