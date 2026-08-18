@@ -3,6 +3,9 @@ dist/
 build/
 .env
 .env.local
+# Laufzeit-Config-Override fürs Docker-Deployment (#99) — nur root-level,
+# nicht die getrackte Default-Datei packages/web/public/config.js.
+/config.js
 *.log
 .DS_Store
 .pnpm-store/
