@@ -529,8 +529,7 @@ entschieden: Whole-Value-LWW pro Feature; feldweises Merge wäre eine spätere A
 
 ## 9. Modul 2 – Gemeinsames Einsatztagebuch
 
-Ein kollaboratives, tabellarisches Einsatztagebuch (ETB) in Anlehnung an die Vorlage
-**FM-A-31 (KFV Bayreuth)** und übliche FwDV-Praxis.
+Ein kollaboratives, tabellarisches Einsatztagebuch (ETB) nach üblicher FwDV-Praxis.
 
 > **In M2 umgesetzt** (PR #31): Anlegen (server-autoritativ), Feld-Edits, Storno und
 > CSV-Export. Änderungshistorie, CSV-Import und PDF sind zurückgestellt (§9.4).
@@ -543,7 +542,7 @@ Ein kollaboratives, tabellarisches Einsatztagebuch (ETB) in Anlehnung an die Vor
 - **Live-Sync** & **Hot-Join** wie bei der Karte; Sichtbarkeit für alle, Schreiben je Rechte-Scope.
 - **Export** als **JSON** (verlustfrei, re-importierbar via Bundle §12) und **PDF** (Ablage/Nachweis).
 
-### 9.2 Spalten (Vorschlag, ⚠️ final gegen FM-A-31 abgleichen)
+### 9.2 Spalten
 
 | Feld | Auto | Editierbar | Bemerkung |
 |------|:----:|:----------:|-----------|
@@ -1105,4 +1104,4 @@ lagekatse/
 
 ---
 
-*Ende des Konzepts v0.7 – verbleibende ⚠️-Punkte (z. B. §9.2 Spalten gegen FM-A-31) sind dokumentiert; die meisten offenen Entscheidungen (E1–E10) sind geklärt (§17).*
+*Ende des Konzepts v0.7 – die offenen Entscheidungen (E1–E10) sind geklärt (§17).*
