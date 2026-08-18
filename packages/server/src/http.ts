@@ -38,6 +38,13 @@ const newEtbEntrySchema = z.object({
   veranlassung: z.string().max(4000, "Veranlassung ist zu lang (max. 4000 Zeichen).").optional(),
 });
 
+// Kräfteübersicht-Protokoll (#100): eine Kräftebewegung (BR↔Einsatz / entlassen)
+// schreibt server-autoritativ einen ETB-Eintrag (Invariante #6), damit die lfdNr
+// lückenlos bleibt. Der Text wird client-seitig gebaut (buildKraftEtbText).
+const kraftEtbLogSchema = z.object({
+  inhalt: z.string().trim().min(1, "Leerer Protokolltext.").max(4000, "Text ist zu lang (max. 4000 Zeichen)."),
+});
+
 // Vollständiger ETB-Eintrag für den Bundle-Import (#71) — anders als beim Anlegen
 // trägt der Client hier id/lfdNr/zeit/storniert bei (verlustfreier Restore); der
 // Server übernimmt sie originalgetreu (replaceEtbEntries).
@@ -127,6 +134,33 @@ export function registerRoutes(
 
     const body = newEtbEntrySchema.parse(req.body ?? {});
     const entry = await hub.appendEtbEntry(rec.id, claims.name, body);
+    return reply.code(201).send({ entry });
+  });
+
+  // Kräfteübersicht → ETB-Protokoll (#100): server-autoritativer ETB-Eintrag für
+  // eine Kräftebewegung. Gated durch *kraefteubersicht*-Schreibrecht (nicht etb),
+  // damit auch ein Lagekartenführer, der Kräfte verschiebt, protokollieren kann.
+  app.post<{ Params: { code: string } }>("/api/rooms/:code/kraft/etb-log", async (req, reply) => {
+    const authorization = req.headers.authorization ?? "";
+    const token = authorization.startsWith("Bearer ") ? authorization.slice("Bearer ".length) : "";
+    const claims = await verifySession(token, config.jwtSecret);
+    if (!claims) throw new HttpError(401, "unauthorized", "Ungültige oder fehlende Anmeldung.");
+
+    const rec = await rooms.getByCode(req.params.code);
+    if (!rec) throw new HttpError(404, "room_not_found", "Kein Stabsraum mit diesem Lobby-Code.");
+    if (claims.room !== rec.id) {
+      throw new HttpError(403, "room_mismatch", "Die Anmeldung gehört nicht zu diesem Stabsraum.");
+    }
+    if (
+      !canWrite(claims.roles, "kraefteubersicht", {
+        allowMonitorChat: rec.settings.allowMonitorChat,
+      })
+    ) {
+      throw new HttpError(403, "forbidden", "Keine Schreibberechtigung für die Kräfteübersicht.");
+    }
+
+    const body = kraftEtbLogSchema.parse(req.body ?? {});
+    const entry = await hub.appendEtbEntry(rec.id, claims.name, { inhalt: body.inhalt });
     return reply.code(201).send({ entry });
   });
 

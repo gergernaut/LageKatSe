@@ -11,12 +11,15 @@ import { unzipSync } from "fflate";
 import {
   AB_EXPORT_FORMAT,
   ETB_EXPORT_FORMAT,
+  KRAFT_VEHICLES,
   LAGEKARTE_FEATURES,
   hasStabRole,
   isRecord,
+  parseKraftExport,
   type LogEntry,
   type MapFeature,
 } from "@lagekatse/shared";
+import * as Y from "yjs";
 import { api } from "./api";
 import type { Session } from "./session";
 import { connectModule } from "./sync/provider";
@@ -24,6 +27,7 @@ import { waitForSync } from "./sync/waitForSync";
 import { uid } from "./uid";
 import { applyArbeitsblattImport } from "./arbeitsblatt/applyImport";
 import { applyLagekarteImport, parseLagekarteFeatures } from "./lagekarte/applyImport";
+import { applyKraftImport } from "./kraefteubersicht/applyImport";
 
 export interface BundleImportResult {
   /** Menschlich lesbare Labels dessen, was eingespielt wurde. */
@@ -32,11 +36,12 @@ export interface BundleImportResult {
   skipped: string[];
 }
 
-/** Präfixe der drei Bundle-Dateien (siehe exportAll.ts). */
+/** Präfixe der Bundle-Dateien (siehe exportAll.ts). */
 const PREFIXES = {
   lagekarte: "lagekarte-",
   arbeitsblatt: "arbeitsblatt-",
   etb: "einsatztagebuch-",
+  kraefteubersicht: "kraefteuebersicht-",
 } as const;
 
 /**
@@ -48,12 +53,14 @@ export function classifyBundleFiles(names: string[]): {
   lagekarte?: string;
   arbeitsblatt?: string;
   etb?: string;
+  kraefteubersicht?: string;
 } {
-  const out: { lagekarte?: string; arbeitsblatt?: string; etb?: string } = {};
+  const out: { lagekarte?: string; arbeitsblatt?: string; etb?: string; kraefteubersicht?: string } = {};
   for (const name of names) {
     if (!name.endsWith(".json")) continue;
     if (out.lagekarte === undefined && name.startsWith(PREFIXES.lagekarte)) out.lagekarte = name;
     else if (out.arbeitsblatt === undefined && name.startsWith(PREFIXES.arbeitsblatt)) out.arbeitsblatt = name;
+    else if (out.kraefteubersicht === undefined && name.startsWith(PREFIXES.kraefteubersicht)) out.kraefteubersicht = name;
     else if (out.etb === undefined && name.startsWith(PREFIXES.etb)) out.etb = name;
   }
   return out;
@@ -110,6 +117,26 @@ export async function importBundle(session: Session, file: File): Promise<Bundle
     }
   } else {
     skipped.push("Arbeitsblatt (nicht im Bundle)");
+  }
+
+  // --- Kräfteübersicht (client-CRDT, ersetzen) ---
+  if (cls.kraefteubersicht) {
+    const rows = parseKraftExport(parseJson(files[cls.kraefteubersicht]), uid);
+    if (!rows) {
+      skipped.push("Kräfteübersicht (ungültiges Format)");
+    } else {
+      const conn = connectModule(session.room.id, "kraefteubersicht", session.token, { cache: false });
+      try {
+        await waitForSync(conn);
+        const vehicles = conn.doc.getArray<Y.Map<unknown>>(KRAFT_VEHICLES);
+        applyKraftImport(vehicles, rows, { replace: true });
+      } finally {
+        conn.destroy();
+      }
+      imported.push(`Kräfteübersicht (${rows.length} Fahrzeug${rows.length === 1 ? "" : "e"})`);
+    }
+  } else {
+    skipped.push("Kräfteübersicht (nicht im Bundle)");
   }
 
   // --- Einsatztagebuch (server-autoritativ, ersetzen) ---
