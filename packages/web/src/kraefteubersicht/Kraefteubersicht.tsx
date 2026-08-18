@@ -6,7 +6,6 @@ import {
   formatStaerke,
   isRecord,
   KRAFT_EXPORT_FORMAT,
-  KRAFT_ORG_LABELS,
   KRAFT_ORGS,
   KRAFT_VEHICLES,
   parseKraftExport,
@@ -207,8 +206,8 @@ export function Kraefteubersicht({ session }: { session: Session }) {
               <th style={{ width: 120 }}>Org</th>
               <th style={{ width: 130 }}>Fahrzeugtyp</th>
               <th style={{ width: 220 }}>Funkrufname</th>
-              <th style={{ width: 200 }} title="Führer / Unterführer / Helfer // Gesamtstärke">
-                Stärke (DV 100)
+              <th style={{ width: 200 }} title="DV 100: Führer / Unterführer / Helfer // Gesamtstärke">
+                Stärke
               </th>
               <th style={{ width: 180 }}>Aktion</th>
             </tr>
@@ -228,12 +227,12 @@ export function Kraefteubersicht({ session }: { session: Session }) {
                       >
                         {KRAFT_ORGS.map((org) => (
                           <option key={org} value={org}>
-                            {KRAFT_ORG_LABELS[org]}
+                            {org}
                           </option>
                         ))}
                       </select>
                     ) : (
-                      <span className="etb-value">{KRAFT_ORG_LABELS[v.org] ?? v.org}</span>
+                      <span className="etb-value">{v.org}</span>
                     )}
                   </td>
                   <td>
