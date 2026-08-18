@@ -90,6 +90,7 @@ export function Lobby({ onEnter }: { onEnter: (session: Session) => void }) {
           </label>
         ))}
       </div>
+      {roles.size === 0 && <span className="role-hint">Bitte mindestens eine Rolle wählen.</span>}
     </div>
   );
 
@@ -155,7 +156,7 @@ export function Lobby({ onEnter }: { onEnter: (session: Session) => void }) {
             <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="optional" />
           </label>
           {error && <div className="error-note">{error}</div>}
-          <button className="btn btn--primary" style={{ width: "100%", marginTop: 6 }} disabled={busy}>
+          <button className="btn btn--primary" style={{ width: "100%", marginTop: 6 }} disabled={busy || roles.size === 0}>
             {busy ? "…" : "Beitreten →"}
           </button>
         </form>
@@ -178,7 +179,7 @@ export function Lobby({ onEnter }: { onEnter: (session: Session) => void }) {
             Monitor-Rolle darf chatten
           </label>
           {error && <div className="error-note">{error}</div>}
-          <button className="btn btn--primary" style={{ width: "100%" }} disabled={busy}>
+          <button className="btn btn--primary" style={{ width: "100%" }} disabled={busy || roles.size === 0}>
             {busy ? "…" : "Erstellen & beitreten →"}
           </button>
         </form>
