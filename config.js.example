@@ -1,0 +1,18 @@
+// Vorlage für die Laufzeit-Konfiguration des Web-Images (#96/#99).
+//
+// Nutzung im Docker-Deployment (ohne Neu-Build):
+//   1) cp config.js.example config.js
+//   2) tileUrl unten setzen (bzw. gewünschte Werte)
+//   3) in docker-compose.yml beim `web`-Service den Volume-Mount aktivieren:
+//        volumes:
+//          - ./config.js:/srv/config.js:ro
+//   4) docker compose up -d
+//
+// Ohne diesen Override nutzt das Image seine eingebauten Defaults (OSM-Public).
+// Auflösung/Priorität: diese Datei → VITE_TILE_URL (Build-Zeit) → OSM-Default.
+window.__LAGEKATSE_CONFIG__ = Object.assign(window.__LAGEKATSE_CONFIG__ || {}, {
+  // Grundkarten-Kacheln — im geschlossenen Netz auf den lokalen Tile-Server zeigen:
+  // tileUrl: "http://tiles.lan/tile/{z}/{x}/{y}.png",
+  // tileMaxZoom: 19,
+  // tileAttribution: "&copy; OpenStreetMap-Mitwirkende",
+});

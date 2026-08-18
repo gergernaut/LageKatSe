@@ -1,10 +1,14 @@
 # LageKatSe production deployment (reverse-proxy + TLS).
 #
-# Bring everything up:
-#   docker compose up -d
+# Bring everything up from prebuilt GHCR images (no repo clone needed, #99):
+#   docker compose pull && docker compose up -d
+# You only need this file + Caddyfile + a .env (see README → Deployment).
+#
+# Build from source instead of pulling (dev / local changes):
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 #
 # The reverse proxy (Caddy) terminates TLS and routes:
-#   /api/*, /ws/* → backend, /* → web (static SPA).
+#   /api/*, /sync/* → backend, /* → web (static SPA).
 #
 # For local dev (without Docker), just run `pnpm dev` — this compose file
 # is for production/pilot deployments. The `db` service can also be used
@@ -36,9 +40,10 @@ services:
       retries: 10
 
   backend:
-    build:
-      context: .
-      dockerfile: packages/server/Dockerfile
+    # Fertiges Image aus GHCR (#99): `docker compose pull && up -d` ohne Repo-Klon.
+    # Version festnageln via LAGEKATSE_IMAGE_TAG (z.B. =1.2.3), sonst latest.
+    # Aus dem Quellcode bauen: docker-compose.build.yml als Override zuschalten.
+    image: ghcr.io/gergernaut/lagekatse-backend:${LAGEKATSE_IMAGE_TAG:-latest}
     depends_on:
       db:
         condition: service_healthy
@@ -56,9 +61,12 @@ services:
     restart: unless-stopped
 
   web:
-    build:
-      context: .
-      dockerfile: packages/web/Dockerfile
+    image: ghcr.io/gergernaut/lagekatse-web:${LAGEKATSE_IMAGE_TAG:-latest}
+    # Optional: Grundkarten-Tile-URL pro Deployment überschreiben (#96), ohne
+    # Neu-Build — z.B. auf einen lokalen Tile-Server im geschlossenen Netz zeigen.
+    # Vorlage: config.js.example nach config.js kopieren und tileUrl setzen.
+    # volumes:
+    #   - ./config.js:/srv/config.js:ro
     restart: unless-stopped
 
   proxy:

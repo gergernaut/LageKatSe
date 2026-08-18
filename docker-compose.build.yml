@@ -1,0 +1,17 @@
+# Override: baut Backend + Web lokal aus dem Quellcode, statt die fertigen
+# Images aus GHCR zu ziehen (#99). Für Dev/Test oder lokale Änderungen.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
+# Das gebaute Image wird unter demselben Namen wie in docker-compose.yml getaggt,
+# sodass die restliche Konfiguration (env, depends_on, …) unverändert greift.
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: packages/server/Dockerfile
+
+  web:
+    build:
+      context: .
+      dockerfile: packages/web/Dockerfile
