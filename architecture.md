@@ -3,7 +3,7 @@
 > Modulare, browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz.
 > Version 0.7 · Stand: 2026-08-18 · Konzept + Umsetzungsstand: **M0–M4 komplett — Kern-Module + Phase-2-Ausbau + Härtung & Ausbau (M4) abgeschlossen; danach #96 (Grundkarten-URL), Modul 4 „Kräfteübersicht" (#100), neue Rollen (#102/#103), Docker-GHCR (#99/#108) und Schema-Konsolidierung (#106/#107) ergänzt**
 
-Dieses Dokument überführt das Brainstorming (`LageKatSe.txt`) in ein tragfähiges technisches Konzept.
+Dieses Dokument ist das tragfähige technische Konzept für LageKatSe.
 Es beschreibt Zielbild, Architektur, Datenmodell, Rechtemodell und einen Umsetzungsfahrplan.
 Fachliche Annahmen, die noch mit der Zielgruppe (Feuerwehr/THW/Hilfsorganisation) validiert werden
 sollten, sind mit **⚠️ zu klären** markiert.
