@@ -347,6 +347,60 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .etb-add:disabled { opacity: .55; cursor: wait; }
 .etb-empty { padding: 36px !important; color: var(--ink-3); text-align: center; }
 
+/* ---- Kräfteübersicht (#100) ---- */
+.kraft-wrap { flex: 1; min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 18px; }
+.kraft-cards { display: flex; flex-wrap: wrap; gap: 14px; }
+.kraft-card {
+  flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 4px;
+  padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2);
+}
+.kraft-card__label {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2);
+}
+.kraft-card__value {
+  font-size: 26px; font-weight: 700; color: var(--forces);
+  font-variant-numeric: tabular-nums; letter-spacing: -.01em;
+}
+.kraft-card:nth-child(2) .kraft-card__value { color: var(--ink); }
+.kraft-card__hint { font-size: 11px; color: var(--ink-3); }
+.kraft-card[title] { cursor: help; }
+
+.kraft-section { display: flex; flex-direction: column; gap: 8px; }
+.kraft-section__title {
+  margin: 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  font-size: 14px; letter-spacing: -.01em; color: var(--ink);
+}
+.kraft-badge {
+  font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--ink-2);
+  padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface);
+  font-variant-numeric: tabular-nums;
+}
+.kraft-section .table-scroll { border: 1px solid var(--line); border-radius: 10px; overflow: hidden auto; }
+/* Fixed layout, damit die th-Breiten exakt gelten (auto-Layout ignoriert sie,
+   weil ein <input> seine Spalte nicht am Textinhalt aufbläht). */
+.kraft-section table.etb { min-width: 850px; table-layout: fixed; }
+
+.kraft-staerke { display: inline-flex; align-items: center; gap: 4px; }
+.kraft-num {
+  width: 48px; text-align: center; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; -moz-appearance: textfield;
+}
+.kraft-num::-webkit-outer-spin-button, .kraft-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.kraft-sep { color: var(--ink-3); font-family: var(--mono); }
+.kraft-gesamt {
+  min-width: 22px; text-align: center; font-family: var(--mono); font-weight: 700;
+  color: var(--forces); font-variant-numeric: tabular-nums;
+}
+.kraft-staerke-ro { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+.kraft-actions { display: flex; align-items: center; gap: 10px; }
+.kraft-move {
+  padding: 5px 10px; border: 1px solid var(--forces); border-radius: 7px;
+  background: rgba(47,107,216,.08); color: var(--forces); font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.kraft-move:hover { background: rgba(47,107,216,.16); }
+.kraft-release { margin-top: 0; }
+
 /* ---------- Arbeitsblatt ---------- */
 .arbeitsblatt {
   width: 100%; max-width: 1120px; margin: 0 auto;
