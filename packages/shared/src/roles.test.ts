@@ -9,29 +9,31 @@ const CHAT_OFF = { allowMonitorChat: false };
 // wertvollste Unit-Test-Kandidat. Ein stiller Regress hier würde Rollen still
 // über- oder unterberechtigen.
 describe("effectiveWriteScopes / canWrite", () => {
-  it("S-Rollen (S1–S6) dürfen in alle vier Module schreiben", () => {
+  it("S-Rollen (S1–S6) dürfen in alle Module schreiben", () => {
     for (const s of ["S1", "S2", "S3", "S4", "S5", "S6"] as Role[]) {
       const scopes = effectiveWriteScopes([s], CHAT_ON);
       expect([...scopes].sort()).toEqual([...MODULES].sort());
     }
   });
 
-  it("LAGEKARTE darf nur Lagekarte + Chat", () => {
+  it("LAGEKARTE darf Lagekarte + Kräfteübersicht + Chat (#100)", () => {
     const scopes = effectiveWriteScopes(["LAGEKARTE"], CHAT_ON);
-    expect([...scopes].sort()).toEqual(["chat", "lagekarte"]);
+    expect([...scopes].sort()).toEqual(["chat", "kraefteubersicht", "lagekarte"]);
     expect(canWrite(["LAGEKARTE"], "etb", CHAT_ON)).toBe(false);
     expect(canWrite(["LAGEKARTE"], "arbeitsblatt", CHAT_ON)).toBe(false);
+    expect(canWrite(["LAGEKARTE"], "kraefteubersicht", CHAT_ON)).toBe(true);
   });
 
-  it("ETB darf nur Einsatztagebuch + Chat", () => {
+  it("ETB darf Einsatztagebuch + Kräfteübersicht + Chat (#100)", () => {
     const scopes = effectiveWriteScopes(["ETB"], CHAT_ON);
-    expect([...scopes].sort()).toEqual(["chat", "etb"]);
+    expect([...scopes].sort()).toEqual(["chat", "etb", "kraefteubersicht"]);
     expect(canWrite(["ETB"], "lagekarte", CHAT_ON)).toBe(false);
+    expect(canWrite(["ETB"], "kraefteubersicht", CHAT_ON)).toBe(true);
   });
 
   it("mehrere Rollen vereinigen ihre Rechte additiv", () => {
     const scopes = effectiveWriteScopes(["LAGEKARTE", "ETB"], CHAT_ON);
-    expect([...scopes].sort()).toEqual(["chat", "etb", "lagekarte"]);
+    expect([...scopes].sort()).toEqual(["chat", "etb", "kraefteubersicht", "lagekarte"]);
   });
 
   it("eine dominante S-Rolle macht die Kombination voll schreibberechtigt", () => {
@@ -54,7 +56,7 @@ describe("effectiveWriteScopes / canWrite", () => {
     });
 
     it("MONITOR darf auch bei erlaubtem Chat nie in Feature-Module schreiben", () => {
-      for (const m of ["lagekarte", "etb", "arbeitsblatt"] as Module[]) {
+      for (const m of ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht"] as Module[]) {
         expect(canWrite(["MONITOR"], m, CHAT_ON)).toBe(false);
       }
     });

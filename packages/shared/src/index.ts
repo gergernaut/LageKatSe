@@ -6,4 +6,5 @@ export * from "./lagekarte";
 export * from "./etb";
 export * from "./close";
 export * from "./arbeitsblatt";
+export * from "./kraefteubersicht";
 export * from "./activity";
