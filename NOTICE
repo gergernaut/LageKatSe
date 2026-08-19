@@ -1,0 +1,32 @@
+LageKatSe
+Copyright 2026 LageKatSe contributors
+
+This product is licensed under the Apache License, Version 2.0 (see the LICENSE
+file). The sections below list third-party data sources and bundled assets and
+their required attribution / license notices.
+
+------------------------------------------------------------------------------
+Data sources fetched at runtime (attribution required, no code dependency)
+------------------------------------------------------------------------------
+
+* Map tiles & geodata — © OpenStreetMap contributors, licensed under the Open
+  Database License (ODbL). https://www.openstreetmap.org/copyright
+
+* Precipitation radar, KONRAD3D storm cells, and weather data (current /
+  forecast / warnings) — Deutscher Wetterdienst (DWD), in part provided via
+  Bright Sky. https://www.dwd.de  ·  https://brightsky.dev
+
+* Water levels (Pegel) — Wasserstraßen- und Schifffahrtsverwaltung des Bundes
+  (WSV), provided via PEGELONLINE. https://www.pegelonline.wsv.de
+
+------------------------------------------------------------------------------
+Bundled third-party assets
+------------------------------------------------------------------------------
+
+* Tactical symbols (Taktische Zeichen) — from jonas-koeritz/Taktische-Zeichen,
+  released into the public domain (CC0 1.0). Details and credit:
+  packages/web/public/taktische-zeichen/ATTRIBUTION.md
+
+* DejaVu Sans font (used for PDF export) — DejaVu Fonts, a permissive free font
+  license (derived from the Bitstream Vera license). License text:
+  packages/web/public/fonts/README.txt
