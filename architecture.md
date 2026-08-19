@@ -1,9 +1,9 @@
 # LageKatSe – Architektur- und Fachkonzept
 
 > Modulare, browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz.
-> Version 0.6 · Stand: 2026-08-18 · Konzept + Umsetzungsstand: **M0–M4 komplett — Kern-Module + Phase-2-Ausbau + Härtung & Ausbau (M4) abgeschlossen; danach #96 (Grundkarten-URL) und Modul 4 „Kräfteübersicht" (#100) ergänzt**
+> Version 0.7 · Stand: 2026-08-18 · Konzept + Umsetzungsstand: **M0–M4 komplett — Kern-Module + Phase-2-Ausbau + Härtung & Ausbau (M4) abgeschlossen; danach #96 (Grundkarten-URL), Modul 4 „Kräfteübersicht" (#100), neue Rollen (#102/#103), Docker-GHCR (#99/#108) und Schema-Konsolidierung (#106/#107) ergänzt**
 
-Dieses Dokument überführt das Brainstorming (`LageKatSe.txt`) in ein tragfähiges technisches Konzept.
+Dieses Dokument ist das tragfähige technische Konzept für LageKatSe.
 Es beschreibt Zielbild, Architektur, Datenmodell, Rechtemodell und einen Umsetzungsfahrplan.
 Fachliche Annahmen, die noch mit der Zielgruppe (Feuerwehr/THW/Hilfsorganisation) validiert werden
 sollten, sind mit **⚠️ zu klären** markiert.
@@ -267,19 +267,21 @@ Rechte werden **pro Modul** als Schreib-Scope vergeben. Lesen ist für alle Roll
 erlaubt (das gesamte Lagebild ist für den ganzen Stab einsehbar). Es zählt also nur, **wer wo
 schreiben darf**:
 
-| Rolle | Lagekarte | Einsatztagebuch | Arbeitsblatt | Chat | Anmerkung |
-|-------|:---------:|:---------------:|:------------:|:----:|-----------|
-| **S1–S6** | ✅ RW | ✅ RW | ✅ RW | ✅ | Keine Beschränkungen |
-| **Lagekartenführer** | ✅ RW | 👁 RO | 👁 RO | ✅ | Schreibt nur in der Lagekarte |
-| **Einsatztagebuchführer** | 👁 RO | ✅ RW | 👁 RO | ✅ | Schreibt nur im ETB |
-| **Monitor** | 👁 RO | 👁 RO | 👁 RO | ⚠️ | Reine Anzeige |
+| Rolle | Lagekarte | Einsatztagebuch | Arbeitsblatt | Kräfteübersicht | Chat | Anmerkung |
+|-------|:---------:|:---------------:|:------------:|:--------------:|:----:|-----------|
+| **S1–S6** | ✅ RW | ✅ RW | ✅ RW | ✅ RW | ✅ | Keine Beschränkungen |
+| **LdS / Einsatzleiter** | ✅ RW | ✅ RW | ✅ RW | ✅ RW | ✅ | Stabsrolle wie S1–S6 (#102) |
+| **Lagekartenführer** | ✅ RW | 👁 RO | 👁 RO | ✅ RW | ✅ | Schreibt Lagekarte + Kräfteübersicht (#100) |
+| **Einsatztagebuchführer** | 👁 RO | ✅ RW | 👁 RO | ✅ RW | ✅ | Schreibt ETB + Kräfteübersicht (#100) |
+| **Leiter BR** | 👁 RO | 👁 RO | 👁 RO | ✅ RW | ✅ | Nur Kräfteübersicht, Rest read-only (#102) |
+| **Monitor** | 👁 RO | 👁 RO | 👁 RO | 👁 RO | ✅ | Reine Anzeige; Chat raum-konfigurierbar (E1, Standard an) |
 
-Legende: ✅ RW = Lesen+Schreiben · 👁 RO = nur Lesen · ⚠️ = zu klären
+Legende: ✅ RW = Lesen+Schreiben · 👁 RO = nur Lesen
 
-> **⚠️ zu klären – Chat für Monitor:** Der Monitor „darf alles sehen, aber nichts ändern". Chat ist
-> Koordination, keine Lageänderung. Empfehlung: Chat für **alle** Rollen erlaubt (auch Monitor),
-> da ein Wandmonitor selten tippt und die Trennung sonst künstlich wirkt. Alternativ Monitor
-> chat-stumm. Als konfigurierbare Raum-Einstellung umsetzbar.
+> **Chat für Monitor (E1, entschieden):** Konfigurierbar je Raum (`allowMonitorChat`, Standard
+> **an**) — Chat ist Koordination, keine Lageänderung. Chat für alle Rollen erlaubt, alternativ
+> Monitor chat-stumm. Umgesetzt als Raum-Einstellung in der Lobby + serverseitig durchgesetzt
+> (`canWrite` mit `PermissionContext`).
 
 ### 6.2 Additive Zusammenführung bei Mehrfachrollen
 
@@ -287,18 +289,20 @@ Rollen werden per Checkbox gewählt; ein Nutzer kann mehrere haben. Die effektiv
 **Vereinigung** der Einzelrechte (Prinzip: *das großzügigste Recht gewinnt*):
 
 ```ts
-type Module = "lagekarte" | "etb" | "arbeitsblatt" | "chat";
+type Module = "lagekarte" | "etb" | "arbeitsblatt" | "kraefteubersicht" | "chat";
 
 const WRITE_SCOPES: Record<Role, Module[]> = {
-  S1: ["lagekarte", "etb", "arbeitsblatt", "chat"],
-  S2: ["lagekarte", "etb", "arbeitsblatt", "chat"],
-  S3: ["lagekarte", "etb", "arbeitsblatt", "chat"],
-  S4: ["lagekarte", "etb", "arbeitsblatt", "chat"],
-  S5: ["lagekarte", "etb", "arbeitsblatt", "chat"],
-  S6: ["lagekarte", "etb", "arbeitsblatt", "chat"],
-  LAGEKARTE: ["lagekarte", "chat"],
-  ETB:       ["etb", "chat"],
-  MONITOR:   [], // ggf. ["chat"], siehe oben
+  S1: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
+  S2: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
+  S3: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
+  S4: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
+  S5: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
+  S6: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
+  LDS: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
+  LAGEKARTE: ["lagekarte", "kraefteubersicht", "chat"],
+  ETB: ["etb", "kraefteubersicht", "chat"],
+  MONITOR: [],
+  BR_LEITER: ["kraefteubersicht", "chat"],
 };
 
 // Effektive Schreibrechte = Vereinigung über alle gewählten Rollen
@@ -503,8 +507,8 @@ interface AreaFeature {
 per `Y.Map.set(id, feature)` gesetzt. Änderungen an *verschiedenen* Features stören sich nicht;
 ändern zwei Personen **dasselbe** Feature gleichzeitig, gewinnt der letzte Schreibvorgang für das
 **gesamte** Feature (Whole-Value-Last-Write-Wins) – eine parallele Änderung an einem anderen Feld
-desselben Features kann dabei verloren gehen. Für die Lageführung ist das vertretbar (⚠️ ggf. mit
-Zielgruppe validieren; feldweises Merge wäre eine spätere Ausbaustufe).
+desselben Features kann dabei verloren gehen. Für die Lageführung ist das vertretbar (E5
+entschieden: Whole-Value-LWW pro Feature; feldweises Merge wäre eine spätere Ausbaustufe).
 
 ### 8.4 Import/Export-Format
 
@@ -525,8 +529,7 @@ Zielgruppe validieren; feldweises Merge wäre eine spätere Ausbaustufe).
 
 ## 9. Modul 2 – Gemeinsames Einsatztagebuch
 
-Ein kollaboratives, tabellarisches Einsatztagebuch (ETB) in Anlehnung an die Vorlage
-**FM-A-31 (KFV Bayreuth)** und übliche FwDV-Praxis.
+Ein kollaboratives, tabellarisches Einsatztagebuch (ETB) nach üblicher FwDV-Praxis.
 
 > **In M2 umgesetzt** (PR #31): Anlegen (server-autoritativ), Feld-Edits, Storno und
 > CSV-Export. Änderungshistorie, CSV-Import und PDF sind zurückgestellt (§9.4).
@@ -539,7 +542,7 @@ Ein kollaboratives, tabellarisches Einsatztagebuch (ETB) in Anlehnung an die Vor
 - **Live-Sync** & **Hot-Join** wie bei der Karte; Sichtbarkeit für alle, Schreiben je Rechte-Scope.
 - **Export** als **JSON** (verlustfrei, re-importierbar via Bundle §12) und **PDF** (Ablage/Nachweis).
 
-### 9.2 Spalten (Vorschlag, ⚠️ final gegen FM-A-31 abgleichen)
+### 9.2 Spalten
 
 | Feld | Auto | Editierbar | Bemerkung |
 |------|:----:|:----------:|-----------|
@@ -587,14 +590,13 @@ Feld-Änderungen sind normale CRDT-Writes pro Entry-`Y.Map`.
 ### 9.4 Fachliche Besonderheit: Nachvollziehbarkeit
 
 Ein Einsatztagebuch ist ein **Führungs- und ggf. Nachweisdokument**. Die Anforderung „Uhrzeit
-editierbar" ist praxisgerecht (Nachträge), birgt aber Manipulationsrisiko. **Empfehlung:** Einträge
-bleiben editierbar, aber pro Eintrag wird eine **Änderungshistorie** (wer/wann/was) mitgeführt und
-im Export ausgewiesen. Löschen ersetzen wir durch „stornieren" (Eintrag bleibt, wird als ungültig
-markiert). So bleibt die lückenlose Lfd.-Nr.-Kette erhalten. **⚠️ mit Zielgruppe abstimmen**, ob das
-gewünscht/nötig ist.
+editierbar" ist praxisgerecht (Nachträge), birgt aber Manipulationsrisiko. Einträge bleiben
+editierbar; Löschen ersetzen wir durch „stornieren" (Eintrag bleibt, wird als ungültig markiert).
+So bleibt die lückenlose Lfd.-Nr.-Kette erhalten. Eine volle **Änderungshistorie** (wer/wann/was)
+ist **bewusst verworfen** (E2, #73): LageKatSe ist kein primäres/rechtssicheres Einsatzmittel
+(s. §14 + Startseiten-Disclaimer #76) — Storno reicht als Nachvollziehbarkeit.
 
-> **Stand M2:** **Storno umgesetzt** (Eintrag bleibt, wird durchgestrichen). Die volle
-> **Änderungshistorie** ist zurückgestellt, bis der Bedarf mit der Zielgruppe geklärt ist.
+> **Umgesetzt (M2):** Storno (Eintrag bleibt, durchgestrichen). Volle Änderungshistorie verworfen.
 
 ### 9.5 Export (JSON + PDF)
 
@@ -634,16 +636,17 @@ Das Arbeitsblatt ist in feste Felder gegliedert (die Grundstruktur der Vorlage b
 | **E** | Eigene Lage / Nachforderung | Auftrag (MR/BB), Kräfteübersicht, Nachforderung (freie Einträge) |
 | **F** | Organisation/Kommunikation | Funkkanäle (TMO-/DMO-Gruppe, Führung, Gebäude), Führungs-Organigramm, eigene Funktion |
 
-> Die **Rückseite** (Checklisten für ABC-/Gefahrgut-Einsatz, Wetterdaten, Dekon, MANV/Rettungsdienst)
-> ist umfangreich und spezialisiert → **Phase 2** (siehe Roadmap). MVP fokussiert die Vorderseite.
+> Die **Rückseite** (Checklisten für ABC-/Gefahrgut-Einsatz, Wetterdaten, Dekon, MANV/Rettungsdienst):
+> nur der **Wetter-Teil** ist umgesetzt (§10.5, DWD/BrightSky); ABC/MANV/Dekon wurden verworfen (#42
+> geschlossen, #73). MVP fokussierte die Vorderseite.
 
 ### 10.2 Das Lagebild ist die Lagekarte (kein Duplikat)
 
 Feld **B** zeigt **dasselbe** synchronisierte Kartenbild wie Modul 1 – technisch abonniert das
 Arbeitsblatt das `lagekarte`-Dokument **read-only** und rendert eine kompakte Kartenansicht. Änderungen
 an der Karte erscheinen sofort auch im Arbeitsblatt. So gibt es **eine** Quelle der Wahrheit für die
-Lage. (Wer in Modul 1 Schreibrechte hat, kann die Karte auch direkt aus dem Arbeitsblatt heraus
-bearbeiten – optionaler Komfort, Phase 2.)
+Lage. (Feld B bleibt **read-only** aus dem Arbeitsblatt heraus — das eingebettete Kartenfeld ist
+zu klein, die Werkzeugleiste zu groß → bewusst nicht umgesetzt, #41/#73.)
 
 > **Umgesetzt (M3):** Feld B bindet die `Lagekarte`-Komponente read-only ein
 > (`<Lagekarte … embedded readOnly>`) — dieselbe Render-Pipeline wie Modul 1, kein Duplikat.
@@ -1032,6 +1035,15 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
 - ❌ **Playwright-UI-E2E** (#81) bewusst verworfen: geringer Nutzen, hoher Admin-/Wartungsaufwand — Happy-Path deckt die `.mjs`-Smoke-Suite ab, reine Logik Vitest.
 - ✅ **Grundkarten-URL konfigurierbar** (#96, Phase 1): Laufzeit (`public/config.js`) → `VITE_TILE_URL` → OSM-Default, Attribution bleibt erhalten (`src/config.ts`)
 - ⏳ Ausbaustufen: **eigener Tile-Server** als Compose-Profil (Offline/geschlossene Netze) — #96, Phase 2; Live-Cursor (offen, nicht getrackt)
+
+### Nach M4 ergänzt
+- ✅ **Modul 4: Kräfteübersicht** (#100): Bereitstellungsraum / Im Einsatz, DV-100-Stärke, ETB-Kopplung
+  via `/kraft/etb-log`; Übersichtskarte auf der Übersichtsseite (#109)
+- ✅ **Neue Rollen** (#102): **LdS / Einsatzleiter** (Stabsrolle, Vollzugriff) + **Leiter BR**
+  (nur Kräfteübersicht); **keine Standardrollenauswahl** in der Lobby (#103)
+- ✅ **Docker-Images via GHCR** (#99/#108): CI baut + pusht Backend/Web nach GHCR;
+  `docker compose pull` statt Repo klonen
+- ✅ **Schema-Konsolidierung** (#106/#107): Backend als Single Source of Truth, `schema.sql`-Mount entfallen
 - ❌ Verworfen (per #73): Auth-Proxy/SSO als Pflicht (#67, optional bleibt möglich), Admin-Auth/-Portal (#68)
 
 ### Modul 4 – Kräfteübersicht (#100) — ✅ umgesetzt
@@ -1082,13 +1094,14 @@ lagekatse/
 │       └── src/
 │           ├── lobby/               # Frontpage, Raum anlegen/beitreten
 │           ├── uebersicht/          # Modulauswahl + Chat + Online-Liste
-│           ├── lagekarte/           # M1: Leaflet, Symbol-Palette, Flächen
+│           ├── lagekarte/           # M1: Leaflet, Symbol-Palette, Flächen, DWD-Overlays
 │           ├── etb/                 # M2: Einsatztagebuch (Tabelle, autoritatives Anlegen)
-│           │                        #   (später ergänzt um arbeitsblatt/)
+│           ├── arbeitsblatt/        # M3: Taktisches Arbeitsblatt (Felder A–F, Wetter-Rückseite)
+│           ├── kraefteubersicht/    # Modul 4: Bereitstellungsraum / Im Einsatz (#100)
 │           └── sync/                # Yjs-Provider, Awareness-Bindung
 └── README.md
 ```
 
 ---
 
-*Ende des Konzepts v0.1 – Rückfragen und die mit ⚠️ markierten Punkte bitte vor Umsetzungsbeginn klären.*
+*Ende des Konzepts v0.7 – die offenen Entscheidungen (E1–E10) sind geklärt (§17).*
