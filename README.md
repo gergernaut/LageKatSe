@@ -138,7 +138,7 @@ in der App und sind in der [`NOTICE`](./NOTICE)-Datei gebündelt:
 - **Taktische Zeichen:** [jonas-koeritz/Taktische-Zeichen](https://github.com/jonas-koeritz/Taktische-Zeichen), gemeinfrei (CC0)
 - **Schriftart (PDF):** DejaVu Sans (permissive)
 
-## Für Entwickler:innen
+## Für Entwickler
 
 - **Architektur & Fachkonzept:** [architecture.md](./architecture.md) — Yjs/CRDT
   über WebSocket, autoritativer Server (kein P2P), ein Dokument pro Raum×Modul.
