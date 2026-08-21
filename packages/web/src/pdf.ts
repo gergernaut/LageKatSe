@@ -506,3 +506,52 @@ export async function arbeitsblattToPdf(sheet: Arbeitsblatt, meta: PdfMeta): Pro
 
   return pdf.save();
 }
+
+// ---- Lagekarten-PDF (A4 quer, Kartenbild + Kopf/Fuß) ----
+
+/**
+ * Erzeugt ein PDF der Lagekarte (aktueller Kartenausschnitt) — client-seitig.
+ * Das Kartenbild wird als PNG (base64) vom Aufrufer uebergeben (via html-to-image
+ * aus dem Leaflet-DOM gerastert). A4-quer, Kopf mit Lage-/Raumname + DUG,
+ * OSM-Attribution im Fuß (ODbL-Pflicht).
+ */
+export async function lagekarteToPngPdf(
+  pngDataUri: string,
+  meta: PdfMeta,
+): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const font = await embedDejaVu(pdf);
+
+  // A4 quer (Punkte)
+  const W = 842;
+  const H = 595;
+  const M = 28;
+  const page = pdf.addPage([W, H]);
+
+  // Kopf: Lage-/Raumname + DUG-Zeitstempel
+  page.drawText(`Lagekarte — ${meta.roomName}`, { x: M, y: H - M + 4, size: 13, font, color: INK });
+  page.drawText(`Lobby ${meta.joinCode} · Stand ${meta.stamp}`, {
+    x: M,
+    y: H - M - 10,
+    size: 9,
+    font,
+    color: MUTED,
+  });
+
+  // Kartenbild einbetten
+  const png = await pdf.embedPng(pngDataUri);
+  const maxW = W - 2 * M;
+  const maxH = H - 2 * M - 40; // Platz fuer Kopf + Fuß
+  const scale = Math.min(maxW / png.width, maxH / png.height);
+  const drawW = png.width * scale;
+  const drawH = png.height * scale;
+  const drawX = M + (maxW - drawW) / 2;
+  const drawY = M + 30 + (maxH - drawH) / 2;
+  page.drawImage(png, { x: drawX, y: drawY, width: drawW, height: drawH });
+
+  // Fuß: OSM-Attribution (ODbL-Pflicht) + Seitenzahl
+  page.drawText("© OpenStreetMap-Mitwirkende (ODbL)", { x: M, y: M - 6, size: 8, font, color: MUTED });
+  page.drawText("LageKatSe · Lagekarte", { x: W - M - 110, y: M - 6, size: 8, font, color: MUTED });
+
+  return pdf.save();
+}
