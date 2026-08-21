@@ -27,8 +27,8 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   — Bereitstellungsraum/Im-Einsatz, DV-100-Stärke, #100), `sync/provider.ts` (`connectModule`
   mit `cache`-Opt-out fuer transiente Verbindungen).
   Client-Utilities: `wetter.ts` (BrightSky-Abruf), `pegel.ts` (PEGELONLINE/WSV-Pegelstaende,
-  CORS-offen; reine Coercion + Status->Farbe, unit-getestet), `pdf.ts` (`etbToPdf`/`arbeitsblattToPdf`
-  via pdf-lib, Schrift `public/fonts/DejaVuSans.ttf`), `exportAll.ts` (Gesamt-Export) +
+  CORS-offen; reine Coercion + Status->Farbe, unit-getestet), `pdf.ts` (`etbToPdf`/`arbeitsblattToPdf`/`lagekarteToPngPdf`
+  via pdf-lib, Schrift `public/fonts/DejaVuSans.ttf`; Lagekarten-PDF rastert via `html-to-image`), `exportAll.ts` (Gesamt-Export) +
   `importAll.ts` (Bundle-Import, beide ZIP via fflate), `*/applyImport.ts` (geteilte, React-freie
   Import-Apply-Logik fuer Lagekarte/Arbeitsblatt/Kraefteuebersicht — von Einzeldatei- **und** Bundle-Import genutzt),
   `dug.ts` (Datum-Uhrzeit-Gruppe fuer Dateinamen), `format.ts` (`formatDateTime`, PDF-Export),
@@ -56,7 +56,7 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
 
 ## Code-Stil
 - TypeScript strict; React 19 + Vite + Leaflet + Yjs (Web; PDF via pdf-lib/@pdf-lib/fontkit,
-  ZIP via fflate, **Offline-Cache via y-indexeddb** #70), Fastify + `ws` + Yjs (Server).
+  ZIP via fflate, Offline-Cache via y-indexeddb #70, Kartenraster via html-to-image #101), Fastify + `ws` + Yjs (Server).
 - **Deutsch** für UI-Text und Domänenbegriffe (Stabsraum, Lagekarte, …), **englische**
   Identifier.
 - **Inline-Kommentare erlaubt** und genutzt — knapp, nur wo nicht selbsterklärend; vorhandene
@@ -101,5 +101,8 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   statt Repo klonen; `LAGEKATSE_IMAGE_TAG` pinbar. Build aus Quellcode: `docker-compose.build.yml`.
 - **Laufzeit-Config** (#96 Phase 1): `public/config.js` (`window.__LAGEKATSE_CONFIG__`) pro
   Deployment überschreibbar (z. B. Tile-URL), ohne Neu-Build. Vorlage: `config.js.example`.
+- **Optionaler Tile-Server** (#96 Phase 2, #114): `docker compose --profile tiles` startet
+  `overv/openstreetmap-tile-server` für offline/geschlossene Netze. Schritt-für-Schritt in
+  `docs/tiles.md` (Regionalauszug-Import, Same-Origin via Caddy oder Direktport).
 - **Schema** (#106/#107): Backend wendet das Schema autoritativ bei jedem Start an
   (`PostgresStore.init`, idempotent) — kein `schema.sql`-Mount mehr.
