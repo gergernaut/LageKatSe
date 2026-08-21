@@ -1,7 +1,7 @@
 # LageKatSe – Architektur- und Fachkonzept
 
 > Modulare, browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz.
-> Version 0.7 · Stand: 2026-08-18 · Konzept + Umsetzungsstand: **M0–M4 komplett — Kern-Module + Phase-2-Ausbau + Härtung & Ausbau (M4) abgeschlossen; danach #96 (Grundkarten-URL), Modul 4 „Kräfteübersicht" (#100), neue Rollen (#102/#103), Docker-GHCR (#99/#108) und Schema-Konsolidierung (#106/#107) ergänzt**
+> Version 0.8 · Stand: 2026-08-19 · Konzept + Umsetzungsstand: **M0–M4 komplett — Kern-Module + Phase-2-Ausbau + Härtung & Ausbau (M4) abgeschlossen; danach #96 (Grundkarten-URL + Tile-Server), Modul 4 „Kräfteübersicht" (#100), neue Rollen (#102/#103), Docker-GHCR (#99/#108), Schema-Konsolidierung (#106/#107) und Lagekarten-PDF (#101) ergänzt**
 
 Dieses Dokument ist das tragfähige technische Konzept für LageKatSe.
 Es beschreibt Zielbild, Architektur, Datenmodell, Rechtemodell und einen Umsetzungsfahrplan.
@@ -426,8 +426,8 @@ Das Herzstück: eine OpenStreetMap-Karte, auf der der Stab die Lage grafisch fü
 - **Taktische Zeichen (DV 102) platzieren:** aus einer durchsuchbaren, **nach Typ
   gruppierten** Symbol-Palette (Untermenüs je Organisation — `Org_Typ`-Kategorien werden
   unter dem Typ einsortiert, 34 → 12 Top-Level) per Klick auf die Karte setzen;
-  verschieben (Drag), beschriften, löschen. *(Drehen ist im
-  Datenmodell vorgesehen/gerendert, aber noch ohne Bearbeitungs-UI.)*
+  verschieben (Drag), beschriften, löschen, **ausrichten** (Rotation je Symbol per
+  Slider/Winkel-Eingabe im Auswahl-Panel, #69).
 - **Symbolgröße = globaler Darstellungs-Slider pro Betrachter, nicht pro Symbol.** Die
   DV-102-Zeichen sind alle gleich groß, und Größe ist nicht bedeutungstragend; der Bedarf ist
   Lesbarkeit je nach Bildschirm/Abstand (Beamer, Tablet). Der Slider ist client-lokal (nicht im
@@ -438,7 +438,11 @@ Das Herzstück: eine OpenStreetMap-Karte, auf der der Stab die Lage grafisch fü
   **MouseOver als Tooltip** erscheint.
 - **Live-Sync** aller Änderungen (Platzieren, Verschieben, Löschen, Beschreibung ändern) über das
   Backend; **Hot-Join** jederzeit.
-- **Import/Export** als JSON (lokale Sicherung).
+- **Import/Export** als JSON (lokale Sicherung) und **PDF** (aktueller Kartenausschnitt als A4-quer,
+  client-seitig via `html-to-image` + `pdf-lib`, #101). OSM-Attribution (ODbL) im Fuß.
+- **Grundkarten-URL konfigurierbar** (#96, Phase 1): Laufzeit (`public/config.js`) → `VITE_TILE_URL`
+  → OSM-Default. Optionaler eigener Tile-Server für offline/geschlossene Netze (#96 Phase 2,
+  Compose-Profil, `docs/tiles.md`).
 
 ### 8.2 Taktische Zeichen – Asset-Pipeline
 
@@ -1034,7 +1038,7 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
 - ✅ **Favicon** (#91) aus dem LageKatSe-Logo
 - ❌ **Playwright-UI-E2E** (#81) bewusst verworfen: geringer Nutzen, hoher Admin-/Wartungsaufwand — Happy-Path deckt die `.mjs`-Smoke-Suite ab, reine Logik Vitest.
 - ✅ **Grundkarten-URL konfigurierbar** (#96, Phase 1): Laufzeit (`public/config.js`) → `VITE_TILE_URL` → OSM-Default, Attribution bleibt erhalten (`src/config.ts`)
-- ⏳ Ausbaustufen: **eigener Tile-Server** als Compose-Profil (Offline/geschlossene Netze) — #96, Phase 2; Live-Cursor (offen, nicht getrackt)
+- ⏳ Ausbaustufen: Live-Cursor (offen, nicht getrackt)
 
 ### Nach M4 ergänzt
 - ✅ **Modul 4: Kräfteübersicht** (#100): Bereitstellungsraum / Im Einsatz, DV-100-Stärke, ETB-Kopplung
@@ -1044,6 +1048,11 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
 - ✅ **Docker-Images via GHCR** (#99/#108): CI baut + pusht Backend/Web nach GHCR;
   `docker compose pull` statt Repo klonen
 - ✅ **Schema-Konsolidierung** (#106/#107): Backend als Single Source of Truth, `schema.sql`-Mount entfallen
+- ✅ **Optionaler eigener Tile-Server** (#96 Phase 2, #114): `docker compose --profile tiles`,
+  `overv/openstreetmap-tile-server`, `docs/tiles.md` mit Schritt-für-Schritt-Import
+- ✅ **Lagekarten-PDF-Export** (#101): aktueller Kartenausschnitt als A4-quer-PDF, client-seitig
+  via `html-to-image` + `pdf-lib`, OSM-Attribution im Fuß. OSM-Tiles liefern CORS — kein eigener
+  Tile-Server nötig (Abhängigkeit zu #96 aufgelöst)
 - ❌ Verworfen (per #73): Auth-Proxy/SSO als Pflicht (#67, optional bleibt möglich), Admin-Auth/-Portal (#68)
 
 ### Modul 4 – Kräfteübersicht (#100) — ✅ umgesetzt
@@ -1104,4 +1113,4 @@ lagekatse/
 
 ---
 
-*Ende des Konzepts v0.7 – die offenen Entscheidungen (E1–E10) sind geklärt (§17).*
+*Ende des Konzepts v0.8 — die offenen Entscheidungen (E1–E10) sind geklärt (§17).*
