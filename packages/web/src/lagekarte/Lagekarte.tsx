@@ -639,6 +639,10 @@ export function Lagekarte({
           // Leaflet-Controls (Zoom etc.) ausblenden — nur die Karte
           if (node instanceof HTMLElement && node.className?.includes?.("leaflet-control"))
             return false;
+          // DWD-WMS-Overlay-Kacheln (Radar/KONRAD3D) überspringen — html-to-image kann
+          // sie nicht inlinen ("Failed to fetch"), sonst bricht der PDF-Export ab.
+          if (node instanceof HTMLImageElement && node.src.includes("maps.dwd.de"))
+            return false;
           return true;
         },
       });
@@ -661,6 +665,7 @@ export function Lagekarte({
       URL.revokeObjectURL(url);
     } catch (err) {
       console.debug("Lagekarten-PDF-Export fehlgeschlagen", err);
+      window.alert("PDF-Export fehlgeschlagen.");
     } finally {
       setPdfBusy(false);
     }
@@ -730,7 +735,6 @@ export function Lagekarte({
     L.tileLayer(tileConfig.url, {
       maxZoom: tileConfig.maxZoom,
       attribution: tileConfig.attribution,
-      crossOrigin: "anonymous",
     }).addTo(map);
 
     // DWD-Regenradar als optionales WMS-Overlay (Bild-Kacheln → kein CORS, kein Server).
