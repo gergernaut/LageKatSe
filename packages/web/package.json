@@ -14,12 +14,13 @@
     "@lagekatse/shared": "workspace:*",
     "@pdf-lib/fontkit": "^1.1.1",
     "fflate": "^0.8.3",
+    "html-to-image": "^1.11.13",
     "leaflet": "^1.9.4",
     "pdf-lib": "^1.17.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "y-websocket": "^3.0.0",
     "y-indexeddb": "^9.0.12",
+    "y-websocket": "^3.0.0",
     "yjs": "^13.6.20"
   },
   "devDependencies": {

@@ -95,6 +95,9 @@ importers:
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
+      html-to-image:
+        specifier: ^1.11.13
+        version: 1.11.13
       leaflet:
         specifier: ^1.9.4
         version: 1.9.4
@@ -822,6 +825,9 @@ packages:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
+
+  html-to-image@1.11.13:
+    resolution: {integrity: sha512-cuOPoI7WApyhBElTTb9oqsawRvZ0rHhaHwghRLlTuffoD1B2aDemlCruLeZrUIIdvG7gs9xeELEPm6PhuASqrg==}
 
   ip-address@10.4.0:
     resolution: {integrity: sha512-oSK96Grm3aP6OrS263xVxbNDGVL7rzBtYdpGqlDG8iQdoenDoTs/nkki+DflYbAEE8Xl6o5YxhxlrKvI3nqKXQ==}
@@ -1937,6 +1943,8 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
+
+  html-to-image@1.11.13: {}
 
   ip-address@10.4.0: {}
 

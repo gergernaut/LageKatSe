@@ -17,6 +17,7 @@ import { uid } from "../uid";
 import { dug } from "../dug";
 import { formatDateTime } from "../format";
 import { api } from "../api";
+import { toPng } from "html-to-image";
 import { tileConfig } from "../config";
 import { fetchPegelStations, pegelStatusColor, pegelStatusText, type PegelStation } from "../pegel";
 import { Palette, type PaletteSymbol } from "./Palette";
@@ -619,6 +620,52 @@ export function Lagekarte({
     URL.revokeObjectURL(url);
   };
 
+  // ---- PDF-Export (aktueller Kartenausschnitt) ----
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const exportPdf = async () => {
+    if (pdfBusy) return;
+    const map = mapRef.current;
+    if (!map) return;
+    setPdfBusy(true);
+    try {
+      // 1. Auf Kacheln warten (damit die Karte vollständig geladen ist)
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      // 2. Karten-Container rastern (html-to-image, CORS-clean via crossOrigin)
+      const container = map.getContainer();
+      const pngDataUri = await toPng(container, {
+        cacheBust: true,
+        pixelRatio: 2,
+        filter: (node) => {
+          // Leaflet-Controls (Zoom etc.) ausblenden — nur die Karte
+          if (node instanceof HTMLElement && node.className?.includes?.("leaflet-control"))
+            return false;
+          return true;
+        },
+      });
+      // 3. PDF bauen (pdf-lib, client-seitig)
+      const { lagekarteToPngPdf } = await import("../pdf");
+      const bytes = await lagekarteToPngPdf(pngDataUri, {
+        roomName: session.room.name,
+        joinCode: session.room.joinCode,
+        stamp: dug(),
+      });
+      // 4. Download
+      const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `lagekarte-${session.room.joinCode}-${dug()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.debug("Lagekarten-PDF-Export fehlgeschlagen", err);
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   const importMap = async (event: ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
     const file = input.files?.[0];
@@ -683,6 +730,7 @@ export function Lagekarte({
     L.tileLayer(tileConfig.url, {
       maxZoom: tileConfig.maxZoom,
       attribution: tileConfig.attribution,
+      crossOrigin: "anonymous",
     }).addTo(map);
 
     // DWD-Regenradar als optionales WMS-Overlay (Bild-Kacheln → kein CORS, kein Server).
@@ -1102,6 +1150,9 @@ export function Lagekarte({
           <div className="spacer" />
           <button className="btn btn--ghost" type="button" onClick={exportMap}>
             Export
+          </button>
+          <button className="btn btn--ghost" type="button" onClick={exportPdf} disabled={pdfBusy}>
+            {pdfBusy ? "…" : "PDF"}
           </button>
           <label className="lagekarte-symbol-size">
             <span>Symbolgröße</span>
