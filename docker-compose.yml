@@ -86,7 +86,30 @@ services:
       - caddy_config:/config
     restart: unless-stopped
 
+  # Optionaler eigener Tile-Server (#96, Phase 2) — nur mit Profil aktiv:
+  #   docker compose --profile tiles up -d
+  # Liefert OSM-Raster-Kacheln unter /tile/{z}/{x}/{y}.png. Vor dem ERSTEN Start
+  # einmalig einen Regionalauszug importieren (dauert je nach Region Stunden,
+  # braucht mehrere GB) — Schritt für Schritt in docs/tiles.md. Der Default der
+  # App bleibt OSM-Public; dieser Dienst ist nur für offline/geschlossene Netze.
+  tiles:
+    image: overv/openstreetmap-tile-server:latest
+    profiles: ["tiles"]
+    command: run
+    shm_size: "256m"
+    environment:
+      THREADS: "4"          # Render-Threads (an CPU anpassen)
+      ALLOW_CORS: "enabled" # CORS-Header für die Kacheln
+    ports:
+      - "8081:80"           # Direktzugriff: http://<host>:8081/tile/{z}/{x}/{y}.png
+    volumes:
+      - osm_tiles_db:/data/database
+      - osm_tiles_tiles:/data/tiles
+    restart: unless-stopped
+
 volumes:
   lagekatse_pg:
   caddy_data:
   caddy_config:
+  osm_tiles_db:
+  osm_tiles_tiles:

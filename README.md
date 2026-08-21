@@ -108,7 +108,9 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 
 **Grundkarte anpassen** (optional, z. B. eigener Tile-Server im geschlossenen
 Netz): `config.js.example` nach `config.js` kopieren, `tileUrl` setzen und im
-`web`-Service den Volume-Mount `./config.js:/srv/config.js:ro` aktivieren.
+`web`-Service den Volume-Mount `./config.js:/srv/config.js:ro` aktivieren. Einen
+**eigenen Tile-Server** für Offline-/geschlossene Netze richtet
+[`docs/tiles.md`](docs/tiles.md) ein (optionales `--profile tiles`).
 
 ### Konfiguration (`.env`)
 
