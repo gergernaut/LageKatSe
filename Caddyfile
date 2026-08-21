@@ -32,6 +32,13 @@
 		reverse_proxy backend:8080
 	}
 
+	# Optionaler eigener Tile-Server (#96, Phase 2) — same-origin unter /tile/*.
+	# Nur einkommentieren, wenn der `tiles`-Dienst läuft (docker compose --profile tiles).
+	# Dann in config.js: tileUrl = "/tile/{z}/{x}/{y}.png" (kein Extra-Port, HTTPS-tauglich).
+	# handle /tile/* {
+	# 	reverse_proxy tiles:80
+	# }
+
 	# Everything else → static frontend
 	handle {
 		reverse_proxy web:80
