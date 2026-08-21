@@ -22,7 +22,8 @@ durchgesetzt. Läuft im Browser, ohne Installation beim Nutzer — im Internet
 > 🎮 **Demo ausprobieren:** Eine öffentliche Testinstanz läuft unter
 > **[lagekatse.56kbit.net](https://lagekatse.56kbit.net)** — ohne Installation,
 > direkt im Browser. (Übungsbetrieb; Daten werden nach Inaktivität automatisch
-> gelöscht.)
+> gelöscht. Die Instanz dient auch als Testumgebung für neue Versionen und kann
+> daher sporadisch kurzzeitig nicht erreichbar sein.)
 
 ## Funktionen
 
