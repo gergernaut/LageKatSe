@@ -630,7 +630,9 @@ export function Lagekarte({
     try {
       // 1. Auf Kacheln warten (damit die Karte vollständig geladen ist)
       await new Promise((resolve) => setTimeout(resolve, 500));
-      // 2. Karten-Container rastern (html-to-image, CORS-clean via crossOrigin)
+      // 2. Karten-Container rastern (html-to-image inlined die Kacheln per fetch;
+      //    OSM sendet CORS-Header → untainted). DWD-Overlay-Kacheln werden im
+      //    filter übersprungen (nicht per fetch inline-bar).
       const container = map.getContainer();
       const pngDataUri = await toPng(container, {
         cacheBust: true,
