@@ -19,6 +19,11 @@ Lagekarten-/ETB-Führer, Leiter BR, Monitor); die Rechte werden **serverseitig**
 durchgesetzt. Läuft im Browser, ohne Installation beim Nutzer — im Internet
 (HTTPS) genauso wie im geschlossenen Netz/LAN.
 
+> 🎮 **Demo ausprobieren:** Eine öffentliche Testinstanz läuft unter
+> **[lagekatse.56kbit.net](https://lagekatse.56kbit.net)** — ohne Installation,
+> direkt im Browser. (Übungsbetrieb; Daten werden nach Inaktivität automatisch
+> gelöscht. Die Instanz kann sporadisch kurzzeitig nicht erreichbar sein.)
+
 ## Funktionen
 
 - **🗺️ Gemeinsame Lagekarte** — Leaflet + OpenStreetMap, die vollständige
