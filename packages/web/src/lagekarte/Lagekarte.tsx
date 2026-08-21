@@ -741,12 +741,21 @@ export function Lagekarte({
 
     // DWD-Regenradar als optionales WMS-Overlay (Bild-Kacheln → kein CORS, kein Server).
     // Sichtbarkeit ist client-lokal (radarVisible); Layer wird nur bei Bedarf zugefügt.
+    // DWD rendert das Radar on-the-fly (kein GeoWebCache für diesen Layer,
+    // gemessen 4–39 s, stark schwankend). Das können wir nicht beschleunigen —
+    // aber die ANZAHL der langsamen Requests senken: `maxNativeZoom` deckelt die
+    // native Kachelauflösung (Radar ist ~1 km, oberhalb ~z8 kein Detailgewinn) →
+    // ab Zoom 9+ werden z8-Kacheln hochskaliert statt 4×/16× so viele Kacheln neu
+    // zu rendern. `updateWhenIdle`/`keepBuffer` reduzieren Requests beim Pannen.
     const radarLayer = L.tileLayer.wms("https://maps.dwd.de/geoserver/ows?", {
       layers: "dwd:Niederschlagsradar",
       format: "image/png",
       transparent: true,
       version: "1.3.0",
       opacity: 0.55,
+      maxNativeZoom: 8,
+      updateWhenIdle: true,
+      keepBuffer: 1,
       attribution: "Regenradar: Deutscher Wetterdienst",
     });
     radarLayerRef.current = radarLayer;
