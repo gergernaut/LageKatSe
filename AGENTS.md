@@ -1,8 +1,8 @@
 # AGENTS.md — LageKatSe
 
 Kurzorientierung für Menschen **und** Coding-Agents (Codex/Claude). Das ausführliche
-Fach- und Architekturkonzept steht in **[architecture.md](./architecture.md)** (offene
-Entscheidungen dort in §17). Diese Datei ist die knappe Bau- und Verhaltensregel.
+Fach- und Architekturkonzept steht in **[architecture.md](./architecture.md)** . 
+Diese Datei ist die knappe Bau- und Verhaltensregel.
 
 ## Was das ist
 Browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz-Führungsstab: eine
@@ -87,7 +87,7 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
    nur S-Rollen) — nie clientseitig; `lfdNr`/`zeit`/`storniert` bleiben dabei originalgetreu erhalten.
 
 ## Workflow
-- Feature-Code entsteht i. d. R. via Codex/Claude Code, in kleinen Schritten (je Schritt ein Commit).
+- Feature-Code entsteht i. d. R. in kleinen Schritten (je Schritt ein Commit).
 - **PRs merged Repo-Owner selbst.** Vor dem Öffnen `pnpm typecheck` + `pnpm build` grün.
 - Neue Fläche/Feld/Migration? Zuerst prüfen, ob eine der Invarianten oben betroffen ist.
 
