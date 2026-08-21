@@ -25,7 +25,7 @@ durchgesetzt. Läuft im Browser, ohne Installation beim Nutzer — im Internet
   DV-102-Symbolpalette (nach Typ gruppiert, durchsuchbar), Flächen/Bereiche,
   Beschriftungen & Tooltips, Symbol-Ausrichtung. Zuschaltbare Overlays:
   **DWD-Regenradar**, **KONRAD3D**-Gewitterzellen (Zell-Info per Klick) und
-  **Pegelstände** der Bundeswasserstraßen (PEGELONLINE/WSV). JSON-Im-/Export.
+  **Pegelstände** der Bundeswasserstraßen (PEGELONLINE/WSV). JSON-Im-/Export und **PDF-Export**.
 - **📓 Einsatztagebuch (ETB)** — tabellarisch, mit **server-vergebener,
   lückenloser Lfd-Nr.** und Serverzeit, Live-Feld-Bearbeitung, Storno,
   JSON- und **PDF-Export**.
