@@ -46,7 +46,10 @@ async function main(): Promise<void> {
   const runRetention = async () => {
     try {
       const stale = await store.getStaleRooms(retentionMs);
-      if (stale.length === 0) return;
+      if (stale.length === 0) {
+        app.log.info(`[retention] swept 0 stale room(s) (frist: ${config.retention.days}d)`);
+        return;
+      }
       for (const room of stale) {
         await store.deleteRoom(room.id);
         app.log.info(`[retention] deleted stale room: ${room.name} (${room.joinCode}), last_active ${room.lastActiveAt}`);
