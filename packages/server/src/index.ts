@@ -15,7 +15,13 @@ async function main(): Promise<void> {
   const rooms = new RoomService(store);
   const hub = new RoomHub(store);
 
-  const app = Fastify({ logger: { transport: undefined }, trustProxy: config.trustProxy });
+  const app = Fastify({
+    logger: {
+      transport: undefined,
+      timestamp: () => `,"time":"${new Date().toISOString()}"`,
+    },
+    trustProxy: config.trustProxy,
+  });
   await app.register(cors, { origin: config.corsOrigin, credentials: true });
   // Rate-Limiting (Brute-Force-/Enumeration-Schutz, #64). Global als Grundschutz; sensible
   // Endpunkte (Join/Raum-Anlegen) setzen ein strengeres Limit per Route-Config. In-Memory-
