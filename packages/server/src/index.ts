@@ -47,14 +47,14 @@ async function main(): Promise<void> {
     try {
       const stale = await store.getStaleRooms(retentionMs);
       if (stale.length === 0) {
-        app.log.info(`[retention] swept 0 stale room(s) (frist: ${config.retention.days}d)`);
+        app.log.info(`[retention] swept 0 stale room(s) (limit: ${config.retention.days}d)`);
         return;
       }
       for (const room of stale) {
         await store.deleteRoom(room.id);
         app.log.info(`[retention] deleted stale room: ${room.name} (${room.joinCode}), last_active ${room.lastActiveAt}`);
       }
-      app.log.info(`[retention] swept ${stale.length} stale room(s) (frist: ${config.retention.days}d)`);
+      app.log.info(`[retention] swept ${stale.length} stale room(s) (limit: ${config.retention.days}d)`);
     } catch (err) {
       app.log.error(err, "[retention] sweep failed");
     }
