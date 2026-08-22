@@ -1,5 +1,14 @@
 # Caddyfile for the web container (static SPA serving).
 # Serves dist/ and falls back to index.html for client-side routing.
+{
+	log {
+		level INFO
+		output stdout
+		format json {
+			time_format rfc3339
+		}
+	}
+}
 :80 {
 	root * /srv
 	try_files {path} /index.html
