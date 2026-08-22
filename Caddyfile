@@ -17,6 +17,14 @@
 # in docker-compose). For internal/HTTP mode it is unused but must not be empty.
 {
 	email {$CADDY_EMAIL}
+	# Logging mit lesbaren ISO-8601-Timestamps (statt Unix-Epoch).
+	log {
+		level INFO
+		output stdout
+		format json {
+			time_format rfc3339
+		}
+	}
 }
 
 {$DOMAIN} {
