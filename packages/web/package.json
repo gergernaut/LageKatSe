@@ -20,11 +20,11 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "y-indexeddb": "^9.0.12",
-    "y-websocket": "^3.0.0",
-    "yjs": "^13.6.20"
+    "y-websocket": "^3.1.0",
+    "yjs": "^13.6.32"
   },
   "devDependencies": {
-    "@types/leaflet": "^1.9.12",
+    "@types/leaflet": "^1.9.22",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
