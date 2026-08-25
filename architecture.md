@@ -627,7 +627,7 @@ bewusst `arbeitsblatt` (Persistenz, Routen, WRITE_SCOPES) — nur die **UI-Besch
 > (Import validiert gegen das Schema inkl. Version und spielt als **eine** CRDT-Transaktion ein, nur
 > Schreibberechtigte, mit Bestätigungsdialog) sowie **PDF-Export** (client-seitig via pdf-lib). Aus
 > der Rückseite (#42) ist die **Wetter-Sektion** umgesetzt (DWD/BrightSky, s. §10.5).
-> **Bewusst entfallen** (Redesign, Kevin — kein Bedarf, spart Platz; ggf. später anders): Gefahren-
+> **Bewusst entfallen** (Redesign — kein Bedarf, spart Platz; ggf. später anders): Gefahren-
 > beurteilung (4 A – 1 C – 4 E), eigene Lage/Nachforderung, Führungs-Organigramm, eigene Führungsfunktion.
 
 ### 10.1 Feldaufteilung (Layout A–F)
