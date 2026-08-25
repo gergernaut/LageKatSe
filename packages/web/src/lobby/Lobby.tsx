@@ -117,7 +117,7 @@ export function Lobby({ onEnter }: { onEnter: (session: Session) => void }) {
         </h1>
         <p>
           Stabsraum beitreten oder neu erstellen. Chat, Präsenz, Lagekarte,
-          Einsatztagebuch und das taktische Arbeitsblatt laufen live.
+          Einsatztagebuch und die Taktische Übersicht laufen live.
         </p>
       </div>
 
