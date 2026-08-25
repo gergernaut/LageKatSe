@@ -12,13 +12,10 @@
 import * as Y from "yjs";
 import { zipSync } from "fflate";
 import {
+  AB_AUFTRAEGE,
   AB_EXPORT_FORMAT,
-  AB_EIGENELAGE,
-  AB_FUEHRUNG,
-  AB_GEFAHREN,
+  AB_EXPORT_VERSION,
   AB_KOPF,
-  AB_NACHFORDERUNG,
-  AB_ORGANIGRAMM,
   AB_ORGANISATION,
   AB_RUECKMELD,
   AB_WETTER,
@@ -45,25 +42,16 @@ function stringValue(map: Y.Map<unknown>, field: string): string {
   return typeof value === "string" ? value : "";
 }
 
-function booleanValue(map: Y.Map<unknown>, field: string): boolean {
-  const value = map.get(field);
-  return typeof value === "boolean" ? value : false;
-}
-
 function extractArbeitsblatt(doc: Y.Doc) {
   const kopf = doc.getMap<unknown>(AB_KOPF);
-  const gefahren = doc.getMap<unknown>(AB_GEFAHREN);
-  const fuehrung = doc.getArray<Y.Map<unknown>>(AB_FUEHRUNG);
+  const auftraege = doc.getArray<Y.Map<unknown>>(AB_AUFTRAEGE);
   const rueckmeld = doc.getArray<Y.Map<unknown>>(AB_RUECKMELD);
-  const eigeneLage = doc.getMap<unknown>(AB_EIGENELAGE);
-  const nachforderung = doc.getArray<Y.Map<unknown>>(AB_NACHFORDERUNG);
   const organisation = doc.getMap<unknown>(AB_ORGANISATION);
-  const organigramm = doc.getArray<Y.Map<unknown>>(AB_ORGANIGRAMM);
   const wetter = doc.getMap<unknown>(AB_WETTER);
 
   return {
     format: AB_EXPORT_FORMAT,
-    version: 1,
+    version: AB_EXPORT_VERSION,
     exportedAt: new Date().toISOString(),
     sheet: {
       kopf: {
@@ -73,24 +61,14 @@ function extractArbeitsblatt(doc: Y.Doc) {
         objektnr: stringValue(kopf, "objektnr"),
         datumUhrzeitgruppe: stringValue(kopf, "datumUhrzeitgruppe"),
       },
-      gefahren: gefahren.toJSON(),
-      fuehrungsvorgang: fuehrung.toJSON(),
+      auftraege: auftraege.toJSON(),
       rueckmeldungen: rueckmeld.toJSON(),
-      eigeneLage: {
-        auftragMr: booleanValue(eigeneLage, "auftragMr"),
-        auftragBb: booleanValue(eigeneLage, "auftragBb"),
-        auftragText: stringValue(eigeneLage, "auftragText"),
-        kraefteuebersicht: stringValue(eigeneLage, "kraefteuebersicht"),
-      },
-      nachforderung: nachforderung.toJSON(),
       organisation: {
         tmoGruppe: stringValue(organisation, "tmoGruppe"),
         fuehrungsKanal: stringValue(organisation, "fuehrungsKanal"),
         dmoGruppe: stringValue(organisation, "dmoGruppe"),
         gebFunk: stringValue(organisation, "gebFunk"),
-        eigeneFunktion: stringValue(organisation, "eigeneFunktion"),
       },
-      organigramm: organigramm.toJSON(),
       wetter: wetter.get(AB_WETTER_SNAPSHOT) ?? null,
     },
   };
