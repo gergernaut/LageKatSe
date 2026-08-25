@@ -10,7 +10,7 @@ import { importBundle } from "../importAll";
 const MODULE_CARDS: { key: Exclude<Module, "chat">; icon: string; tint: string; desc: string }[] = [
   { key: "lagekarte", icon: "🗺️", tint: "rgba(47,107,216,.12)", desc: "Taktische Zeichen (DV 102) & Bereiche auf OpenStreetMap." },
   { key: "etb", icon: "📓", tint: "rgba(46,158,91,.12)", desc: "Fortlaufendes Einsatztagebuch, Lfd-Nr. & Zeit automatisch." },
-  { key: "arbeitsblatt", icon: "📋", tint: "rgba(247,168,27,.14)", desc: "Taktisches Arbeitsblatt mit eingebettetem Lagebild." },
+  { key: "arbeitsblatt", icon: "📋", tint: "rgba(247,168,27,.14)", desc: "Taktische Übersicht mit Lagebild, Kräften und Aufträgen." },
   { key: "kraefteubersicht", icon: "🚒", tint: "rgba(208,71,127,.12)", desc: "Fahrzeuge & Kräfte: Bereitstellungsraum / Im Einsatz mit DV-100-Stärke." },
 ];
 
@@ -89,7 +89,7 @@ export function Uebersicht({
       if (!file || importing) return;
       if (
         !window.confirm(
-          "Der geteilte Stand aller Module (Lagekarte, Einsatztagebuch, Arbeitsblatt) wird durch das Bundle ersetzt — für alle im Stabsraum. Fortfahren?",
+          "Der geteilte Stand aller Module (Lagekarte, Einsatztagebuch, Taktische Übersicht) wird durch das Bundle ersetzt — für alle im Stabsraum. Fortfahren?",
         )
       ) {
         return;
