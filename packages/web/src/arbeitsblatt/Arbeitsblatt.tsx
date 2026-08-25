@@ -1,35 +1,31 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
-  AB_EIGENELAGE,
+  AB_AUFTRAEGE,
   AB_EXPORT_FORMAT,
-  AB_FUEHRUNG,
-  AB_GEFAHREN,
-  AB_GEFAHREN_KATALOG,
+  AB_EXPORT_VERSION,
+  AB_KANAL_FIELDS,
+  AB_KANAL_LABELS,
   AB_KOPF,
   AB_KOPF_FIELDS,
   AB_KOPF_LABELS,
-  AB_KANAL_FIELDS,
-  AB_KANAL_LABELS,
-  AB_NACHFORDERUNG,
-  AB_ORGANIGRAMM,
   AB_ORGANISATION,
   AB_RUECKMELD,
   AB_WETTER,
   AB_WETTER_SNAPSHOT,
   canWrite,
+  formatStaerke,
   isRecord,
-  type AbFunktion,
-  type AbFuehrungszeile,
-  type AbGefahr,
-  type AbGefahrKey,
+  KRAFT_VEHICLES,
+  sumStaerke,
+  type AbAuftrag,
+  type AbKanalField,
   type AbKopfField,
-  type AbNachforderung,
   type AbNotiz,
-  type AbOrganigrammzeile,
-  type AbPrioritaet,
   type AbWetterSnapshot,
   type Arbeitsblatt as ArbeitsblattState,
   type ArbeitsblattExport,
+  type KraftVehicle,
+  type Staerke,
 } from "@lagekatse/shared";
 import * as Y from "yjs";
 import { api } from "../api";
@@ -49,25 +45,26 @@ const EMPTY_SHEET: ArbeitsblattState = {
     objektnr: "",
     datumUhrzeitgruppe: "",
   },
-  gefahren: {},
-  fuehrungsvorgang: [],
+  auftraege: [],
   rueckmeldungen: [],
-  eigeneLage: {
-    auftragMr: false,
-    auftragBb: false,
-    auftragText: "",
-    kraefteuebersicht: "",
-  },
-  nachforderung: [],
   organisation: {
     tmoGruppe: "",
     fuehrungsKanal: "",
     dmoGruppe: "",
     gebFunk: "",
-    eigeneFunktion: "",
   },
-  organigramm: [],
   wetter: null,
+};
+
+/** Abgeleitete Kräfte-Kennzahlen (Feld C) — read-only aus dem kraefteubersicht-Modul. */
+interface KraftKennzahlen {
+  einsatz: Staerke; // Gesamtstärke der im Einsatz befindlichen Einheiten (DV 100)
+  brCount: number; // Anzahl Fahrzeuge im Bereitstellungsraum
+}
+
+const EMPTY_KRAFT: KraftKennzahlen = {
+  einsatz: { fuehrer: 0, unterfuehrer: 0, helfer: 0, gesamt: 0 },
+  brCount: 0,
 };
 
 function stringValue(map: Y.Map<unknown>, field: string): string {
@@ -80,24 +77,16 @@ function booleanValue(map: Y.Map<unknown>, field: string): boolean {
   return typeof value === "boolean" ? value : false;
 }
 
-function funktionValue(map: Y.Map<unknown>, field: string): AbFunktion {
-  const value = map.get(field);
-  return value === "GF" || value === "ZF" || value === "VF" ? value : "";
-}
-
 export function Arbeitsblatt({ session }: { session: Session }) {
   const [sheet, setSheet] = useState<ArbeitsblattState>(EMPTY_SHEET);
+  const [kraft, setKraft] = useState<KraftKennzahlen>(EMPTY_KRAFT);
   const [importMessage, setImportMessage] = useState("");
   const [pdfBusy, setPdfBusy] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
   const kopfRef = useRef<Y.Map<unknown> | null>(null);
-  const fuehrungRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
+  const auftraegeRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const rueckmeldRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
-  const eigeneLageRef = useRef<Y.Map<unknown> | null>(null);
-  const nachforderungRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const organisationRef = useRef<Y.Map<unknown> | null>(null);
-  const organigrammRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
-  const gefahrenRef = useRef<Y.Map<unknown> | null>(null);
   const wetterRef = useRef<Y.Map<unknown> | null>(null);
   const writable = canWrite(session.roles, "arbeitsblatt", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
@@ -107,23 +96,15 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     const conn = connectModule(session.room.id, "arbeitsblatt", session.token);
     const { doc } = conn;
     const kopf = doc.getMap<unknown>(AB_KOPF);
-    const fuehrung = doc.getArray<Y.Map<unknown>>(AB_FUEHRUNG);
+    const auftraege = doc.getArray<Y.Map<unknown>>(AB_AUFTRAEGE);
     const rueckmeld = doc.getArray<Y.Map<unknown>>(AB_RUECKMELD);
-    const eigeneLage = doc.getMap<unknown>(AB_EIGENELAGE);
-    const nachforderung = doc.getArray<Y.Map<unknown>>(AB_NACHFORDERUNG);
     const organisation = doc.getMap<unknown>(AB_ORGANISATION);
-    const organigramm = doc.getArray<Y.Map<unknown>>(AB_ORGANIGRAMM);
-    const gefahren = doc.getMap<unknown>(AB_GEFAHREN);
     const wetter = doc.getMap<unknown>(AB_WETTER);
 
     kopfRef.current = kopf;
-    fuehrungRef.current = fuehrung;
+    auftraegeRef.current = auftraege;
     rueckmeldRef.current = rueckmeld;
-    eigeneLageRef.current = eigeneLage;
-    nachforderungRef.current = nachforderung;
     organisationRef.current = organisation;
-    organigrammRef.current = organigramm;
-    gefahrenRef.current = gefahren;
     wetterRef.current = wetter;
 
     const readSheet = (): ArbeitsblattState => ({
@@ -134,28 +115,14 @@ export function Arbeitsblatt({ session }: { session: Session }) {
         objektnr: stringValue(kopf, "objektnr"),
         datumUhrzeitgruppe: stringValue(kopf, "datumUhrzeitgruppe"),
       },
-      gefahren: gefahren.toJSON() as Partial<Record<AbGefahrKey, AbGefahr>>,
-      fuehrungsvorgang: fuehrung
-        .toArray()
-        .map((row) => row.toJSON() as AbFuehrungszeile),
+      auftraege: auftraege.toArray().map((row) => row.toJSON() as AbAuftrag),
       rueckmeldungen: rueckmeld.toArray().map((note) => note.toJSON() as AbNotiz),
-      eigeneLage: {
-        auftragMr: booleanValue(eigeneLage, "auftragMr"),
-        auftragBb: booleanValue(eigeneLage, "auftragBb"),
-        auftragText: stringValue(eigeneLage, "auftragText"),
-        kraefteuebersicht: stringValue(eigeneLage, "kraefteuebersicht"),
-      },
-      nachforderung: nachforderung.toArray().map((row) => row.toJSON() as AbNachforderung),
       organisation: {
         tmoGruppe: stringValue(organisation, "tmoGruppe"),
         fuehrungsKanal: stringValue(organisation, "fuehrungsKanal"),
         dmoGruppe: stringValue(organisation, "dmoGruppe"),
         gebFunk: stringValue(organisation, "gebFunk"),
-        eigeneFunktion: funktionValue(organisation, "eigeneFunktion"),
       },
-      organigramm: organigramm
-        .toArray()
-        .map((row) => row.toJSON() as AbOrganigrammzeile),
       wetter: (wetter.get(AB_WETTER_SNAPSHOT) as AbWetterSnapshot | undefined) ?? null,
     });
 
@@ -163,17 +130,47 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     doc.on("update", refresh);
     refresh();
 
+    // DUG-Vorbelegung mit der taktischen Zeit der Raum-Öffnung (Feld A). Erst NACH
+    // dem ersten Server-Sync (Cache + remote gemergt), damit wir keinen bereits
+    // gesetzten/bearbeiteten Wert überschreiben; nur wenn leer und schreibberechtigt.
+    // dug() = DDHHMMmmmyy (dug.ts), gleiche Notation wie in den Export-Dateinamen.
+    const prefillDug = (isSynced: boolean) => {
+      if (!isSynced || !writable) return;
+      if (stringValue(kopf, "datumUhrzeitgruppe")) return;
+      const created = session.room.createdAt ? new Date(session.room.createdAt) : new Date();
+      kopf.set("datumUhrzeitgruppe", dug(created));
+    };
+    conn.provider.on("sync", prefillDug);
+
     return () => {
       doc.off("update", refresh);
+      conn.provider.off("sync", prefillDug);
       kopfRef.current = null;
-      fuehrungRef.current = null;
+      auftraegeRef.current = null;
       rueckmeldRef.current = null;
-      eigeneLageRef.current = null;
-      nachforderungRef.current = null;
       organisationRef.current = null;
-      organigrammRef.current = null;
-      gefahrenRef.current = null;
       wetterRef.current = null;
+      conn.destroy();
+    };
+  }, [session.room.id, session.token, session.room.createdAt, writable]);
+
+  // Feld C — Kräfte-Kennzahlen: eine ZWEITE, read-only Verbindung zum
+  // kraefteubersicht-Modul. Rein abgeleitet (sumStaerke der Im-Einsatz-Fahrzeuge +
+  // Anzahl BR-Fahrzeuge) — kein Schreibpfad, kein eigener persistierter Zustand.
+  useEffect(() => {
+    const conn = connectModule(session.room.id, "kraefteubersicht", session.token);
+    const vehicles = conn.doc.getArray<Y.Map<unknown>>(KRAFT_VEHICLES);
+    const refresh = () => {
+      const items = vehicles.toArray().map((v) => v.toJSON() as KraftVehicle);
+      setKraft({
+        einsatz: sumStaerke(items.filter((v) => v.status === "einsatz")),
+        brCount: items.filter((v) => v.status === "br").length,
+      });
+    };
+    vehicles.observeDeep(refresh);
+    refresh();
+    return () => {
+      vehicles.unobserveDeep(refresh);
       conn.destroy();
     };
   }, [session.room.id, session.token]);
@@ -181,11 +178,6 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   const setKopf = (field: AbKopfField, value: string) => {
     if (!writable) return;
     kopfRef.current?.set(field, value);
-  };
-
-  const setGefahr = (key: AbGefahrKey, posten: AbGefahr) => {
-    if (!writable) return;
-    gefahrenRef.current?.set(key, posten);
   };
 
   // Wetter-Snapshot als atomarer Whole-Value-Posten schreiben (Invariante #1):
@@ -205,26 +197,25 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     });
   };
 
-  const setFuehrungField = (
+  const setAuftragField = (
     id: string,
-    field: keyof Omit<AbFuehrungszeile, "id">,
+    field: keyof Omit<AbAuftrag, "id">,
     value: unknown,
   ) => {
     if (!writable) return;
-    const row = fuehrungRef.current?.toArray().find((item) => item.get("id") === id);
+    const row = auftraegeRef.current?.toArray().find((item) => item.get("id") === id);
     row?.set(field, value);
   };
 
-  const addFuehrungRow = () => {
+  const addAuftrag = () => {
     if (!writable) return;
-    const rows = fuehrungRef.current;
+    const rows = auftraegeRef.current;
     if (!rows) return;
-    const value: AbFuehrungszeile = {
+    const value: AbAuftrag = {
       id: uid(),
-      bedrohtesObjekt: "",
-      wirkung: "",
-      prioritaet: "",
+      auftrag: "",
       massnahmen: "",
+      laufenderVorgang: false,
       erledigt: false,
     };
     const row = new Y.Map<unknown>();
@@ -232,9 +223,9 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     rows.push([row]);
   };
 
-  const deleteFuehrungRow = (id: string) => {
+  const deleteAuftrag = (id: string) => {
     if (!writable) return;
-    const rows = fuehrungRef.current;
+    const rows = auftraegeRef.current;
     if (!rows) return;
     const index = rows.toArray().findIndex((row) => row.get("id") === id);
     if (index >= 0) rows.delete(index, 1);
@@ -268,82 +259,15 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     if (index >= 0) rows.delete(index, 1);
   };
 
-  const setEigeneLage = (field: keyof ArbeitsblattState["eigeneLage"], value: unknown) => {
-    if (!writable) return;
-    eigeneLageRef.current?.set(field, value);
-  };
-
-  const setNachforderungField = (
-    id: string,
-    field: keyof Omit<AbNachforderung, "id">,
-    value: unknown,
-  ) => {
-    if (!writable) return;
-    const row = nachforderungRef.current?.toArray().find((item) => item.get("id") === id);
-    row?.set(field, value);
-  };
-
-  const addNachforderung = () => {
-    if (!writable) return;
-    const rows = nachforderungRef.current;
-    if (!rows) return;
-    const value: AbNachforderung = { id: uid(), text: "" };
-    const row = new Y.Map<unknown>();
-    Object.entries(value).forEach(([field, fieldValue]) => row.set(field, fieldValue));
-    rows.push([row]);
-  };
-
-  const deleteNachforderung = (id: string) => {
-    if (!writable) return;
-    const rows = nachforderungRef.current;
-    if (!rows) return;
-    const index = rows.toArray().findIndex((row) => row.get("id") === id);
-    if (index >= 0) rows.delete(index, 1);
-  };
-
-  const setOrganisation = (field: keyof ArbeitsblattState["organisation"], value: string) => {
+  const setOrganisation = (field: AbKanalField, value: string) => {
     if (!writable) return;
     organisationRef.current?.set(field, value);
-  };
-
-  const setOrganigrammField = (
-    id: string,
-    field: keyof Omit<AbOrganigrammzeile, "id">,
-    value: string,
-  ) => {
-    if (!writable) return;
-    const row = organigrammRef.current?.toArray().find((item) => item.get("id") === id);
-    row?.set(field, value);
-  };
-
-  const addOrganigrammRow = () => {
-    if (!writable) return;
-    const rows = organigrammRef.current;
-    if (!rows) return;
-    const value: AbOrganigrammzeile = {
-      id: uid(),
-      rolle: "",
-      auftrag: "",
-      fuehrer: "",
-      rufname: "",
-    };
-    const row = new Y.Map<unknown>();
-    Object.entries(value).forEach(([field, fieldValue]) => row.set(field, fieldValue));
-    rows.push([row]);
-  };
-
-  const deleteOrganigrammRow = (id: string) => {
-    if (!writable) return;
-    const rows = organigrammRef.current;
-    if (!rows) return;
-    const index = rows.toArray().findIndex((row) => row.get("id") === id);
-    if (index >= 0) rows.delete(index, 1);
   };
 
   const exportJson = () => {
     const payload: ArbeitsblattExport = {
       format: AB_EXPORT_FORMAT,
-      version: 1,
+      version: AB_EXPORT_VERSION,
       exportedAt: new Date().toISOString(),
       sheet,
     };
@@ -351,7 +275,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `arbeitsblatt-${session.room.joinCode}-${dug()}.json`;
+    link.download = `taktische-uebersicht-${session.room.joinCode}-${dug()}.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -359,14 +283,14 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   };
 
   // PDF-Export (client-seitig). pdf-lib wird erst beim Klick dynamisch geladen
-  // (eigener ~1 MB-Chunk), hält den Arbeitsblatt-Modul-Chunk klein.
+  // (eigener ~1 MB-Chunk), hält den Übersicht-Modul-Chunk klein.
   const exportPdf = async () => {
     if (pdfBusy) return;
     setPdfBusy(true);
     setImportMessage("");
     try {
       const { arbeitsblattToPdf } = await import("../pdf");
-      const bytes = await arbeitsblattToPdf(sheet, {
+      const bytes = await arbeitsblattToPdf(sheet, kraft, {
         roomName: session.room.name,
         joinCode: session.room.joinCode,
         stamp: dug(),
@@ -376,13 +300,13 @@ export function Arbeitsblatt({ session }: { session: Session }) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `arbeitsblatt-${session.room.joinCode}-${dug()}.pdf`;
+      link.download = `taktische-uebersicht-${session.room.joinCode}-${dug()}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
     } catch (cause) {
-      console.debug("Arbeitsblatt-PDF-Export fehlgeschlagen", cause);
+      console.debug("Übersicht-PDF-Export fehlgeschlagen", cause);
       setImportMessage("PDF-Export fehlgeschlagen.");
     } finally {
       setPdfBusy(false);
@@ -391,8 +315,8 @@ export function Arbeitsblatt({ session }: { session: Session }) {
 
   // JSON-Import (Gegenstück zum Export). Validiert die Datei gegen das
   // ArbeitsblattExport-Schema und spielt sie als EINE doc.transact() ein — ein
-  // atomarer Import, ein Sync-Update, saubere Undo-Grenze. Ersetzt das gesamte
-  // (geteilte!) Arbeitsblatt, daher vorher window.confirm. Nur Schreibberechtigte.
+  // atomarer Import, ein Sync-Update, saubere Undo-Grenze. Ersetzt die gesamte
+  // (geteilte!) Übersicht, daher vorher window.confirm. Nur Schreibberechtigte.
   const importJson = async (event: ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget; // vor dem await sichern (React nullt currentTarget)
     const file = input.files?.[0];
@@ -404,17 +328,23 @@ export function Arbeitsblatt({ session }: { session: Session }) {
       }
       const parsed: unknown = JSON.parse(await file.text());
       if (!isRecord(parsed) || parsed.format !== AB_EXPORT_FORMAT || !isRecord(parsed.sheet)) {
-        setImportMessage("Import fehlgeschlagen: kein gültiges Arbeitsblatt-Export-Format.");
+        setImportMessage("Import fehlgeschlagen: kein gültiges Übersicht-Export-Format.");
+        return;
+      }
+      if (parsed.version !== AB_EXPORT_VERSION) {
+        setImportMessage(
+          `Import fehlgeschlagen: inkompatible Version (erwartet ${AB_EXPORT_VERSION}). Alte Arbeitsblatt-Exporte werden nicht unterstützt.`,
+        );
         return;
       }
       const doc = kopfRef.current?.doc;
       if (!doc) {
-        setImportMessage("Import fehlgeschlagen: Arbeitsblatt noch nicht bereit.");
+        setImportMessage("Import fehlgeschlagen: Übersicht noch nicht bereit.");
         return;
       }
       if (
         !window.confirm(
-          "Das aktuelle Arbeitsblatt wird durch die importierten Daten ersetzt — für alle im Stabsraum. Fortfahren?",
+          "Die aktuelle Taktische Übersicht wird durch die importierten Daten ersetzt — für alle im Stabsraum. Fortfahren?",
         )
       ) {
         return;
@@ -423,9 +353,9 @@ export function Arbeitsblatt({ session }: { session: Session }) {
       // Eine atomare Transaktion, geteilt mit dem Bundle-Import (importAll.ts).
       applyArbeitsblattImport(doc, parsed.sheet, uid);
 
-      setImportMessage("Arbeitsblatt importiert.");
+      setImportMessage("Taktische Übersicht importiert.");
     } catch (err) {
-      console.debug("Arbeitsblatt-Import fehlgeschlagen", err);
+      console.debug("Übersicht-Import fehlgeschlagen", err);
       setImportMessage("Import fehlgeschlagen: ungültige JSON-Datei.");
     } finally {
       input.value = "";
@@ -448,7 +378,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
             <rect x="5" y="4" width="14" height="17" rx="2" />
             <path d="M9 4V2.5h6V4M8 10h8M8 14h5" />
           </svg>
-          Taktisches Arbeitsblatt
+          Taktische Übersicht
         </h2>
         <span className="chip">Alle Felder werden synchronisiert</span>
         {importMessage && <span className="chip">{importMessage}</span>}
@@ -511,128 +441,68 @@ export function Arbeitsblatt({ session }: { session: Session }) {
             <span className="arbeitsblatt-panel__letter">B</span>
             <span aria-hidden="true">·</span> Lagebild
           </h3>
-          <p>Live-Lagekarte (read-only) und die Gefahren der Einsatzstelle.</p>
+          <p>Live-Lagekarte (read-only) aus dem Modul Lagekarte.</p>
         </div>
         <div className="arbeitsblatt-lagebild-row">
-          <div className="arbeitsblatt-lagebild">
+          <div className="arbeitsblatt-lagebild arbeitsblatt-lagebild--full">
             <Lagekarte session={session} embedded readOnly />
-          </div>
-          <div className="arbeitsblatt-gefahren">
-            <div className="arbeitsblatt-gefahren__head">
-              <span>Gefahren der Einsatzstelle</span>
-              <span className="arbeitsblatt-gefahren__scheme">4 A · 1 C · 4 E</span>
-            </div>
-            {AB_GEFAHREN_KATALOG.map((g) => {
-              const posten = sheet.gefahren[g.key] ?? { betroffen: false };
-              return (
-                <div className="arbeitsblatt-gefahr" key={g.key}>
-                  <label className="arbeitsblatt-gefahr__row">
-                    <span className={`arbeitsblatt-gefahr__tag arbeitsblatt-gefahr__tag--${g.gruppe}`}>
-                      {g.gruppe}
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={posten.betroffen}
-                      disabled={!writable}
-                      aria-label={g.label}
-                      onChange={(event) =>
-                        setGefahr(g.key, {
-                          betroffen: event.currentTarget.checked,
-                          ...(posten.notiz ? { notiz: posten.notiz } : {}),
-                        })
-                      }
-                    />
-                    <span className="arbeitsblatt-gefahr__label">{g.label}</span>
-                  </label>
-                  {posten.betroffen && (
-                    <input
-                      className="arbeitsblatt-gefahr__notiz"
-                      type="text"
-                      value={posten.notiz ?? ""}
-                      readOnly={!writable}
-                      placeholder="Notiz (optional)"
-                      aria-label={`Notiz zu ${g.label}`}
-                      onChange={(event) =>
-                        setGefahr(g.key, {
-                          betroffen: true,
-                          ...(event.currentTarget.value ? { notiz: event.currentTarget.value } : {}),
-                        })
-                      }
-                    />
-                  )}
-                </div>
-              );
-            })}
           </div>
         </div>
       </section>
 
-      <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-fuehrung-title">
+      <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-kraefte-title">
         <div className="arbeitsblatt-panel__head">
-          <h3 id="arbeitsblatt-fuehrung-title">
+          <h3 id="arbeitsblatt-kraefte-title">
             <span className="arbeitsblatt-panel__letter">C</span>
-            <span aria-hidden="true">·</span> Führungsvorgang
+            <span aria-hidden="true">·</span> Einheiten / Kräfteübersicht
+          </h3>
+          <p>Automatisch aus dem Modul Kräfteübersicht.</p>
+        </div>
+        <div className="arbeitsblatt-kraft-strip">
+          <div className="arbeitsblatt-kraft-stat">
+            <span className="arbeitsblatt-kraft-stat__label">Gesamtstärke im Einsatz</span>
+            <span className="arbeitsblatt-kraft-stat__value">{formatStaerke(kraft.einsatz)}</span>
+            <span className="arbeitsblatt-kraft-stat__hint">
+              Führer / Unterführer / Helfer // Gesamt (DV 100)
+            </span>
+          </div>
+          <div className="arbeitsblatt-kraft-stat">
+            <span className="arbeitsblatt-kraft-stat__label">Fahrzeuge im Bereitstellungsraum</span>
+            <span className="arbeitsblatt-kraft-stat__value">{kraft.brCount}</span>
+            <span className="arbeitsblatt-kraft-stat__hint">Anzahl Fahrzeuge im BR</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-auftraege-title">
+        <div className="arbeitsblatt-panel__head">
+          <h3 id="arbeitsblatt-auftraege-title">
+            <span className="arbeitsblatt-panel__letter">D</span>
+            <span aria-hidden="true">·</span> Aufträge &amp; Maßnahmen
           </h3>
         </div>
         <div className="table-scroll">
           <table className="arbeitsblatt-table">
             <thead>
               <tr>
-                <th>Bedrohtes Objekt/Subjekt</th>
-                <th>Wirkung</th>
-                <th>Priorität</th>
+                <th>Auftrag</th>
                 <th>Maßnahmen</th>
+                <th>Laufender Vorgang</th>
                 <th>Erledigt</th>
                 {writable && <th>Aktion</th>}
               </tr>
             </thead>
             <tbody>
-              {sheet.fuehrungsvorgang.map((row) => (
+              {sheet.auftraege.map((row) => (
                 <tr key={row.id} className={row.erledigt ? "arbeitsblatt-row--done" : undefined}>
                   <td>
-                    <input
-                      className="arbeitsblatt-table__input"
-                      type="text"
-                      value={row.bedrohtesObjekt}
+                    <textarea
+                      className="arbeitsblatt-table__input arbeitsblatt-table__textarea"
+                      rows={2}
+                      value={row.auftrag}
                       readOnly={!writable}
-                      onChange={(event) =>
-                        setFuehrungField(row.id, "bedrohtesObjekt", event.currentTarget.value)
-                      }
+                      onChange={(event) => setAuftragField(row.id, "auftrag", event.currentTarget.value)}
                     />
-                  </td>
-                  <td>
-                    <input
-                      className="arbeitsblatt-table__input"
-                      type="text"
-                      value={row.wirkung}
-                      readOnly={!writable}
-                      onChange={(event) =>
-                        setFuehrungField(row.id, "wirkung", event.currentTarget.value)
-                      }
-                    />
-                  </td>
-                  <td>
-                    <select
-                      className={`arbeitsblatt-table__input arbeitsblatt-table__select arbeitsblatt-prio${
-                        row.prioritaet ? ` arbeitsblatt-prio--${row.prioritaet}` : ""
-                      }`}
-                      value={row.prioritaet}
-                      disabled={!writable}
-                      aria-label="Priorität"
-                      onChange={(event) => {
-                        const value = event.currentTarget.value;
-                        setFuehrungField(
-                          row.id,
-                          "prioritaet",
-                          value === "" ? "" : (Number(value) as AbPrioritaet),
-                        );
-                      }}
-                    >
-                      <option value="">–</option>
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                      <option value="3">3</option>
-                    </select>
                   </td>
                   <td>
                     <textarea
@@ -641,7 +511,18 @@ export function Arbeitsblatt({ session }: { session: Session }) {
                       value={row.massnahmen}
                       readOnly={!writable}
                       onChange={(event) =>
-                        setFuehrungField(row.id, "massnahmen", event.currentTarget.value)
+                        setAuftragField(row.id, "massnahmen", event.currentTarget.value)
+                      }
+                    />
+                  </td>
+                  <td className="arbeitsblatt-table__check">
+                    <input
+                      type="checkbox"
+                      checked={row.laufenderVorgang}
+                      disabled={!writable}
+                      aria-label="Laufender Vorgang"
+                      onChange={(event) =>
+                        setAuftragField(row.id, "laufenderVorgang", event.currentTarget.checked)
                       }
                     />
                   </td>
@@ -650,9 +531,9 @@ export function Arbeitsblatt({ session }: { session: Session }) {
                       type="checkbox"
                       checked={row.erledigt}
                       disabled={!writable}
-                      aria-label="Führungszeile erledigt"
+                      aria-label="Auftrag erledigt"
                       onChange={(event) =>
-                        setFuehrungField(row.id, "erledigt", event.currentTarget.checked)
+                        setAuftragField(row.id, "erledigt", event.currentTarget.checked)
                       }
                     />
                   </td>
@@ -661,7 +542,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
                       <button
                         className="arbeitsblatt-delete"
                         type="button"
-                        onClick={() => deleteFuehrungRow(row.id)}
+                        onClick={() => deleteAuftrag(row.id)}
                       >
                         Löschen
                       </button>
@@ -669,17 +550,17 @@ export function Arbeitsblatt({ session }: { session: Session }) {
                   )}
                 </tr>
               ))}
-              {sheet.fuehrungsvorgang.length === 0 && !writable && (
+              {sheet.auftraege.length === 0 && !writable && (
                 <tr>
-                  <td className="arbeitsblatt-table__empty" colSpan={5}>
+                  <td className="arbeitsblatt-table__empty" colSpan={4}>
                     Noch keine Zeilen
                   </td>
                 </tr>
               )}
               {writable && (
                 <tr className="arbeitsblatt-table__new-row">
-                  <td colSpan={6}>
-                    <button className="etb-add" type="button" onClick={addFuehrungRow}>
+                  <td colSpan={5}>
+                    <button className="etb-add" type="button" onClick={addAuftrag}>
                       Neue Zeile
                     </button>
                   </td>
@@ -693,8 +574,8 @@ export function Arbeitsblatt({ session }: { session: Session }) {
       <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-rueckmeld-title">
         <div className="arbeitsblatt-panel__head">
           <h3 id="arbeitsblatt-rueckmeld-title">
-            <span className="arbeitsblatt-panel__letter">D</span>
-            <span aria-hidden="true">·</span> Rückmeldungen / Notizen
+            <span className="arbeitsblatt-panel__letter">E</span>
+            <span aria-hidden="true">·</span> Notizen
           </h3>
         </div>
         <div className="arbeitsblatt-checklist">
@@ -719,9 +600,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
                 value={note.text}
                 readOnly={!writable}
                 aria-label="Notiz"
-                onChange={(event) =>
-                  setRueckmeldungField(note.id, "text", event.currentTarget.value)
-                }
+                onChange={(event) => setRueckmeldungField(note.id, "text", event.currentTarget.value)}
               />
               {writable && (
                 <button
@@ -742,102 +621,6 @@ export function Arbeitsblatt({ session }: { session: Session }) {
               Notiz hinzufügen
             </button>
           )}
-        </div>
-      </section>
-
-      <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-lage-title">
-        <div className="arbeitsblatt-panel__head">
-          <h3 id="arbeitsblatt-lage-title">
-            <span className="arbeitsblatt-panel__letter">E</span>
-            <span aria-hidden="true">·</span> Eigene Lage / Nachforderung
-          </h3>
-        </div>
-        <div className="arbeitsblatt-section-grid">
-          <div className="arbeitsblatt-group">
-            <h4>Auftrag</h4>
-            <div className="arbeitsblatt-options">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={sheet.eigeneLage.auftragMr}
-                  disabled={!writable}
-                  onChange={(event) => setEigeneLage("auftragMr", event.currentTarget.checked)}
-                />
-                Menschenrettung (MR)
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={sheet.eigeneLage.auftragBb}
-                  disabled={!writable}
-                  onChange={(event) => setEigeneLage("auftragBb", event.currentTarget.checked)}
-                />
-                Brandbekämpfung (BB)
-              </label>
-            </div>
-            <label className="arbeitsblatt-field">
-              <span>Weiterer Auftrag</span>
-              <input
-                type="text"
-                value={sheet.eigeneLage.auftragText}
-                readOnly={!writable}
-                onChange={(event) => setEigeneLage("auftragText", event.currentTarget.value)}
-              />
-            </label>
-          </div>
-
-          <div className="arbeitsblatt-group">
-            <h4>Kräfteübersicht</h4>
-            <label className="arbeitsblatt-field">
-              <span>Stärke</span>
-              <input
-                type="text"
-                value={sheet.eigeneLage.kraefteuebersicht}
-                readOnly={!writable}
-                placeholder="z. B. 3 / 1 / 12 / 16"
-                onChange={(event) =>
-                  setEigeneLage("kraefteuebersicht", event.currentTarget.value)
-                }
-              />
-            </label>
-          </div>
-
-          <div className="arbeitsblatt-group arbeitsblatt-group--wide">
-            <h4>Nachforderung</h4>
-            <div className="arbeitsblatt-nachforderung">
-              {sheet.nachforderung.map((eintrag) => (
-                <div className="arbeitsblatt-nachforderung__row" key={eintrag.id}>
-                  <input
-                    type="text"
-                    value={eintrag.text}
-                    readOnly={!writable}
-                    aria-label="Nachforderung"
-                    placeholder="z. B. 2 Löschzüge, Rettungsdienst …"
-                    onChange={(event) =>
-                      setNachforderungField(eintrag.id, "text", event.currentTarget.value)
-                    }
-                  />
-                  {writable && (
-                    <button
-                      className="arbeitsblatt-delete"
-                      type="button"
-                      onClick={() => deleteNachforderung(eintrag.id)}
-                    >
-                      Löschen
-                    </button>
-                  )}
-                </div>
-              ))}
-              {sheet.nachforderung.length === 0 && (
-                <p className="arbeitsblatt-empty">Noch keine Nachforderung</p>
-              )}
-              {writable && (
-                <button className="etb-add" type="button" onClick={addNachforderung}>
-                  Nachforderung hinzufügen
-                </button>
-              )}
-            </div>
-          </div>
         </div>
       </section>
 
@@ -864,87 +647,6 @@ export function Arbeitsblatt({ session }: { session: Session }) {
                 </label>
               ))}
             </div>
-          </div>
-          <div className="arbeitsblatt-group arbeitsblatt-funktion">
-            <h4>Eigene Funktion</h4>
-            <label className="arbeitsblatt-field">
-              <span>Führungsfunktion</span>
-              <select
-                value={sheet.organisation.eigeneFunktion}
-                disabled={!writable}
-                onChange={(event) =>
-                  setOrganisation("eigeneFunktion", event.currentTarget.value as AbFunktion)
-                }
-              >
-                <option value="">–</option>
-                <option value="GF">GF</option>
-                <option value="ZF">ZF</option>
-                <option value="VF">VF</option>
-              </select>
-            </label>
-          </div>
-        </div>
-
-        <div className="arbeitsblatt-organigramm">
-          <h4>Führungs-Organigramm</h4>
-          <div className="table-scroll">
-            <table className="arbeitsblatt-table arbeitsblatt-table--organigramm">
-              <thead>
-                <tr>
-                  <th>Rolle</th>
-                  <th>Auftrag</th>
-                  <th>Führer</th>
-                  <th>Rufname</th>
-                  {writable && <th>Aktion</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {sheet.organigramm.map((row) => (
-                  <tr key={row.id}>
-                    {(["rolle", "auftrag", "fuehrer", "rufname"] as const).map((field) => (
-                      <td key={field}>
-                        <input
-                          className="arbeitsblatt-table__input"
-                          type="text"
-                          value={row[field]}
-                          readOnly={!writable}
-                          onChange={(event) =>
-                            setOrganigrammField(row.id, field, event.currentTarget.value)
-                          }
-                        />
-                      </td>
-                    ))}
-                    {writable && (
-                      <td>
-                        <button
-                          className="arbeitsblatt-delete"
-                          type="button"
-                          onClick={() => deleteOrganigrammRow(row.id)}
-                        >
-                          Löschen
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-                {sheet.organigramm.length === 0 && !writable && (
-                  <tr>
-                    <td className="arbeitsblatt-table__empty" colSpan={4}>
-                      Noch keine Zeilen
-                    </td>
-                  </tr>
-                )}
-                {writable && (
-                  <tr className="arbeitsblatt-table__new-row">
-                    <td colSpan={5}>
-                      <button className="etb-add" type="button" onClick={addOrganigrammRow}>
-                        Zeile hinzufügen
-                      </button>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
           </div>
         </div>
       </section>
