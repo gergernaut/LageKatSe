@@ -444,6 +444,22 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .arbeitsblatt-field input:read-only { color: var(--ink-2); cursor: default; }
 .arbeitsblatt-lagebild-row { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
 .arbeitsblatt-lagebild { flex: 1 1 320px; height: 360px; min-height: 360px; }
+.arbeitsblatt-lagebild--full { flex: 1 1 100%; }
+
+/* Feld C · Einheiten / Kräfteübersicht (abgeleitete Kennzahlen, read-only) */
+.arbeitsblatt-kraft-strip {
+  padding: 16px 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;
+}
+.arbeitsblatt-kraft-stat {
+  border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface-2);
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;
+}
+.arbeitsblatt-kraft-stat__label {
+  font: 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3);
+}
+.arbeitsblatt-kraft-stat__value { font: 700 26px var(--mono); color: var(--ink); letter-spacing: .02em; }
+.arbeitsblatt-kraft-stat__hint { font-size: 11px; color: var(--ink-3); }
+@media (max-width: 640px) { .arbeitsblatt-kraft-strip { grid-template-columns: 1fr; } }
 .arbeitsblatt-gefahren {
   flex: 1 1 250px; min-width: 0; padding: 12px 14px;
   border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface);
