@@ -1,8 +1,8 @@
-// Smoke test for the M3 `arbeitsblatt` module against a running backend.
-// Verifies: an S3 writer's header field (kopf Y.Map) and a Führungsvorgang row
-// (fuehrungsvorgang Y.Array of Y.Map) propagate to another client, and a
+// Smoke test for the `arbeitsblatt` module (Taktische Übersicht) against a
+// running backend. Verifies: an S3 writer's header field (kopf Y.Map) and an
+// Aufträge row (auftraege Y.Array of Y.Map) propagate to another client, and a
 // Monitor's write is blocked server-side. Uses its OWN throwaway room.
-// The keys mirror shared's AB_KOPF / AB_FUEHRUNG constants ("kopf"/"fuehrungsvorgang").
+// The keys mirror shared's AB_KOPF / AB_AUFTRAEGE constants ("kopf"/"auftraege").
 //   API=http://<host>:<port> node packages/web/scripts/arbeitsblatt-e2e.mjs
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
@@ -54,8 +54,7 @@ function connect(roomId, token) {
     doc,
     provider,
     kopf: doc.getMap("kopf"),
-    fuehrung: doc.getArray("fuehrungsvorgang"),
-    gefahren: doc.getMap("gefahren"),
+    auftraege: doc.getArray("auftraege"),
     wetter: doc.getMap("wetter"),
   };
 }
@@ -92,18 +91,15 @@ async function main() {
   await Promise.all([waitConnected(W.provider), waitConnected(O.provider), waitConnected(M.provider)]);
   await sleep(600);
 
-  // Writer (S3) fills a header field and appends a Führungsvorgang row.
+  // Writer (S3) fills a header field and appends an Aufträge row (Feld D).
   W.kopf.set("einsatzstichwort", "Wohnungsbrand B3");
   const row = new Y.Map();
   row.set("id", "r1");
-  row.set("bedrohtesObjekt", "Person im 2. OG");
-  row.set("wirkung", "Rauchgas");
-  row.set("prioritaet", 1);
-  row.set("massnahmen", "Menschenrettung");
+  row.set("auftrag", "Menschenrettung 2. OG");
+  row.set("massnahmen", "Trupp unter PA über DLK");
+  row.set("laufenderVorgang", true);
   row.set("erledigt", false);
-  W.fuehrung.push([row]);
-  // Feld B: mark a hazard (gefahren Y.Map, whole-value posten).
-  W.gefahren.set("atemgifte", { betroffen: true, notiz: "Rauchgas" });
+  W.auftraege.push([row]);
   // Rückseite: Wetter-Snapshot als atomarer Whole-Value-Posten unter "snapshot".
   W.wetter.set("snapshot", {
     fetchedAt: "2026-08-07T09:30:00.000Z",
@@ -117,17 +113,14 @@ async function main() {
   await sleep(900);
 
   const stichwort = O.kopf.get("einsatzstichwort");
-  const firstRow = O.fuehrung.length > 0 ? O.fuehrung.get(0) : null;
-  const bedroht = firstRow ? firstRow.get("bedrohtesObjekt") : null;
-  const gefahr = O.gefahren.get("atemgifte");
+  const firstRow = O.auftraege.length > 0 ? O.auftraege.get(0) : null;
+  const auftrag = firstRow ? firstRow.get("auftrag") : null;
   const wetter = O.wetter.get("snapshot");
-  console.log("observer sieht:", { stichwort, rows: O.fuehrung.length, bedroht, gefahr, wetter });
+  console.log("observer sieht:", { stichwort, rows: O.auftraege.length, auftrag, wetter });
   const test1 =
     stichwort === "Wohnungsbrand B3" &&
-    O.fuehrung.length === 1 &&
-    bedroht === "Person im 2. OG" &&
-    !!gefahr &&
-    gefahr.betroffen === true;
+    O.auftraege.length === 1 &&
+    auftrag === "Menschenrettung 2. OG";
   const test3 =
     !!wetter && wetter.stationName === "Dortmund" && wetter.current?.temperature === 18;
 
@@ -141,7 +134,7 @@ async function main() {
   console.log("nach Monitor-Write:", { afterHack, station: wetterAfterHack?.stationName });
   const test2 = afterHack === "Wohnungsbrand B3" && wetterAfterHack?.stationName === "Dortmund";
 
-  console.log(`[${test1 ? "PASS" : "FAIL"}] S3 setzt Kopf-Feld + Führungsvorgang-Zeile + Gefahr → Observer sieht sie (Sync)`);
+  console.log(`[${test1 ? "PASS" : "FAIL"}] S3 setzt Kopf-Feld + Aufträge-Zeile → Observer sieht sie (Sync)`);
   console.log(`[${test3 ? "PASS" : "FAIL"}] S3 setzt Wetter-Snapshot → Observer sieht ihn (Sync)`);
   console.log(`[${test2 ? "PASS" : "FAIL"}] Monitor-Write auf arbeitsblatt (Kopf + Wetter) blockiert (Rechte)`);
 
