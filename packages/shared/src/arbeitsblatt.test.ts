@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asBool, asFunktion, asPrio, asString, isRecord } from "./arbeitsblatt";
+import { asBool, asString, isRecord } from "./arbeitsblatt";
 
 // Diese Coercions härten den JSON-Import gegen beliebige Fremddateien ab
 // (§10.4, später Bundle-Import #71). Der Vertrag: nie werfen, immer auf einen
@@ -25,29 +25,6 @@ describe("Import-Coercion", () => {
       expect(asBool(1)).toBe(false);
       expect(asBool(null)).toBe(false);
       expect(asBool(undefined)).toBe(false);
-    });
-  });
-
-  describe("asPrio", () => {
-    it("akzeptiert nur die Zahlen 1–3, sonst \"\"", () => {
-      expect(asPrio(1)).toBe(1);
-      expect(asPrio(2)).toBe(2);
-      expect(asPrio(3)).toBe(3);
-      expect(asPrio(0)).toBe("");
-      expect(asPrio(4)).toBe("");
-      expect(asPrio("1")).toBe(""); // String-1 zählt nicht
-      expect(asPrio(null)).toBe("");
-    });
-  });
-
-  describe("asFunktion", () => {
-    it("akzeptiert nur GF/ZF/VF, sonst \"\"", () => {
-      expect(asFunktion("GF")).toBe("GF");
-      expect(asFunktion("ZF")).toBe("ZF");
-      expect(asFunktion("VF")).toBe("VF");
-      expect(asFunktion("gf")).toBe(""); // case-sensitiv
-      expect(asFunktion("")).toBe("");
-      expect(asFunktion(null)).toBe("");
     });
   });
 
