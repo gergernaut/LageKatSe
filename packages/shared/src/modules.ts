@@ -14,7 +14,7 @@ export function isModule(value: unknown): value is Module {
 export const MODULE_LABELS: Record<Module, string> = {
   lagekarte: "Gemeinsame Lagekarte",
   etb: "Einsatztagebuch",
-  arbeitsblatt: "Taktisches Arbeitsblatt",
+  arbeitsblatt: "Taktische Übersicht",
   kraefteubersicht: "Kräfteübersicht",
   chat: "Stabsraum-Chat",
 };

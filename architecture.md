@@ -21,7 +21,7 @@ sollten, sind mit **⚠️ zu klären** markiert.
 7. [Datenmodell](#7-datenmodell)
 8. [Modul 1 – Gemeinsame Lagekarte](#8-modul-1--gemeinsame-lagekarte)
 9. [Modul 2 – Gemeinsames Einsatztagebuch](#9-modul-2--gemeinsames-einsatztagebuch)
-10. [Modul 3 – Taktisches Arbeitsblatt](#10-modul-3--taktisches-arbeitsblatt)
+10. [Modul 3 – Taktische Übersicht](#10-modul-3--taktische-übersicht)
 11. [Präsenz & Chat](#11-präsenz--chat)
 12. [Import & Export](#12-import--export)
 13. [Persistenz, Recovery & Skalierung](#13-persistenz-recovery--skalierung)
@@ -613,36 +613,38 @@ ist **bewusst verworfen** (E2, #73): LageKatSe ist kein primäres/rechtssicheres
 
 ---
 
-## 10. Modul 3 – Taktisches Arbeitsblatt
+## 10. Modul 3 – Taktische Übersicht
 
-Digitale Abbildung des **Taktischen Arbeitsblatts (IdF NRW, DIN A4)** – ein strukturiertes Formular
-rund um ein eingebettetes Lagebild. Alle Felder werden zwischen den Teilnehmern synchronisiert.
+Eine schlanke, kollaborative **Lage-Übersicht** des Führungsstabs rund um ein eingebettetes Lagebild.
+Alle Felder werden zwischen den Teilnehmern synchronisiert. Der interne Modul-Identifier/Kanal bleibt
+bewusst `arbeitsblatt` (Persistenz, Routen, WRITE_SCOPES) — nur die **UI-Beschriftung** ist
+„Taktische Übersicht" (Redesign Milestone #2; das frühere, an die IdF-Vorlage angelehnte
+„Taktische Arbeitsblatt" wies fälschlich Normkonformität nahe).
 
-> **Umgesetzt** (Vorderseite): Felder A, C, D, E, F live-synchron (Feld-/Zeilen-Level-Merge),
-> Feld B als eingebettete read-only Lagekarte **plus Gefahren-Randfelder (4 A – 1 C – 4 E)**,
-> **JSON-Export *und* -Import** (Import validiert gegen das Schema und spielt als **eine**
-> CRDT-Transaktion ein, nur Schreibberechtigte, mit Bestätigungsdialog) sowie **PDF-Export**
-> (client-seitig via pdf-lib). Aus der Rückseite (#42) ist die **Wetter-Sektion** umgesetzt
-> (DWD/BrightSky, s. §10.5); ABC/MANV/Dekon wurden verworfen (#42 geschlossen).
-> **Verworfen:** Karte aus dem Arbeitsblatt heraus bearbeiten (#41 — das eingebettete
-> Kartenfeld ist zu klein, die Werkzeugleiste zu groß → Feld B bleibt read-only).
+> **Umgesetzt** (Layout A–F): Felder A, D, E, F live-synchron (Feld-/Zeilen-Level-Merge),
+> Feld B als eingebettete read-only Lagekarte (jetzt **vollbreit**), Feld C als **abgeleitete
+> Kräfte-Kennzahlen** (read-only cross-module aus `kraefteubersicht`), **JSON-Export *und* -Import**
+> (Import validiert gegen das Schema inkl. Version und spielt als **eine** CRDT-Transaktion ein, nur
+> Schreibberechtigte, mit Bestätigungsdialog) sowie **PDF-Export** (client-seitig via pdf-lib). Aus
+> der Rückseite (#42) ist die **Wetter-Sektion** umgesetzt (DWD/BrightSky, s. §10.5).
+> **Bewusst entfallen** (Redesign — kein Bedarf, spart Platz; ggf. später anders): Gefahren-
+> beurteilung (4 A – 1 C – 4 E), eigene Lage/Nachforderung, Führungs-Organigramm, eigene Führungsfunktion.
 
-### 10.1 Feldaufteilung (Vorderseite, gemäß IdF-Vorlage)
+### 10.1 Feldaufteilung (Layout A–F)
 
-Das Arbeitsblatt ist in feste Felder gegliedert (die Grundstruktur der Vorlage bleibt erhalten):
+Die Übersicht ist in feste Felder gegliedert:
 
 | Feld | Bereich | Inhalt |
 |------|---------|--------|
-| **A** | Kopfzeile | Einsatzstichwort, Einsatzort, Meldender, Objektnr., Datum-Uhrzeitgruppe |
-| **B** | **Lagebild** | **Eingebettete, live-synchrone Lagekarte** (Modul 1) + Randfelder für Gefahren |
-| **C** | Führungsvorgang | Tabelle: bedrohtes Objekt/Subjekt · Wirkung · Priorität · Maßnahmen · erledigt |
-| **D** | Rückmeldungen/Notizen | Freie Notiz-/Checkliste |
-| **E** | Eigene Lage / Nachforderung | Auftrag (MR/BB), Kräfteübersicht, Nachforderung (freie Einträge) |
-| **F** | Organisation/Kommunikation | Funkkanäle (TMO-/DMO-Gruppe, Führung, Gebäude), Führungs-Organigramm, eigene Funktion |
+| **A** | Kopfzeile | Einsatzstichwort, Einsatzort, Meldender, Objektnr., Datum-Uhrzeitgruppe (DUG **automatisch** aus der Raum-Öffnungszeit vorbelegt, bearbeitbar) |
+| **B** | **Lagebild** | **Eingebettete, live-synchrone Lagekarte** (Modul 1), **read-only, vollbreit** |
+| **C** | Einheiten / Kräfteübersicht | **Abgeleitete** Kennzahlen (read-only): Gesamtstärke im Einsatz (DV 100) + Anzahl Fahrzeuge im BR, aus Modul `kraefteubersicht` |
+| **D** | Aufträge & Maßnahmen | Tabelle: Auftrag · Maßnahmen · laufender Vorgang · erledigt (erledigt = durchgestrichen, Eintrag bleibt) |
+| **E** | Notizen | Freie Notiz-/Checkliste |
+| **F** | Kommunikation | Feste Funkkanäle (TMO-/DMO-Gruppe, Führung, Gebäude) **plus frei anlegbare Kanäle** (Typ TMO/DMO · Gruppe · Verwendungszweck) |
 
-> Die **Rückseite** (Checklisten für ABC-/Gefahrgut-Einsatz, Wetterdaten, Dekon, MANV/Rettungsdienst):
-> nur der **Wetter-Teil** ist umgesetzt (§10.5, DWD/BrightSky); ABC/MANV/Dekon wurden verworfen (#42
-> geschlossen, #73). MVP fokussierte die Vorderseite.
+> Die **Rückseite** (Checklisten für ABC-/Gefahrgut-Einsatz, Dekon, MANV): nur der **Wetter-Teil** ist
+> umgesetzt (§10.5, DWD/BrightSky); ABC/MANV/Dekon wurden verworfen (#42 geschlossen, #73).
 
 ### 10.2 Das Lagebild ist die Lagekarte (kein Duplikat)
 
@@ -666,48 +668,46 @@ ETB, §9.3). Definiert in `packages/shared/src/arbeitsblatt.ts`.
 | Top-level Typ (Key) | Feld | Inhalt |
 |---|:--:|---|
 | `kopf` (`Y.Map`) | A | Kopf-Skalare (einsatzstichwort, einsatzort, meldender, objektnr, datumUhrzeitgruppe) |
-| `gefahren` (`Y.Map`) | B | Gefahren-Randfelder, key → `{ betroffen, notiz? }` (4 A · 1 C · 4 E) |
-| `fuehrungsvorgang` (`Y.Array<Y.Map>`) | C | Zeilen des Führungsvorgangs |
-| `rueckmeldungen` (`Y.Array<Y.Map>`) | D | Notiz-/Checklisten-Einträge |
-| `eigeneLage` (`Y.Map`) | E | auftragMr/auftragBb (bool), auftragText, kraefteuebersicht |
-| `nachforderung` (`Y.Array<Y.Map>`) | E | freie Nachforderungs-Einträge |
-| `organisation` (`Y.Map`) | F | Funkkanäle-Skalare + eigeneFunktion |
-| `organigramm` (`Y.Array<Y.Map>`) | F | Zeilen des Führungs-Organigramms |
+| `auftraege` (`Y.Array<Y.Map>`) | D | Zeilen „Aufträge & Maßnahmen" |
+| `rueckmeldungen` (`Y.Array<Y.Map>`) | E | Notiz-/Checklisten-Einträge |
+| `organisation` (`Y.Map`) | F | Feste Funkkanäle-Skalare (TMO/Führung/DMO/Gebäude) |
+| `kanaele` (`Y.Array<Y.Map>`) | F | Frei angelegte Kanäle (typ TMO/DMO, gruppe, verwendungszweck) |
+| `wetter` (`Y.Map`) | Rückseite | Wetter-Snapshot (§10.5), ein Whole-Value-Key |
 
-Feld **B** referenziert die `lagekarte` read-only (§10.2); die **Gefahren-Randfelder** (`gefahren`,
-9 feste Gefahren nach dem Merkschema 4 A – 1 C – 4 E) sind seine einzigen eigenen Daten.
+Feld **B** referenziert die `lagekarte` read-only (§10.2) und hat **keine eigenen Daten** im Doc.
+Feld **C** ist rein **abgeleitet** aus dem `kraefteubersicht`-Modul (read-only cross-module,
+`sumStaerke(einsatzItems)` + Anzahl BR-Fahrzeuge) — ebenfalls kein eigener Zustand hier.
 
 ```ts
 // Zusammengesetzter Snapshot (so via toJSON gelesen, u. a. für den JSON-Export):
 interface Arbeitsblatt {
   kopf: { einsatzstichwort: string; einsatzort: string; meldender: string;   // A
           objektnr: string; datumUhrzeitgruppe: string };
-  gefahren: Record<string, { betroffen: boolean; notiz?: string }>;          // B (4 A · 1 C · 4 E)
-  fuehrungsvorgang: {                                                        // C (Y.Array<Y.Map>)
-    id: string; bedrohtesObjekt: string; wirkung: string;
-    prioritaet: 1 | 2 | 3 | ""; massnahmen: string; erledigt: boolean;
+  auftraege: {                                                              // D (Y.Array<Y.Map>)
+    id: string; auftrag: string; massnahmen: string;
+    laufenderVorgang: boolean; erledigt: boolean;
   }[];
-  rueckmeldungen: { id: string; text: string; erledigt: boolean }[];        // D (Checkliste)
-  eigeneLage: { auftragMr: boolean; auftragBb: boolean;                     // E
-                auftragText: string; kraefteuebersicht: string };
-  nachforderung: { id: string; text: string }[];                           // E (freie Einträge)
-  organisation: {                                                           // F
+  rueckmeldungen: { id: string; text: string; erledigt: boolean }[];        // E (Checkliste)
+  organisation: {                                                           // F (feste Kanäle)
     tmoGruppe: string; fuehrungsKanal: string; dmoGruppe: string; gebFunk: string;
-    eigeneFunktion: "GF" | "ZF" | "VF" | "";
   };
-  organigramm: { id: string; rolle: string; auftrag: string;               // F (Y.Array<Y.Map>)
-                 fuehrer: string; rufname: string }[];
-  // Feld B: gefahren = Gefahren-Randfelder; das Lagebild selbst ist read-only-Referenz auf `lagekarte`
+  kanaele: {                                                                // F (frei, Y.Array<Y.Map>)
+    id: string; typ: "TMO" | "DMO"; gruppe: string; verwendungszweck: string;
+  }[];
+  wetter: AbWetterSnapshot | null;                                          // Rückseite (§10.5)
+  // Feld B (Lagebild) = read-only-Referenz auf `lagekarte`; Feld C = abgeleitet aus `kraefteubersicht`
 }
 ```
 
 ### 10.4 Export / Import
 
 - **JSON-Export** (vollständiger Formularzustand) für Sicherung/Weitergabe. **(umgesetzt)** –
-  Envelope `{ format: "lagekatse.arbeitsblatt", version: 1, exportedAt, sheet }`.
+  Envelope `{ format: "lagekatse.arbeitsblatt", version: 2, exportedAt, sheet }`. **version 2** seit
+  dem Redesign (A–F); v1-Dateien (altes Arbeitsblatt) sind strukturell inkompatibel und werden vom
+  Import **bewusst abgelehnt** (Räume sind ephemer, kein Migrationspfad nötig).
 - **JSON-Import** **(umgesetzt)** – Gegenstück zum Export: validiert die Datei gegen das Envelope-
-  Schema und spielt sie als **eine** `doc.transact()` ein (ersetzt den gesamten, geteilten Stand;
-  nur Schreibberechtigte; vorher Bestätigungsdialog, da der Replace für alle im Stabsraum wirkt).
+  Schema **inkl. Version** und spielt sie als **eine** `doc.transact()` ein (ersetzt den gesamten,
+  geteilten Stand; nur Schreibberechtigte; vorher Bestätigungsdialog, da der Replace für alle wirkt).
 - **PDF-Export** **(umgesetzt, M4)** – client-seitige Erzeugung mit **pdf-lib** (A4 hoch, Abschnitte
   A–F + Wetter, eingebettete DejaVu-Sans-Schrift für Umlaute/Sonderzeichen, Tabellen mit Wort-Umbruch
   und Paginierung). Bewusst **kein** Ausfüllen amtlicher AcroForm-Vorlagen (robust, keine Vorlagen-/

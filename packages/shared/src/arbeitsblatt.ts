@@ -1,40 +1,39 @@
 /**
- * Data model for the Taktisches Arbeitsblatt (module "arbeitsblatt") — the
- * digital IdF-NRW tactical worksheet (architecture.md §10). One structured form
- * per Stabsraum; all fields are synchronised between the participants.
+ * Data model for the Taktische Übersicht (module "arbeitsblatt") — die schlanke
+ * Lage-Übersicht des Führungsstabs (architecture.md §10). Eine strukturierte Form
+ * pro Stabsraum; alle Felder werden zwischen den Teilnehmenden synchronisiert.
  *
- * Unlike the ETB, the Arbeitsblatt has **no server-authoritative fields** (no
+ * Der interne Modul-Identifier/Kanal bleibt bewusst `arbeitsblatt` (Persistenz,
+ * Routen, WRITE_SCOPES) — nur die **UI-Beschriftung** ist „Taktische Übersicht".
+ *
+ * Unlike the ETB, the Übersicht has **no server-authoritative fields** (no
  * monotonic number, no server clock), so every field is a plain client CRDT
  * write — the server needs no special endpoint or seeding for it.
  *
- * The `arbeitsblatt` Yjs document is split into several *top-level* shared
- * types. Each auto-vivifies on first `getMap`/`getArray` (so there is no init
- * step) and concurrent edits merge at field / row level — never whole-value
- * like the Lagekarte (§8.3):
+ * Das `arbeitsblatt` Yjs-Dokument ist in mehrere *Top-Level*-Shared-Types geteilt.
+ * Jeder auto-vivifiziert beim ersten `getMap`/`getArray` (kein Init-Schritt) und
+ * konkurrierende Edits mergen auf Feld-/Zeilen-Ebene — nie Whole-Value wie die
+ * Lagekarte (§8.3):
  *
- *   doc.getMap(AB_KOPF)          Feld A — header scalars (AbKopf)
- *   doc.getMap(AB_GEFAHREN)      Feld B — Randfelder für Gefahren (Y.Map key -> AbGefahr)
- *   doc.getArray(AB_FUEHRUNG)    Feld C — Führungsvorgang rows (Y.Map per AbFuehrungszeile)
- *   doc.getArray(AB_RUECKMELD)   Feld D — Rückmeldungen/Notizen items (Y.Map per AbNotiz)
- *   doc.getMap(AB_EIGENELAGE)    Feld E — eigene Lage scalars + Auftrag flags (AbEigeneLage)
- *   doc.getArray(AB_NACHFORDERUNG) Feld E — freie Nachforderungs-Einträge (Y.Map per AbNachforderung)
- *   doc.getMap(AB_ORGANISATION)  Feld F — Funkkanäle + eigene Funktion scalars (AbOrganisation)
- *   doc.getArray(AB_ORGANIGRAMM) Feld F — Führungs-Organigramm rows (Y.Map per AbOrganigrammzeile)
- *   doc.getMap(AB_WETTER)        Rückseite — Wetter-Snapshot (DWD/BrightSky, ein Whole-Value-Posten)
+ *   doc.getMap(AB_KOPF)           Feld A — Kopf-Skalare (AbKopf)
+ *   doc.getArray(AB_AUFTRAEGE)    Feld D — Aufträge & Maßnahmen (Y.Map je AbAuftrag)
+ *   doc.getArray(AB_RUECKMELD)    Feld E — Notizen (Y.Map je AbNotiz)
+ *   doc.getMap(AB_ORGANISATION)   Feld F — feste Funkkanäle (AbOrganisation)
+ *   doc.getArray(AB_KANAELE)      Feld F — frei angelegte Funkkanäle (Y.Map je AbKanal)
+ *   doc.getMap(AB_WETTER)         Rückseite — Wetter-Snapshot (DWD/BrightSky, ein Whole-Value-Posten)
  *
- * Feld B (Lagebild) bettet die `lagekarte` read-only ein (§10.2) — die Karte
- * bleibt eine Referenz (eine Quelle der Wahrheit); die Gefahren-Randfelder
- * (`gefahren`) sind die einzigen eigenen Daten von Feld B.
+ * Feld B (Lagebild) bettet die `lagekarte` read-only ein (§10.2) — die Karte bleibt
+ * eine Referenz (eine Quelle der Wahrheit), sie hat keine eigenen Daten im Übersichts-Doc.
+ * Feld C (Einheiten/Kräfteübersicht) ist rein **abgeleitet** aus dem `kraefteubersicht`-Modul
+ * (read-only cross-module) — ebenfalls kein eigener Zustand hier.
  */
 
 // ---- top-level shared-type keys inside the "arbeitsblatt" document ----
 export const AB_KOPF = "kopf" as const;
-export const AB_FUEHRUNG = "fuehrungsvorgang" as const;
+export const AB_AUFTRAEGE = "auftraege" as const;
 export const AB_RUECKMELD = "rueckmeldungen" as const;
-export const AB_EIGENELAGE = "eigeneLage" as const;
-export const AB_NACHFORDERUNG = "nachforderung" as const;
 export const AB_ORGANISATION = "organisation" as const;
-export const AB_ORGANIGRAMM = "organigramm" as const;
+export const AB_KANAELE = "kanaele" as const;
 export const AB_WETTER = "wetter" as const;
 
 // ---- Feld A: Kopfzeile ----
@@ -64,29 +63,28 @@ export const AB_KOPF_LABELS: Record<AbKopfField, string> = {
   datumUhrzeitgruppe: "Datum-Uhrzeit-Gruppe",
 };
 
-// ---- Feld C: Führungsvorgang ----
-/** Priority 1 (highest) … 3, or "" when not yet set. */
-export type AbPrioritaet = 1 | 2 | 3 | "";
-
+// ---- Feld D: Aufträge & Maßnahmen ----
 /**
- * One row of the Führungsvorgang table. Stored as a Y.Map inside AB_FUEHRUNG so
- * concurrent edits to *different* cells of the same row merge (like ETB rows).
- * `id` is client-assigned via uid() — there is no monotonic requirement here.
+ * Eine Zeile der Aufträge-Tabelle (Feld D, ersetzt den früheren „Führungsvorgang").
+ * Als Y.Map innerhalb AB_AUFTRAEGE gespeichert, damit konkurrierende Edits an
+ * *verschiedenen* Zellen derselben Zeile mergen (wie ETB-Zeilen). `id` ist
+ * client-vergeben via uid() — keine monotone Anforderung. `laufenderVorgang`
+ * markiert einen offenen Vorgang, `erledigt` streicht die Zeile durch (Eintrag bleibt).
  */
-export interface AbFuehrungszeile {
+export interface AbAuftrag {
   id: string;
-  bedrohtesObjekt: string; // bedrohtes Objekt / Subjekt
-  wirkung: string;
-  prioritaet: AbPrioritaet;
+  auftrag: string;
   massnahmen: string;
+  laufenderVorgang: boolean;
   erledigt: boolean;
 }
 
-// ---- Feld D: Rückmeldungen / Notizen ----
+// ---- Feld E: Notizen ----
 /**
- * One free note / checklist item (Feld D). Modelled as a Y.Map list item (not a
- * plain string line) so items get a stable id, an `erledigt` flag (checklist)
- * and clean concurrent merge — consistent with the Führungsvorgang rows.
+ * Eine freie Notiz / Checklisten-Zeile (Feld E). Als Y.Map-Listeneintrag (nicht als
+ * reiner String) modelliert, damit Einträge eine stabile id, ein `erledigt`-Flag
+ * (Checkliste) und sauberen konkurrierenden Merge bekommen — konsistent mit den
+ * Aufträge-Zeilen.
  */
 export interface AbNotiz {
   id: string;
@@ -94,46 +92,13 @@ export interface AbNotiz {
   erledigt: boolean;
 }
 
-// ---- Feld E: eigene Lage / Nachforderung ----
-/**
- * Scalar part of Feld E, stored as keys on the AB_EIGENELAGE Y.Map. `auftragMr`
- * (Menschenrettung) and `auftragBb` (Brandbekämpfung) are the two standard
- * order flags; `kraefteuebersicht` holds the Zugstärke notation, e.g. "3/1/12/16".
- */
-export interface AbEigeneLage {
-  auftragMr: boolean;
-  auftragBb: boolean;
-  auftragText: string;
-  kraefteuebersicht: string;
-}
-
-export const AB_EIGENELAGE_FLAG_FIELDS = ["auftragMr", "auftragBb"] as const;
-export type AbEigeneLageFlagField = (typeof AB_EIGENELAGE_FLAG_FIELDS)[number];
-export const AB_EIGENELAGE_TEXT_FIELDS = ["auftragText", "kraefteuebersicht"] as const;
-export type AbEigeneLageTextField = (typeof AB_EIGENELAGE_TEXT_FIELDS)[number];
-
-/**
- * One reinforcement (Nachforderung) request as a *free-text* entry, e.g.
- * "2 Löschzüge" or "Rettungsdienst, 3 RTW". Stored as a Y.Map list item inside
- * the AB_NACHFORDERUNG Y.Array so entries can be added/removed freely and merge
- * per row (like the Führungsvorgang/Rückmeldungen rows) — no fixed categories.
- */
-export interface AbNachforderung {
-  id: string;
-  text: string;
-}
-
-// ---- Feld F: Organisation / Kommunikation ----
-/** Eigene Führungsfunktion: Gruppen-, Zug- oder Verbandsführer (or "" unset). */
-export type AbFunktion = "GF" | "ZF" | "VF" | "";
-
+// ---- Feld F: Organisation / Kommunikation (nur Funkkanäle) ----
 /** Scalar part of Feld F, stored as keys on the AB_ORGANISATION Y.Map. */
 export interface AbOrganisation {
   tmoGruppe: string; // Digitalfunk TMO (Netzbetrieb / Trunked Mode)
   fuehrungsKanal: string;
   dmoGruppe: string; // Digitalfunk DMO (Direktbetrieb / Direct Mode)
   gebFunk: string; // Gebäudefunk / Objektfunk
-  eigeneFunktion: AbFunktion;
 }
 
 export const AB_KANAL_FIELDS = ["tmoGruppe", "fuehrungsKanal", "dmoGruppe", "gebFunk"] as const;
@@ -145,56 +110,27 @@ export const AB_KANAL_LABELS: Record<AbKanalField, string> = {
   gebFunk: "Gebäudefunk",
 };
 
+// ---- Feld F: weitere Funkkanäle (frei anlegbare Liste) ----
+/** Betriebsart eines Funkkanals: Trunked Mode (Netz) oder Direct Mode (direkt). */
+export const AB_KANAL_TYPEN = ["TMO", "DMO"] as const;
+export type AbKanalTyp = (typeof AB_KANAL_TYPEN)[number];
+
 /**
- * One row of the Führungs-Organigramm (Feld F). Y.Map list item inside
- * AB_ORGANIGRAMM, same merge semantics as the Führungsvorgang rows.
+ * Ein frei angelegter Funkkanal (Feld F, zusätzlich zu den vier festen Feldern).
+ * Als Y.Map-Listeneintrag in AB_KANAELE — Feld-Level-Merge wie die übrigen Zeilen.
+ * `gruppe` ist meist kurz (< 20 Zeichen), `verwendungszweck` der ausführlichere Freitext.
  */
-export interface AbOrganigrammzeile {
+export interface AbKanal {
   id: string;
-  rolle: string;
-  auftrag: string;
-  fuehrer: string;
-  rufname: string;
-}
-
-// ---- Feld B: Randfelder für Gefahren (Gefahrenmatrix) ----
-/**
- * Die „neun Gefahren der Einsatzstelle" (Feuerwehr-Merkschema 4 A – 1 C – 4 E),
- * neben der eingebetteten Lagekarte in Feld B beurteilt (§10.1/§10.2). Feste,
- * geordnete Liste — jede Gefahr ein Key auf der AB_GEFAHREN Y.Map mit einem kleinen
- * Whole-Value-Posten {betroffen, notiz?}. **Geteilter** Arbeitsblatt-Zustand (im
- * CRDT), KEINE client-lokale Anzeige-Option (anders als Symbolgröße, Invariante #4).
- */
-export const AB_GEFAHREN = "gefahren" as const;
-
-/** Gruppe im 4-A-1-C-4-E-Schema (nur zur optischen Gruppierung). */
-export type AbGefahrGruppe = "A" | "C" | "E";
-
-/** Fester Katalog der neun Gefahren, in Anzeigereihenfolge (4 A · 1 C · 4 E). */
-export const AB_GEFAHREN_KATALOG = [
-  { key: "atemgifte", gruppe: "A", label: "Atemgifte" },
-  { key: "angstreaktion", gruppe: "A", label: "Angstreaktion" },
-  { key: "ausbreitung", gruppe: "A", label: "Ausbreitung" },
-  { key: "atomar", gruppe: "A", label: "Atomare Gefahren" },
-  { key: "chemisch", gruppe: "C", label: "Chemische Stoffe" },
-  { key: "erkrankung", gruppe: "E", label: "Erkrankung / Verletzung" },
-  { key: "explosion", gruppe: "E", label: "Explosion" },
-  { key: "einsturz", gruppe: "E", label: "Einsturz" },
-  { key: "elektrizitaet", gruppe: "E", label: "Elektrizität" },
-] as const;
-
-export type AbGefahrKey = (typeof AB_GEFAHREN_KATALOG)[number]["key"];
-
-/** Ein Gefahren-Randfeld: an der Einsatzstelle betroffen? plus optionale Kurznotiz. */
-export interface AbGefahr {
-  betroffen: boolean;
-  notiz?: string;
+  typ: AbKanalTyp;
+  gruppe: string;
+  verwendungszweck: string;
 }
 
 // ---- Rückseite: Wetter (DWD OpenData via BrightSky) ----
 /**
  * Wetter-Snapshot für die Kartenmitte des Lagebilds (#44 Teil 2 / Wetter-Teil #42).
- * **Geteilter** Arbeitsblatt-Zustand: ein schreibberechtigter Nutzer ruft ab, der
+ * **Geteilter** Übersichts-Zustand: ein schreibberechtigter Nutzer ruft ab, der
  * Snapshot landet im CRDT, alle (auch RO-Monitore) sehen dasselbe. Anders als die
  * feldweise gemergten Tabellen ist Wetter ein **atomarer Whole-Value-Posten** unter
  * genau einem Key (AB_WETTER_SNAPSHOT) — es wird nicht kollaborativ feldweise editiert,
@@ -253,39 +189,44 @@ export interface AbWetterSnapshot {
 
 // ---- assembled snapshot (read back via toJSON for the JSON export) ----
 /**
- * The whole worksheet as a plain object — the shape produced by reading every
- * top-level type back with toJSON(). Used for the JSON export (§10.4) and, later,
- * import. Von Feld B fließen nur die Gefahren-Randfelder (`gefahren`) ein; das
- * Lagebild selbst ist eine read-only Referenz auf `lagekarte`, keine eigenen Daten.
+ * Die ganze Übersicht als einfaches Objekt — die Form, die beim Zurücklesen jedes
+ * Top-Level-Types via toJSON() entsteht. Genutzt für JSON-Export/-Import (§10.4/§12).
+ * Feld B (Lagebild) und Feld C (Kräfteübersicht) fließen NICHT ein: das Lagebild ist
+ * eine read-only Referenz auf `lagekarte`, die Kräfte-Kennzahlen sind abgeleitet aus
+ * `kraefteubersicht` — beide haben keine eigenen Daten in diesem Doc.
  */
 export interface Arbeitsblatt {
   kopf: AbKopf;
-  gefahren: Partial<Record<AbGefahrKey, AbGefahr>>;
-  fuehrungsvorgang: AbFuehrungszeile[];
+  auftraege: AbAuftrag[];
   rueckmeldungen: AbNotiz[];
-  eigeneLage: AbEigeneLage;
-  nachforderung: AbNachforderung[];
   organisation: AbOrganisation;
-  organigramm: AbOrganigrammzeile[];
+  kanaele: AbKanal[]; // Feld F — frei angelegte Funkkanäle
   wetter: AbWetterSnapshot | null; // Rückseite — null solange nie abgerufen
 }
 
 /** Envelope of the client-side JSON export (architecture.md §10.4 / §12). */
 export const AB_EXPORT_FORMAT = "lagekatse.arbeitsblatt" as const;
 
+/**
+ * Export-Version. **2** seit dem Übersicht-Redesign (A–F). v1-Dateien (altes
+ * Arbeitsblatt mit Gefahren/Führungsvorgang/eigene Lage/Organigramm) sind
+ * strukturell inkompatibel und werden vom Import bewusst abgelehnt.
+ */
+export const AB_EXPORT_VERSION = 2 as const;
+
 export interface ArbeitsblattExport {
   format: typeof AB_EXPORT_FORMAT;
-  version: 1;
+  version: typeof AB_EXPORT_VERSION;
   exportedAt: string; // ISO-8601
   sheet: Arbeitsblatt;
 }
 
 // ---- Coercion-Helfer für den JSON-Import (rohe Werte aus Fremddateien absichern) ----
 /**
- * Defensive Konvertierungen für unvertraute Eingaben (JSON-Import §10.4, später
- * Bundle-Import #71). Bewusst hier in `shared` neben den Domänentypen, die sie
- * erzeugen — so nutzbar von Client **und** Server. Jede fällt auf einen sicheren
- * Default zurück, statt zu werfen: ein defektes Feld darf den Import nicht kippen.
+ * Defensive Konvertierungen für unvertraute Eingaben (JSON-Import §10.4, Bundle-Import
+ * #71). Bewusst hier in `shared` neben den Domänentypen, die sie erzeugen — so nutzbar
+ * von Client **und** Server. Jede fällt auf einen sicheren Default zurück, statt zu
+ * werfen: ein defektes Feld darf den Import nicht kippen.
  */
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -296,9 +237,7 @@ export function asString(value: unknown): string {
 export function asBool(value: unknown): boolean {
   return value === true;
 }
-export function asPrio(value: unknown): AbPrioritaet {
-  return value === 1 || value === 2 || value === 3 ? value : "";
-}
-export function asFunktion(value: unknown): AbFunktion {
-  return value === "GF" || value === "ZF" || value === "VF" ? value : "";
+/** Funkkanal-Typ; alles außer "DMO" fällt auf "TMO" (der übliche Netzbetrieb). */
+export function asKanalTyp(value: unknown): AbKanalTyp {
+  return value === "DMO" ? "DMO" : "TMO";
 }

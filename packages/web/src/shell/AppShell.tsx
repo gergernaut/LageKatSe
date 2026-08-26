@@ -163,12 +163,12 @@ function viewLabel(view: ActiveView): string {
 }
 
 // Kurze, in die schmale Rail passende Beschriftungen (der volle Name steht im
-// title/aria-label). "takt. Arbeitsblatt" bricht in der Rail auf zwei Zeilen um.
+// title/aria-label). "takt. Übersicht" bricht in der Rail auf zwei Zeilen um.
 const RAIL_LABELS: Record<ActiveView, string> = {
   uebersicht: "Übersicht",
   lagekarte: "Lagekarte",
   etb: "ETB",
-  arbeitsblatt: "takt. Arbeitsblatt",
+  arbeitsblatt: "takt. Übersicht",
   kraefteubersicht: "Kräfte",
 };
 
@@ -402,7 +402,7 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
           </Suspense>
         )}
         {activeView === "arbeitsblatt" && (
-          <Suspense fallback={<div className="shell-loading">Arbeitsblatt wird geladen…</div>}>
+          <Suspense fallback={<div className="shell-loading">Taktische Übersicht wird geladen…</div>}>
             <Arbeitsblatt session={session} />
           </Suspense>
         )}
