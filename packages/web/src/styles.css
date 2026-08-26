@@ -24,6 +24,20 @@
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Darkmode: Canvas-Bereich auf die dunklen Farben von Rail/Topbar umstellen.
+   Rail/Topbar bleiben unveraendert (sie sind bereits dunkel). Toggle in der Rail,
+   Wahl in localStorage (Invariante #4 — reine Anzeige-Option, kein CRDT). */
+[data-theme="dark"] {
+  --canvas: #0e141b;
+  --surface: #17222e;
+  --surface-2: #131c26;
+  --ink: #e7edf3;
+  --ink-2: #93a4b6;
+  --ink-3: #5e7186;
+  --line: #263442;
+  --line-2: #1e2a36;
+}
+
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
 body { font-family: var(--sans); color: var(--ink); background: var(--ground); -webkit-font-smoothing: antialiased; }
@@ -170,6 +184,7 @@ input, select, textarea { font-family: inherit; }
 }
 .rail__notifications:disabled { cursor: not-allowed; opacity: .45; }
 .rail__exit { margin-top: 6px; }
+.rail__darkmode.is-enabled { color: var(--signal); }
 .lagekarte-symbol-size { display: inline-flex; align-items: center; gap: 7px; color: var(--on-dark-2); font-family: var(--mono); font-size: 11px; white-space: nowrap; }
 .lagekarte-symbol-size input { width: 90px; accent-color: var(--signal); }
 .lagekarte-symbol-size output { min-width: 42px; color: var(--on-dark); }
