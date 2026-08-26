@@ -641,7 +641,7 @@ Die Übersicht ist in feste Felder gegliedert:
 | **C** | Einheiten / Kräfteübersicht | **Abgeleitete** Kennzahlen (read-only): Gesamtstärke im Einsatz (DV 100) + Anzahl Fahrzeuge im BR, aus Modul `kraefteubersicht` |
 | **D** | Aufträge & Maßnahmen | Tabelle: Auftrag · Maßnahmen · laufender Vorgang · erledigt (erledigt = durchgestrichen, Eintrag bleibt) |
 | **E** | Notizen | Freie Notiz-/Checkliste |
-| **F** | Organisation/Kommunikation | Funkkanäle (TMO-/DMO-Gruppe, Führung, Gebäude) |
+| **F** | Kommunikation | Feste Funkkanäle (TMO-/DMO-Gruppe, Führung, Gebäude) **plus frei anlegbare Kanäle** (Typ TMO/DMO · Gruppe · Verwendungszweck) |
 
 > Die **Rückseite** (Checklisten für ABC-/Gefahrgut-Einsatz, Dekon, MANV): nur der **Wetter-Teil** ist
 > umgesetzt (§10.5, DWD/BrightSky); ABC/MANV/Dekon wurden verworfen (#42 geschlossen, #73).
@@ -670,7 +670,8 @@ ETB, §9.3). Definiert in `packages/shared/src/arbeitsblatt.ts`.
 | `kopf` (`Y.Map`) | A | Kopf-Skalare (einsatzstichwort, einsatzort, meldender, objektnr, datumUhrzeitgruppe) |
 | `auftraege` (`Y.Array<Y.Map>`) | D | Zeilen „Aufträge & Maßnahmen" |
 | `rueckmeldungen` (`Y.Array<Y.Map>`) | E | Notiz-/Checklisten-Einträge |
-| `organisation` (`Y.Map`) | F | Funkkanäle-Skalare (TMO/Führung/DMO/Gebäude) |
+| `organisation` (`Y.Map`) | F | Feste Funkkanäle-Skalare (TMO/Führung/DMO/Gebäude) |
+| `kanaele` (`Y.Array<Y.Map>`) | F | Frei angelegte Kanäle (typ TMO/DMO, gruppe, verwendungszweck) |
 | `wetter` (`Y.Map`) | Rückseite | Wetter-Snapshot (§10.5), ein Whole-Value-Key |
 
 Feld **B** referenziert die `lagekarte` read-only (§10.2) und hat **keine eigenen Daten** im Doc.
@@ -687,9 +688,12 @@ interface Arbeitsblatt {
     laufenderVorgang: boolean; erledigt: boolean;
   }[];
   rueckmeldungen: { id: string; text: string; erledigt: boolean }[];        // E (Checkliste)
-  organisation: {                                                           // F
+  organisation: {                                                           // F (feste Kanäle)
     tmoGruppe: string; fuehrungsKanal: string; dmoGruppe: string; gebFunk: string;
   };
+  kanaele: {                                                                // F (frei, Y.Array<Y.Map>)
+    id: string; typ: "TMO" | "DMO"; gruppe: string; verwendungszweck: string;
+  }[];
   wetter: AbWetterSnapshot | null;                                          // Rückseite (§10.5)
   // Feld B (Lagebild) = read-only-Referenz auf `lagekarte`; Feld C = abgeleitet aus `kraefteubersicht`
 }

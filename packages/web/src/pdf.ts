@@ -436,9 +436,24 @@ export async function arbeitsblattToPdf(
   for (const note of sheet.rueckmeldungen) checkRow(note.erledigt, note.text || "—");
   gap();
 
-  // F · Organisation / Kommunikation
-  heading("F", "Organisation / Kommunikation");
+  // F · Kommunikation
+  heading("F", "Kommunikation");
   for (const f of AB_KANAL_FIELDS) labelValue(AB_KANAL_LABELS[f], sheet.organisation[f]);
+  if (sheet.kanaele.length > 0) {
+    gap(2);
+    need(LH);
+    page.drawText("Weitere Kanäle", { x: M, y: y - S, size: S, font, color: INK });
+    y -= LH;
+    table(
+      [
+        { label: "Typ", width: 50 },
+        { label: "Gruppe", width: 120 },
+        { label: "Verwendungszweck", width: 353 },
+      ],
+      sheet.kanaele.map((k) => [k.typ, k.gruppe, k.verwendungszweck]),
+      "Keine weiteren Kanäle.",
+    );
+  }
   gap();
 
   // Wetter (Rückseite)
