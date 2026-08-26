@@ -120,7 +120,13 @@ export function Kraefteubersicht({ session }: { session: Session }) {
   const moveVehicle = (vehicle: KraftVehicle, to: KraftStatus) => {
     if (!writable || vehicle.status === to) return;
     setNotice("");
-    setField(vehicle.id, "status", to);
+    const map = findMap(vehicle.id);
+    map?.doc?.transact(() => {
+      map.set("status", to);
+      // Zurück in den Bereitstellungsraum ⇒ Einsatzabschnitts-Zuordnung aufheben (#137).
+      if (to === "br") map.set("einsatzabschnittId", "");
+      map.set("updatedAt", new Date().toISOString());
+    });
     void logToEtb(buildKraftEtbText(vehicle, to === "einsatz" ? "toEinsatz" : "toBr"));
   };
 

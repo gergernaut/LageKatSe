@@ -29,7 +29,10 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
   const [abschnitte, setAbschnitte] = useState<Einsatzabschnitt[]>([]);
   const [vehicles, setVehicles] = useState<KraftVehicle[]>([]);
   const [funkkanaele, setFunkkanaele] = useState<string[]>([]);
+  // Auswahl im Zuordnen-Dropdown je Abschnitt (abschnittId -> vehicleId).
+  const [assignSel, setAssignSel] = useState<Record<string, string>>({});
   const abschnitteRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
+  const vehiclesRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const writable = canWrite(session.roles, "einsatzabschnitte", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
   });
@@ -54,11 +57,13 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
   useEffect(() => {
     const conn = connectModule(session.room.id, "kraefteubersicht", session.token);
     const list = conn.doc.getArray<Y.Map<unknown>>(KRAFT_VEHICLES);
+    vehiclesRef.current = list;
     const refresh = () => setVehicles(list.toArray().map((v) => v.toJSON() as KraftVehicle));
     list.observeDeep(refresh);
     refresh();
     return () => {
       list.unobserveDeep(refresh);
+      vehiclesRef.current = null;
       conn.destroy();
     };
   }, [session.room.id, session.token]);
@@ -115,10 +120,47 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     rows.push([row]);
   };
 
+  // Schreibt einsatzabschnittId auf ein Fahrzeug im kraefteubersicht-Doc (Option A,
+  // #137). Erlaubt für einsatzabschnitte-Schreiber (S-Rollen+LdS) — die sind Teilmenge
+  // der kraefteubersicht-Schreiber, das Gateway lässt den Write also durch.
+  const setVehicleEa = (vehicleId: string, abschnittId: string) => {
+    const arr = vehiclesRef.current;
+    const map = arr?.toArray().find((m) => m.get("id") === vehicleId);
+    if (!map) return;
+    map.doc?.transact(() => {
+      map.set("einsatzabschnittId", abschnittId);
+      map.set("updatedAt", new Date().toISOString());
+    });
+  };
+
+  const assignVehicle = (abschnittId: string) => {
+    if (!writable) return;
+    const vehicleId = assignSel[abschnittId];
+    if (!vehicleId) return;
+    setVehicleEa(vehicleId, abschnittId);
+    setAssignSel((prev) => ({ ...prev, [abschnittId]: "" }));
+  };
+
+  const unassignVehicle = (vehicleId: string) => {
+    if (!writable) return;
+    setVehicleEa(vehicleId, "");
+  };
+
   const deleteAbschnitt = (a: Einsatzabschnitt) => {
     if (!writable) return;
     const label = `${a.typ} ${a.titel}`.trim() || "(ohne Titel)";
     if (!window.confirm(`Einsatzabschnitt „${label}" löschen?`)) return;
+    // Zugeordnete Fahrzeuge freigeben, damit sie nicht auf einen gelöschten
+    // Abschnitt zeigen (sonst „stecken" sie unsichtbar fest).
+    vehiclesRef.current
+      ?.toArray()
+      .filter((m) => m.get("einsatzabschnittId") === a.id)
+      .forEach((m) =>
+        m.doc?.transact(() => {
+          m.set("einsatzabschnittId", "");
+          m.set("updatedAt", new Date().toISOString());
+        }),
+      );
     const rows = abschnitteRef.current;
     if (!rows) return;
     const index = rows.toArray().findIndex((m) => m.get("id") === a.id);
@@ -127,6 +169,10 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
 
   const assignedVehicles = (abschnittId: string): KraftVehicle[] =>
     vehicles.filter((v) => v.status === "einsatz" && v.einsatzabschnittId === abschnittId);
+
+  // Im Einsatz und (noch) keinem Abschnitt zugeordnet → für das Zuordnen-Dropdown.
+  const unassignedVehicles = (): KraftVehicle[] =>
+    vehicles.filter((v) => v.status === "einsatz" && !v.einsatzabschnittId);
 
   return (
     <div className="einsatzabschnitte">
@@ -269,8 +315,42 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
                         <div className="ea-units__row" key={v.id}>
                           <span className="fz">{v.funkrufname || "(ohne Funkrufname)"}</span>
                           <span className="st">{formatStaerke(sumStaerke([v]))}</span>
+                          {writable && (
+                            <button
+                              className="ea-units__rm"
+                              type="button"
+                              title="Zuordnung entfernen"
+                              aria-label={`${v.funkrufname || "Fahrzeug"} aus Abschnitt entfernen`}
+                              onClick={() => unassignVehicle(v.id)}
+                            >
+                              ×
+                            </button>
+                          )}
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {writable && (
+                    <div className="ea-assign">
+                      <select
+                        aria-label="Fahrzeug zuordnen"
+                        value={assignSel[a.id] ?? ""}
+                        onChange={(e) => setAssignSel((prev) => ({ ...prev, [a.id]: e.currentTarget.value }))}
+                      >
+                        <option value="">Fahrzeug wählen … (im Einsatz, noch nicht zugeordnet)</option>
+                        {unassignedVehicles().map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {(v.funkrufname || "(ohne Funkrufname)") + " · " + formatStaerke(sumStaerke([v]))}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        disabled={!assignSel[a.id]}
+                        onClick={() => assignVehicle(a.id)}
+                      >
+                        Fzg. zuordnen
+                      </button>
                     </div>
                   )}
                   {writable && (
