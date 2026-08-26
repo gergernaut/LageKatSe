@@ -529,9 +529,33 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   margin: 0 0 13px; color: var(--ink-2);
   font: 650 11px var(--mono); letter-spacing: .08em; text-transform: uppercase;
 }
-.arbeitsblatt-organisation { padding: 18px; }
+.arbeitsblatt-organisation { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
 .arbeitsblatt-kanal-grid {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px;
+}
+
+/* Feld F · frei angelegte Funkkanäle (Typ / Gruppe / Verwendungszweck) */
+.arbeitsblatt-kanaele { display: flex; flex-direction: column; gap: 8px; }
+.arbeitsblatt-kanaele__head,
+.arbeitsblatt-kanaele__row {
+  display: grid; grid-template-columns: 84px 150px minmax(0, 1fr) auto;
+  align-items: center; gap: 10px;
+}
+.arbeitsblatt-kanaele__head > span {
+  color: var(--ink-3); font: 10px var(--mono); letter-spacing: .1em; text-transform: uppercase;
+}
+.arbeitsblatt-kanaele__row select,
+.arbeitsblatt-kanaele__row input[type="text"] {
+  width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--surface-2); color: var(--ink); font-size: 13px;
+}
+.arbeitsblatt-kanaele__row input[type="text"]:read-only { color: var(--ink-2); cursor: default; }
+.arbeitsblatt-kanaele__row select:disabled { color: var(--ink-2); cursor: default; opacity: 1; }
+.arbeitsblatt-kanaele__typ { font-family: var(--mono); }
+@media (max-width: 640px) {
+  .arbeitsblatt-kanaele__head { display: none; }
+  .arbeitsblatt-kanaele__row { grid-template-columns: 72px 1fr auto; }
+  .arbeitsblatt-kanaele__row input[aria-label="Verwendungszweck"] { grid-column: 1 / -1; }
 }
 
 .lagekarte-stage { min-height: 0; position: relative; overflow: hidden; }

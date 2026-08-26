@@ -3,8 +3,10 @@ import {
   AB_AUFTRAEGE,
   AB_EXPORT_FORMAT,
   AB_EXPORT_VERSION,
+  AB_KANAELE,
   AB_KANAL_FIELDS,
   AB_KANAL_LABELS,
+  AB_KANAL_TYPEN,
   AB_KOPF,
   AB_KOPF_FIELDS,
   AB_KOPF_LABELS,
@@ -18,7 +20,9 @@ import {
   KRAFT_VEHICLES,
   sumStaerke,
   type AbAuftrag,
+  type AbKanal,
   type AbKanalField,
+  type AbKanalTyp,
   type AbKopfField,
   type AbNotiz,
   type AbWetterSnapshot,
@@ -53,6 +57,7 @@ const EMPTY_SHEET: ArbeitsblattState = {
     dmoGruppe: "",
     gebFunk: "",
   },
+  kanaele: [],
   wetter: null,
 };
 
@@ -87,6 +92,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   const auftraegeRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const rueckmeldRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const organisationRef = useRef<Y.Map<unknown> | null>(null);
+  const kanaeleRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const wetterRef = useRef<Y.Map<unknown> | null>(null);
   const writable = canWrite(session.roles, "arbeitsblatt", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
@@ -99,12 +105,14 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     const auftraege = doc.getArray<Y.Map<unknown>>(AB_AUFTRAEGE);
     const rueckmeld = doc.getArray<Y.Map<unknown>>(AB_RUECKMELD);
     const organisation = doc.getMap<unknown>(AB_ORGANISATION);
+    const kanaele = doc.getArray<Y.Map<unknown>>(AB_KANAELE);
     const wetter = doc.getMap<unknown>(AB_WETTER);
 
     kopfRef.current = kopf;
     auftraegeRef.current = auftraege;
     rueckmeldRef.current = rueckmeld;
     organisationRef.current = organisation;
+    kanaeleRef.current = kanaele;
     wetterRef.current = wetter;
 
     const readSheet = (): ArbeitsblattState => ({
@@ -123,6 +131,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
         dmoGruppe: stringValue(organisation, "dmoGruppe"),
         gebFunk: stringValue(organisation, "gebFunk"),
       },
+      kanaele: kanaele.toArray().map((row) => row.toJSON() as AbKanal),
       wetter: (wetter.get(AB_WETTER_SNAPSHOT) as AbWetterSnapshot | undefined) ?? null,
     });
 
@@ -149,6 +158,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
       auftraegeRef.current = null;
       rueckmeldRef.current = null;
       organisationRef.current = null;
+      kanaeleRef.current = null;
       wetterRef.current = null;
       conn.destroy();
     };
@@ -262,6 +272,30 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   const setOrganisation = (field: AbKanalField, value: string) => {
     if (!writable) return;
     organisationRef.current?.set(field, value);
+  };
+
+  const setKanalField = (id: string, field: keyof Omit<AbKanal, "id">, value: unknown) => {
+    if (!writable) return;
+    const row = kanaeleRef.current?.toArray().find((item) => item.get("id") === id);
+    row?.set(field, value);
+  };
+
+  const addKanal = () => {
+    if (!writable) return;
+    const rows = kanaeleRef.current;
+    if (!rows) return;
+    const value: AbKanal = { id: uid(), typ: "TMO", gruppe: "", verwendungszweck: "" };
+    const row = new Y.Map<unknown>();
+    Object.entries(value).forEach(([field, fieldValue]) => row.set(field, fieldValue));
+    rows.push([row]);
+  };
+
+  const deleteKanal = (id: string) => {
+    if (!writable) return;
+    const rows = kanaeleRef.current;
+    if (!rows) return;
+    const index = rows.toArray().findIndex((row) => row.get("id") === id);
+    if (index >= 0) rows.delete(index, 1);
   };
 
   const exportJson = () => {
@@ -628,7 +662,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
         <div className="arbeitsblatt-panel__head">
           <h3 id="arbeitsblatt-organisation-title">
             <span className="arbeitsblatt-panel__letter">F</span>
-            <span aria-hidden="true">·</span> Organisation / Kommunikation
+            <span aria-hidden="true">·</span> Kommunikation
           </h3>
         </div>
         <div className="arbeitsblatt-organisation">
@@ -646,6 +680,72 @@ export function Arbeitsblatt({ session }: { session: Session }) {
                   />
                 </label>
               ))}
+            </div>
+          </div>
+
+          <div className="arbeitsblatt-group">
+            <h4>Weitere Kanäle</h4>
+            <div className="arbeitsblatt-kanaele">
+              <div className="arbeitsblatt-kanaele__head" aria-hidden="true">
+                <span>Typ</span>
+                <span>Gruppe</span>
+                <span>Verwendungszweck</span>
+                {writable && <span />}
+              </div>
+              {sheet.kanaele.map((kanal) => (
+                <div className="arbeitsblatt-kanaele__row" key={kanal.id}>
+                  <select
+                    className="arbeitsblatt-kanaele__typ"
+                    value={kanal.typ}
+                    disabled={!writable}
+                    aria-label="Kanal-Typ"
+                    onChange={(event) =>
+                      setKanalField(kanal.id, "typ", event.currentTarget.value as AbKanalTyp)
+                    }
+                  >
+                    {AB_KANAL_TYPEN.map((typ) => (
+                      <option key={typ} value={typ}>
+                        {typ}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={kanal.gruppe}
+                    readOnly={!writable}
+                    aria-label="Gruppe"
+                    placeholder="z. B. 306"
+                    onChange={(event) => setKanalField(kanal.id, "gruppe", event.currentTarget.value)}
+                  />
+                  <input
+                    type="text"
+                    value={kanal.verwendungszweck}
+                    readOnly={!writable}
+                    aria-label="Verwendungszweck"
+                    placeholder="z. B. Abschnitt Nord / Wasserförderung"
+                    onChange={(event) =>
+                      setKanalField(kanal.id, "verwendungszweck", event.currentTarget.value)
+                    }
+                  />
+                  {writable && (
+                    <button
+                      className="arbeitsblatt-delete"
+                      type="button"
+                      onClick={() => deleteKanal(kanal.id)}
+                    >
+                      Löschen
+                    </button>
+                  )}
+                </div>
+              ))}
+              {sheet.kanaele.length === 0 && (
+                <p className="arbeitsblatt-empty">Noch keine weiteren Kanäle</p>
+              )}
+              {writable && (
+                <button className="etb-add" type="button" onClick={addKanal}>
+                  Kanal hinzufügen
+                </button>
+              )}
             </div>
           </div>
         </div>
