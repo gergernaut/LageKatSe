@@ -15,13 +15,29 @@ const Arbeitsblatt = lazy(() =>
 const Kraefteubersicht = lazy(() =>
   import("../kraefteubersicht/Kraefteubersicht").then((m) => ({ default: m.Kraefteubersicht })),
 );
+const Einsatzabschnitte = lazy(() =>
+  import("../einsatzabschnitte/Einsatzabschnitte").then((m) => ({ default: m.Einsatzabschnitte })),
+);
 
 const ACTIVE_VIEW_KEY = "lagekatse.activeView";
 const NOTIFICATIONS_KEY = "lagekatse.notifications";
 
-export type ActiveView = "uebersicht" | "lagekarte" | "etb" | "arbeitsblatt" | "kraefteubersicht";
+export type ActiveView =
+  | "uebersicht"
+  | "lagekarte"
+  | "etb"
+  | "arbeitsblatt"
+  | "kraefteubersicht"
+  | "einsatzabschnitte";
 
-const VIEWS: ActiveView[] = ["uebersicht", "lagekarte", "etb", "arbeitsblatt", "kraefteubersicht"];
+const VIEWS: ActiveView[] = [
+  "uebersicht",
+  "lagekarte",
+  "etb",
+  "arbeitsblatt",
+  "kraefteubersicht",
+  "einsatzabschnitte",
+];
 
 const RAIL_ACTIVITY: Record<ActiveView, Module> = {
   uebersicht: "chat",
@@ -29,6 +45,7 @@ const RAIL_ACTIVITY: Record<ActiveView, Module> = {
   etb: "etb",
   arbeitsblatt: "arbeitsblatt",
   kraefteubersicht: "kraefteubersicht",
+  einsatzabschnitte: "einsatzabschnitte",
 };
 
 function activitySeenKey(roomId: string): string {
@@ -135,6 +152,16 @@ function ViewIcon({ view }: { view: ActiveView }) {
       </svg>
     );
   }
+  if (view === "einsatzabschnitte") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <rect x="9" y="3" width="6" height="5" rx="1" />
+        <rect x="3" y="16" width="6" height="5" rx="1" />
+        <rect x="15" y="16" width="6" height="5" rx="1" />
+        <path d="M12 8v4M6 16v-2h12v2" />
+      </svg>
+    );
+  }
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
       <rect x="5" y="4" width="14" height="17" rx="2" />
@@ -170,6 +197,7 @@ const RAIL_LABELS: Record<ActiveView, string> = {
   etb: "ETB",
   arbeitsblatt: "takt. Übersicht",
   kraefteubersicht: "Kräfte",
+  einsatzabschnitte: "Abschnitte",
 };
 
 export function AppShell({ session, onLeave }: { session: Session; onLeave: () => void }) {
@@ -450,6 +478,11 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
         {activeView === "kraefteubersicht" && (
           <Suspense fallback={<div className="shell-loading">Kräfteübersicht wird geladen…</div>}>
             <Kraefteubersicht session={session} />
+          </Suspense>
+        )}
+        {activeView === "einsatzabschnitte" && (
+          <Suspense fallback={<div className="shell-loading">Einsatzabschnitte werden geladen…</div>}>
+            <Einsatzabschnitte session={session} />
           </Suspense>
         )}
       </main>
