@@ -58,15 +58,16 @@ export const ROLE_LABELS: Record<Role, string> = {
  * write scope is modelled here.
  */
 export const WRITE_SCOPES: Record<Role, Module[]> = {
-  S1: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
-  S2: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
-  S3: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
-  S4: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
-  S5: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
-  S6: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
+  S1: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "einsatzabschnitte", "chat"],
+  S2: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "einsatzabschnitte", "chat"],
+  S3: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "einsatzabschnitte", "chat"],
+  S4: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "einsatzabschnitte", "chat"],
+  S5: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "einsatzabschnitte", "chat"],
+  S6: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "einsatzabschnitte", "chat"],
   // LdS / Einsatzleiter — volle Schreibrechte wie Stabsrollen (#102).
-  LDS: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
-  // Lagekarten- und ETB-Führer dürfen die Kräfteübersicht mitpflegen (#100).
+  LDS: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "einsatzabschnitte", "chat"],
+  // Lagekarten- und ETB-Führer dürfen die Kräfteübersicht mitpflegen (#100), aber
+  // NICHT die Einsatzabschnitte — die sind Stabssache (S-Rollen + LdS, #135).
   LAGEKARTE: ["lagekarte", "kraefteubersicht", "chat"],
   ETB: ["etb", "kraefteubersicht", "chat"],
   MONITOR: [],

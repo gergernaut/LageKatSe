@@ -59,6 +59,11 @@ export interface KraftVehicle {
   unterfuehrer: number; // DV 100: Unterführer
   helfer: number; // DV 100: Helfer
   status: KraftStatus;
+  // Zugeordneter Einsatzabschnitt (#133/#135): id eines Abschnitts im
+  // `einsatzabschnitte`-Doc, oder fehlend/"" = keinem Abschnitt zugeordnet.
+  // Nur für Fahrzeuge im Einsatz relevant; der Wert wird beim Modul-Wechsel
+  // (Einsatz→BR) und beim Entlassen geleert (#137).
+  einsatzabschnittId?: string;
   createdAt: string; // ISO-8601
   updatedAt: string; // ISO-8601
 }
@@ -177,6 +182,8 @@ export function coerceVehicle(value: unknown, fallbackId: () => string): KraftVe
     unterfuehrer: asCount(r.unterfuehrer),
     helfer: asCount(r.helfer),
     status: asKraftStatus(r.status),
+    // Zuordnung nur übernehmen, wenn vorhanden (leere/fehlende bleiben unzugeordnet).
+    ...(asString(r.einsatzabschnittId) ? { einsatzabschnittId: asString(r.einsatzabschnittId) } : {}),
     createdAt: created,
     updatedAt: asString(r.updatedAt) || created,
   };

@@ -3,7 +3,7 @@
  * independent Yjs document *and* an independent permission scope — the
  * document boundary is the rights boundary (see architecture.md §5.1).
  */
-export const MODULES = ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"] as const;
+export const MODULES = ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "einsatzabschnitte", "chat"] as const;
 
 export type Module = (typeof MODULES)[number];
 
@@ -16,5 +16,6 @@ export const MODULE_LABELS: Record<Module, string> = {
   etb: "Einsatztagebuch",
   arbeitsblatt: "Taktische Übersicht",
   kraefteubersicht: "Kräfteübersicht",
+  einsatzabschnitte: "Einsatzabschnitte",
   chat: "Stabsraum-Chat",
 };
