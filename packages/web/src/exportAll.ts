@@ -15,6 +15,7 @@ import {
   AB_AUFTRAEGE,
   AB_EXPORT_FORMAT,
   AB_EXPORT_VERSION,
+  AB_KANAELE,
   AB_KOPF,
   AB_ORGANISATION,
   AB_RUECKMELD,
@@ -47,6 +48,7 @@ function extractArbeitsblatt(doc: Y.Doc) {
   const auftraege = doc.getArray<Y.Map<unknown>>(AB_AUFTRAEGE);
   const rueckmeld = doc.getArray<Y.Map<unknown>>(AB_RUECKMELD);
   const organisation = doc.getMap<unknown>(AB_ORGANISATION);
+  const kanaele = doc.getArray<Y.Map<unknown>>(AB_KANAELE);
   const wetter = doc.getMap<unknown>(AB_WETTER);
 
   return {
@@ -69,6 +71,7 @@ function extractArbeitsblatt(doc: Y.Doc) {
         dmoGruppe: stringValue(organisation, "dmoGruppe"),
         gebFunk: stringValue(organisation, "gebFunk"),
       },
+      kanaele: kanaele.toJSON(),
       wetter: wetter.get(AB_WETTER_SNAPSHOT) ?? null,
     },
   };

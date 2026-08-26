@@ -10,6 +10,7 @@
 import * as Y from "yjs";
 import {
   AB_AUFTRAEGE,
+  AB_KANAELE,
   AB_KANAL_FIELDS,
   AB_KOPF,
   AB_KOPF_FIELDS,
@@ -18,6 +19,7 @@ import {
   AB_WETTER,
   AB_WETTER_SNAPSHOT,
   asBool,
+  asKanalTyp,
   asString,
   isRecord,
 } from "@lagekatse/shared";
@@ -40,11 +42,13 @@ export function applyArbeitsblattImport(doc: Y.Doc, sheet: unknown, newId: () =>
   const organisationObj = isRecord(s.organisation) ? s.organisation : {};
   const auftraegeArr = Array.isArray(s.auftraege) ? s.auftraege : [];
   const rueckArr = Array.isArray(s.rueckmeldungen) ? s.rueckmeldungen : [];
+  const kanaeleArr = Array.isArray(s.kanaele) ? s.kanaele : [];
 
   const kopf = doc.getMap<unknown>(AB_KOPF);
   const auftraege = doc.getArray<Y.Map<unknown>>(AB_AUFTRAEGE);
   const rueck = doc.getArray<Y.Map<unknown>>(AB_RUECKMELD);
   const organisation = doc.getMap<unknown>(AB_ORGANISATION);
+  const kanaele = doc.getArray<Y.Map<unknown>>(AB_KANAELE);
   const wetter = doc.getMap<unknown>(AB_WETTER);
 
   doc.transact(() => {
@@ -73,8 +77,22 @@ export function applyArbeitsblattImport(doc: Y.Doc, sheet: unknown, newId: () =>
       rueck.push([rowMap({ id: asString(r.id) || newId(), text: asString(r.text), erledigt: asBool(r.erledigt) })]);
     }
 
-    // Feld F: Organisation (Funkkanal-Skalare)
+    // Feld F: feste Funkkanäle (Skalare)
     AB_KANAL_FIELDS.forEach((f) => organisation.set(f, asString(organisationObj[f])));
+
+    // Feld F: frei angelegte Kanäle (Array ersetzen)
+    kanaele.delete(0, kanaele.length);
+    for (const r of kanaeleArr) {
+      if (!isRecord(r)) continue;
+      kanaele.push([
+        rowMap({
+          id: asString(r.id) || newId(),
+          typ: asKanalTyp(r.typ),
+          gruppe: asString(r.gruppe),
+          verwendungszweck: asString(r.verwendungszweck),
+        }),
+      ]);
+    }
 
     // Rückseite: Wetter-Snapshot (Whole-Value) übernehmen oder leeren
     if (isRecord(s.wetter)) wetter.set(AB_WETTER_SNAPSHOT, s.wetter);

@@ -18,7 +18,8 @@
  *   doc.getMap(AB_KOPF)           Feld A — Kopf-Skalare (AbKopf)
  *   doc.getArray(AB_AUFTRAEGE)    Feld D — Aufträge & Maßnahmen (Y.Map je AbAuftrag)
  *   doc.getArray(AB_RUECKMELD)    Feld E — Notizen (Y.Map je AbNotiz)
- *   doc.getMap(AB_ORGANISATION)   Feld F — Funkkanäle (AbOrganisation)
+ *   doc.getMap(AB_ORGANISATION)   Feld F — feste Funkkanäle (AbOrganisation)
+ *   doc.getArray(AB_KANAELE)      Feld F — frei angelegte Funkkanäle (Y.Map je AbKanal)
  *   doc.getMap(AB_WETTER)         Rückseite — Wetter-Snapshot (DWD/BrightSky, ein Whole-Value-Posten)
  *
  * Feld B (Lagebild) bettet die `lagekarte` read-only ein (§10.2) — die Karte bleibt
@@ -32,6 +33,7 @@ export const AB_KOPF = "kopf" as const;
 export const AB_AUFTRAEGE = "auftraege" as const;
 export const AB_RUECKMELD = "rueckmeldungen" as const;
 export const AB_ORGANISATION = "organisation" as const;
+export const AB_KANAELE = "kanaele" as const;
 export const AB_WETTER = "wetter" as const;
 
 // ---- Feld A: Kopfzeile ----
@@ -108,6 +110,23 @@ export const AB_KANAL_LABELS: Record<AbKanalField, string> = {
   gebFunk: "Gebäudefunk",
 };
 
+// ---- Feld F: weitere Funkkanäle (frei anlegbare Liste) ----
+/** Betriebsart eines Funkkanals: Trunked Mode (Netz) oder Direct Mode (direkt). */
+export const AB_KANAL_TYPEN = ["TMO", "DMO"] as const;
+export type AbKanalTyp = (typeof AB_KANAL_TYPEN)[number];
+
+/**
+ * Ein frei angelegter Funkkanal (Feld F, zusätzlich zu den vier festen Feldern).
+ * Als Y.Map-Listeneintrag in AB_KANAELE — Feld-Level-Merge wie die übrigen Zeilen.
+ * `gruppe` ist meist kurz (< 20 Zeichen), `verwendungszweck` der ausführlichere Freitext.
+ */
+export interface AbKanal {
+  id: string;
+  typ: AbKanalTyp;
+  gruppe: string;
+  verwendungszweck: string;
+}
+
 // ---- Rückseite: Wetter (DWD OpenData via BrightSky) ----
 /**
  * Wetter-Snapshot für die Kartenmitte des Lagebilds (#44 Teil 2 / Wetter-Teil #42).
@@ -181,6 +200,7 @@ export interface Arbeitsblatt {
   auftraege: AbAuftrag[];
   rueckmeldungen: AbNotiz[];
   organisation: AbOrganisation;
+  kanaele: AbKanal[]; // Feld F — frei angelegte Funkkanäle
   wetter: AbWetterSnapshot | null; // Rückseite — null solange nie abgerufen
 }
 
@@ -216,4 +236,8 @@ export function asString(value: unknown): string {
 }
 export function asBool(value: unknown): boolean {
   return value === true;
+}
+/** Funkkanal-Typ; alles außer "DMO" fällt auf "TMO" (der übliche Netzbetrieb). */
+export function asKanalTyp(value: unknown): AbKanalTyp {
+  return value === "DMO" ? "DMO" : "TMO";
 }
