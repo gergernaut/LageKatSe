@@ -176,6 +176,16 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
   const [activeView, setActiveView] = useState<ActiveView>(loadActiveView);
   const [seen, setSeen] = useState<ActivityCounters>(() => loadActivitySeen(session.room.id));
   const [notificationsEnabled, setNotificationsEnabled] = useState(loadNotificationsEnabled);
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem("lagekatse.darkmode");
+      if (stored !== null) return stored === "1";
+      // System-Preference als Default
+      return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+    } catch {
+      return false;
+    }
+  });
   const chat = useRoomChat(session);
   const { counters: activity, summaries, synced, closed } = useRoomActivity(session);
   // Baseline "seen" to the server's current counters on the first sync of a fresh
@@ -192,6 +202,17 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
       /* storage unavailable — keep the active view in memory only */
     }
   }, [activeView]);
+
+  // Darkmode: data-theme auf <html> setzen + in localStorage persistieren.
+  // Reine Anzeige-Option (Invariante #4) — kein CRDT, kein Server.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", darkMode ? "dark" : "light");
+    try {
+      localStorage.setItem("lagekatse.darkmode", darkMode ? "1" : "0");
+    } catch {
+      /* storage unavailable — keep in memory only */
+    }
+  }, [darkMode]);
 
   useEffect(() => {
     // Only touch "seen" once the counters are authoritative. Before the initial
@@ -328,6 +349,26 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
           <div className="rail__avatar">{initials(session.name)}</div>
           <span>{session.roles.join(" · ")}</span>
         </div>
+        <button
+          className={`rail__item rail__darkmode ${darkMode ? "is-enabled" : ""}`}
+          type="button"
+          title={darkMode ? "Darkmode aus" : "Darkmode an"}
+          aria-label={darkMode ? "Darkmode aus" : "Darkmode an"}
+          aria-pressed={darkMode}
+          onClick={() => setDarkMode((v) => !v)}
+        >
+          {darkMode ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+            </svg>
+          )}
+          <span>{darkMode ? "Hell" : "Dunkel"}</span>
+        </button>
         <button
           className={`rail__item rail__notifications ${notificationsActive ? "is-enabled" : ""}`}
           type="button"
