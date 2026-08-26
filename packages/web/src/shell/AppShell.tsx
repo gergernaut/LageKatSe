@@ -178,7 +178,7 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
   const [notificationsEnabled, setNotificationsEnabled] = useState(loadNotificationsEnabled);
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     try {
-      const stored = localStorage.getItem("lagekatse:darkmode");
+      const stored = localStorage.getItem("lagekatse.darkmode");
       if (stored !== null) return stored === "1";
       // System-Preference als Default
       return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
@@ -208,7 +208,7 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", darkMode ? "dark" : "light");
     try {
-      localStorage.setItem("lagekatse:darkmode", darkMode ? "1" : "0");
+      localStorage.setItem("lagekatse.darkmode", darkMode ? "1" : "0");
     } catch {
       /* storage unavailable — keep in memory only */
     }
