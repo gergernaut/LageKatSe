@@ -2,7 +2,7 @@
 
 **Ein Stab. Ein Lagebild. In Echtzeit.** — LageKatSe ist eine browserbasierte,
 kollaborative Lageverwaltung für den Katastrophenschutz-Führungsstab: Lagekarte,
-Einsatztagebuch, taktisches Arbeitsblatt und Kräfteübersicht, live synchron für
+Einsatztagebuch, Taktische Übersicht und Kräfteübersicht, live synchron für
 alle Beteiligten.
 
 > **Unterstützendes Werkzeug bzw. Übungsmittel** — LageKatSe ist **kein primäres
@@ -34,9 +34,10 @@ durchgesetzt. Läuft im Browser, ohne Installation beim Nutzer — im Internet
 - **📓 Einsatztagebuch (ETB)** — tabellarisch, mit **server-vergebener,
   lückenloser Lfd-Nr.** und Serverzeit, Live-Feld-Bearbeitung, Storno,
   JSON- und **PDF-Export**.
-- **📋 Taktisches Arbeitsblatt** — die IdF-Vorderseite (Felder A–F) live-synchron,
-  Gefahren-Randfelder, Feld B als eingebettete Live-Lagekarte, **Wetter-Rückseite**
-  (DWD/Bright Sky). JSON-Im-/Export und PDF-Export.
+- **📋 Taktische Übersicht** — schlanke Lage-Übersicht (Felder A–F) live-synchron:
+  Kopfzeile (DUG automatisch vorbelegt), vollbreites Live-Lagebild, abgeleitete
+  Kräfte-Kennzahlen (aus der Kräfteübersicht), Aufträge & Maßnahmen, Notizen, Funkkanäle,
+  **Wetter-Rückseite** (DWD/Bright Sky). JSON-Im-/Export und PDF-Export.
 - **🚒 Kräfteübersicht** — Bereitstellungsraum ↔ Im Einsatz, Stärke nach **DV 100**
   mit automatischer Summierung; Verschieben/Entlassen wird ins ETB protokolliert.
 - **💬 Übersicht, Präsenz & Chat** — wer ist online, Stabsraum-Chat, und
@@ -52,7 +53,7 @@ durchgesetzt. Läuft im Browser, ohne Installation beim Nutzer — im Internet
     <td width="50%"><img src="docs/screenshots/etb.png" alt="Einsatztagebuch"><br><sub><b>Einsatztagebuch</b> — lückenlose Lfd-Nr., Live-Edit</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/arbeitsblatt.png" alt="Taktisches Arbeitsblatt"><br><sub><b>Taktisches Arbeitsblatt</b> — Felder A–F + Lagebild</sub></td>
+    <td width="50%"><img src="docs/screenshots/arbeitsblatt.png" alt="Taktische Übersicht"><br><sub><b>Taktische Übersicht</b> — Felder A–F + Lagebild</sub></td>
     <td width="50%"><img src="docs/screenshots/kraefteuebersicht.png" alt="Kräfteübersicht"><br><sub><b>Kräfteübersicht</b> — BR/Einsatz, Stärke nach DV 100</sub></td>
   </tr>
 </table>

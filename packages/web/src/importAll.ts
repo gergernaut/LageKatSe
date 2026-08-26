@@ -10,6 +10,7 @@
 import { unzipSync } from "fflate";
 import {
   AB_EXPORT_FORMAT,
+  AB_EXPORT_VERSION,
   ETB_EXPORT_FORMAT,
   KRAFT_VEHICLES,
   LAGEKARTE_FEATURES,
@@ -100,11 +101,13 @@ export async function importBundle(session: Session, file: File): Promise<Bundle
     skipped.push("Lagekarte (nicht im Bundle)");
   }
 
-  // --- Arbeitsblatt (client-CRDT, ersetzen) ---
+  // --- Taktische Übersicht (client-CRDT, ersetzen) ---
   if (cls.arbeitsblatt) {
     const parsed = parseJson(files[cls.arbeitsblatt]);
     if (!isRecord(parsed) || parsed.format !== AB_EXPORT_FORMAT || !isRecord(parsed.sheet)) {
-      skipped.push("Arbeitsblatt (ungültiges Format)");
+      skipped.push("Taktische Übersicht (ungültiges Format)");
+    } else if (parsed.version !== AB_EXPORT_VERSION) {
+      skipped.push("Taktische Übersicht (inkompatible Version)");
     } else {
       const conn = connectModule(session.room.id, "arbeitsblatt", session.token, { cache: false });
       try {
@@ -113,10 +116,10 @@ export async function importBundle(session: Session, file: File): Promise<Bundle
       } finally {
         conn.destroy();
       }
-      imported.push("Arbeitsblatt");
+      imported.push("Taktische Übersicht");
     }
   } else {
-    skipped.push("Arbeitsblatt (nicht im Bundle)");
+    skipped.push("Taktische Übersicht (nicht im Bundle)");
   }
 
   // --- Kräfteübersicht (client-CRDT, ersetzen) ---
