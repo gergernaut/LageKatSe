@@ -11,13 +11,14 @@
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import {
-  AB_GEFAHREN_KATALOG,
   AB_KANAL_FIELDS,
   AB_KANAL_LABELS,
   AB_KOPF_FIELDS,
   AB_KOPF_LABELS,
+  formatStaerke,
   type Arbeitsblatt,
   type LogEntry,
+  type Staerke,
 } from "@lagekatse/shared";
 import { formatDateTime } from "./format";
 
@@ -28,6 +29,12 @@ export interface PdfMeta {
 }
 /** @deprecated Alias — beide Exporte teilen dieselbe Meta-Form. */
 export type EtbPdfMeta = PdfMeta;
+
+/** Abgeleitete Kräfte-Kennzahlen für Feld C (aus dem kraefteubersicht-Modul). */
+export interface AbKraftKennzahlen {
+  einsatz: Staerke; // Gesamtstärke der im Einsatz befindlichen Einheiten
+  brCount: number; // Anzahl Fahrzeuge im Bereitstellungsraum
+}
 
 const INK = rgb(0.05, 0.08, 0.11);
 const MUTED = rgb(0.42, 0.5, 0.58);
@@ -259,8 +266,12 @@ function compass(deg: number): string {
   return ["N", "NO", "O", "SO", "S", "SW", "W", "NW"][Math.round(deg / 45) % 8];
 }
 
-/** Erzeugt das taktische Arbeitsblatt als PDF (Uint8Array). */
-export async function arbeitsblattToPdf(sheet: Arbeitsblatt, meta: PdfMeta): Promise<Uint8Array> {
+/** Erzeugt die Taktische Übersicht als PDF (Uint8Array). */
+export async function arbeitsblattToPdf(
+  sheet: Arbeitsblatt,
+  kraft: AbKraftKennzahlen,
+  meta: PdfMeta,
+): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const font = await embedDejaVu(pdf);
 
@@ -380,7 +391,7 @@ export async function arbeitsblattToPdf(sheet: Arbeitsblatt, meta: PdfMeta): Pro
   };
 
   // Titelkopf
-  page.drawText(`Taktisches Arbeitsblatt — ${meta.roomName}`, { x: M, y: y - 13, size: 13, font, color: INK });
+  page.drawText(`Taktische Übersicht — ${meta.roomName}`, { x: M, y: y - 13, size: 13, font, color: INK });
   page.drawText(`Lobby ${meta.joinCode} · Stand ${meta.stamp}`, { x: M, y: y - 26, size: 9, font, color: MUTED });
   y -= 40;
 
@@ -389,70 +400,60 @@ export async function arbeitsblattToPdf(sheet: Arbeitsblatt, meta: PdfMeta): Pro
   for (const f of AB_KOPF_FIELDS) labelValue(AB_KOPF_LABELS[f], sheet.kopf[f]);
   gap();
 
-  // B · Gefahren der Einsatzstelle
-  heading("B", "Gefahren der Einsatzstelle (4 A · 1 C · 4 E)");
-  para("Lagebild: siehe Modul Lagekarte.", MUTED);
-  for (const g of AB_GEFAHREN_KATALOG) {
-    const posten = sheet.gefahren[g.key];
-    checkRow(!!posten?.betroffen, g.label, g.gruppe, posten?.betroffen ? posten.notiz ?? "" : "");
-  }
+  // B · Lagebild
+  heading("B", "Lagebild");
+  para("Live-Lagekarte: siehe Modul Lagekarte.", MUTED);
   gap();
 
-  // C · Führungsvorgang
-  heading("C", "Führungsvorgang");
+  // C · Einheiten / Kräfteübersicht (abgeleitet aus dem Modul Kräfteübersicht)
+  heading("C", "Einheiten / Kräfteübersicht");
+  labelValue("Gesamtstärke im Einsatz", formatStaerke(kraft.einsatz));
+  labelValue("Fahrzeuge im Bereitstellungsraum", String(kraft.brCount));
+  gap();
+
+  // D · Aufträge & Maßnahmen
+  heading("D", "Aufträge & Maßnahmen");
   table(
     [
-      { label: "Bedrohtes Objekt/Subjekt", width: 130 },
-      { label: "Wirkung", width: 92 },
-      { label: "Prio", width: 32 },
-      { label: "Maßnahmen", width: 237 },
+      { label: "Auftrag", width: 175 },
+      { label: "Maßnahmen", width: 236 },
+      { label: "Laufd.", width: 40 },
       { label: "Erl.", width: 32 },
     ],
-    sheet.fuehrungsvorgang.map((r) => [
-      r.bedrohtesObjekt,
-      r.wirkung,
-      r.prioritaet ? `P${r.prioritaet}` : "—",
+    sheet.auftraege.map((r) => [
+      r.auftrag,
       r.massnahmen,
-      r.erledigt ? "ja" : "nein",
+      r.laufenderVorgang ? "ja" : "—",
+      r.erledigt ? "ja" : "—",
     ]),
     "Keine Einträge.",
   );
   gap();
 
-  // D · Rückmeldungen / Notizen
-  heading("D", "Rückmeldungen / Notizen");
+  // E · Notizen
+  heading("E", "Notizen");
   if (sheet.rueckmeldungen.length === 0) para("Keine Notizen.", MUTED);
   for (const note of sheet.rueckmeldungen) checkRow(note.erledigt, note.text || "—");
   gap();
 
-  // E · Eigene Lage / Nachforderung
-  heading("E", "Eigene Lage / Nachforderung");
-  checkRow(sheet.eigeneLage.auftragMr, "Menschenrettung (MR)");
-  checkRow(sheet.eigeneLage.auftragBb, "Brandbekämpfung (BB)");
-  labelValue("Weiterer Auftrag", sheet.eigeneLage.auftragText);
-  labelValue("Kräfteübersicht", sheet.eigeneLage.kraefteuebersicht);
-  if (sheet.nachforderung.length === 0) para("Nachforderung: keine", MUTED);
-  else for (const nf of sheet.nachforderung) para(`• ${nf.text}`);
-  gap();
-
-  // F · Organisation / Kommunikation
-  heading("F", "Organisation / Kommunikation");
+  // F · Kommunikation
+  heading("F", "Kommunikation");
   for (const f of AB_KANAL_FIELDS) labelValue(AB_KANAL_LABELS[f], sheet.organisation[f]);
-  labelValue("Eigene Funktion", sheet.organisation.eigeneFunktion || "—");
-  gap(2);
-  need(LH);
-  page.drawText("Führungs-Organigramm", { x: M, y: y - S, size: S, font, color: INK });
-  y -= LH;
-  table(
-    [
-      { label: "Rolle", width: 120 },
-      { label: "Auftrag", width: 200 },
-      { label: "Führer", width: 110 },
-      { label: "Rufname", width: 93 },
-    ],
-    sheet.organigramm.map((r) => [r.rolle, r.auftrag, r.fuehrer, r.rufname]),
-    "Keine Einträge.",
-  );
+  if (sheet.kanaele.length > 0) {
+    gap(2);
+    need(LH);
+    page.drawText("Weitere Kanäle", { x: M, y: y - S, size: S, font, color: INK });
+    y -= LH;
+    table(
+      [
+        { label: "Typ", width: 50 },
+        { label: "Gruppe", width: 120 },
+        { label: "Verwendungszweck", width: 353 },
+      ],
+      sheet.kanaele.map((k) => [k.typ, k.gruppe, k.verwendungszweck]),
+      "Keine weiteren Kanäle.",
+    );
+  }
   gap();
 
   // Wetter (Rückseite)
@@ -501,7 +502,7 @@ export async function arbeitsblattToPdf(sheet: Arbeitsblatt, meta: PdfMeta): Pro
   const pages = pdf.getPages();
   pages.forEach((p, idx) => {
     p.drawText(`Seite ${idx + 1} / ${pages.length}`, { x: M, y: M - 4, size: 8, font, color: MUTED });
-    p.drawText("LageKatSe · Taktisches Arbeitsblatt", { x: W - M - 150, y: M - 4, size: 8, font, color: MUTED });
+    p.drawText("LageKatSe · Taktische Übersicht", { x: W - M - 150, y: M - 4, size: 8, font, color: MUTED });
   });
 
   return pdf.save();
