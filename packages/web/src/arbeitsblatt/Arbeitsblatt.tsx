@@ -714,7 +714,6 @@ export function Arbeitsblatt({ session }: { session: Session }) {
                     value={kanal.gruppe}
                     readOnly={!writable}
                     aria-label="Gruppe"
-                    placeholder="z. B. 306"
                     onChange={(event) => setKanalField(kanal.id, "gruppe", event.currentTarget.value)}
                   />
                   <input
@@ -722,7 +721,6 @@ export function Arbeitsblatt({ session }: { session: Session }) {
                     value={kanal.verwendungszweck}
                     readOnly={!writable}
                     aria-label="Verwendungszweck"
-                    placeholder="z. B. Abschnitt Nord / Wasserförderung"
                     onChange={(event) =>
                       setKanalField(kanal.id, "verwendungszweck", event.currentTarget.value)
                     }
