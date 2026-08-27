@@ -335,7 +335,12 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
                       <select
                         aria-label="Fahrzeug zuordnen"
                         value={assignSel[a.id] ?? ""}
-                        onChange={(e) => setAssignSel((prev) => ({ ...prev, [a.id]: e.currentTarget.value }))}
+                        onChange={(e) => {
+                          // Wert VOR dem State-Updater lesen: React nullt currentTarget,
+                          // bevor der (verzögerte) prev-Updater läuft.
+                          const vehicleId = e.currentTarget.value;
+                          setAssignSel((prev) => ({ ...prev, [a.id]: vehicleId }));
+                        }}
                       >
                         <option value="">Fahrzeug wählen … (im Einsatz, noch nicht zugeordnet)</option>
                         {unassignedVehicles().map((v) => (
