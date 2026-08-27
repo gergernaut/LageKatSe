@@ -21,11 +21,15 @@ import {
   AB_RUECKMELD,
   AB_WETTER,
   AB_WETTER_SNAPSHOT,
+  EA_ABSCHNITTE,
+  EA_EXPORT_FORMAT,
   ETB_ENTRIES,
   ETB_EXPORT_FORMAT,
   KRAFT_EXPORT_FORMAT,
   KRAFT_VEHICLES,
   LAGEKARTE_FEATURES,
+  type Einsatzabschnitt,
+  type EinsatzabschnitteExport,
   type EtbExport,
   type KraftExport,
   type KraftVehicle,
@@ -152,6 +156,26 @@ export async function exportAll(session: Session): Promise<void> {
         vehicles: vehicles.toArray().map((v) => v.toJSON() as KraftVehicle),
       };
       files[`kraefteuebersicht-${code}-${stamp}.json`] = new TextEncoder().encode(
+        JSON.stringify(payload, null, 2),
+      );
+    } finally {
+      conn.destroy();
+    }
+  }
+
+  // --- Einsatzabschnitte ---
+  {
+    const conn = connectModule(session.room.id, "einsatzabschnitte", session.token, { cache: false });
+    try {
+      await waitForSync(conn);
+      const abschnitte = conn.doc.getArray<Y.Map<unknown>>(EA_ABSCHNITTE);
+      const payload: EinsatzabschnitteExport = {
+        format: EA_EXPORT_FORMAT,
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        abschnitte: abschnitte.toArray().map((a) => a.toJSON() as Einsatzabschnitt),
+      };
+      files[`einsatzabschnitte-${code}-${stamp}.json`] = new TextEncoder().encode(
         JSON.stringify(payload, null, 2),
       );
     } finally {
