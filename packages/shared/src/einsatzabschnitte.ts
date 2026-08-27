@@ -91,6 +91,31 @@ export const EA_LIST_LABELS: Record<EaListKey, string> = {
   anforderungen: "Anforderungen",
 };
 
+/** Einzahl-Label je Liste (für ETB-Einträge, #162). */
+export const EA_LIST_LABEL_SINGULAR: Record<EaListKey, string> = {
+  auftraege: "Auftrag",
+  rueckmeldungen: "Rückmeldung",
+  anforderungen: "Anforderung",
+};
+
+/**
+ * Baut den ETB-Eintrag (#162) für die Übernahme einer Listen-Zeile: Richtung „E"
+ * (Rückmeldung/Anforderung kommt vom Abschnitt herein), Von = Abschnittstitel,
+ * Inhalt = „Rückmeldung: …" / „Anforderung: …". Rein & testbar; der Aufrufer
+ * postet ihn server-autoritativ (Invariante #6) über den bestehenden ETB-Endpoint.
+ */
+export function buildEaEtbEntry(
+  abschnitt: Pick<Einsatzabschnitt, "typ" | "titel">,
+  key: EaListKey,
+  text: string,
+): { richtung: "E"; von: string; inhalt: string } {
+  return {
+    richtung: "E",
+    von: formatAbschnittTitel(abschnitt) || "Einsatzabschnitt",
+    inhalt: `${EA_LIST_LABEL_SINGULAR[key]}: ${text.trim()}`,
+  };
+}
+
 /** Defensive Coercion einer Listen-Zeile (fehlende/defekte Felder → sichere Defaults). */
 export function coerceEaListItem(value: unknown, fallbackId: () => string): EaListItem {
   const r: Record<string, unknown> = isRecord(value) ? value : {};

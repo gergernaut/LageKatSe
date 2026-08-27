@@ -3,6 +3,7 @@ import {
   AB_KANAELE,
   AB_KANAL_FIELDS,
   AB_ORGANISATION,
+  buildEaEtbEntry,
   canWrite,
   coerceEinsatzabschnitt,
   coerceFuehrung,
@@ -35,6 +36,7 @@ import {
 } from "@lagekatse/shared";
 import * as Y from "yjs";
 import type { Session } from "../session";
+import { api } from "../api";
 import { connectModule } from "../sync/provider";
 import { uid } from "../uid";
 import { dug } from "../dug";
@@ -54,6 +56,8 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
   // die Führung nutzt denselben Mechanismus unter dem Key EA_FUEHRUNG.
   const [assignSel, setAssignSel] = useState<Record<string, string>>({});
   const [importMessage, setImportMessage] = useState("");
+  const [etbSyncMsg, setEtbSyncMsg] = useState("");
+  const etbSyncTimerRef = useRef<number | null>(null);
   const abschnitteRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const fuehrungRef = useRef<Y.Map<unknown> | null>(null);
   const vehiclesRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
@@ -234,6 +238,34 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     if (index >= 0) arr.delete(index, 1);
   };
 
+  // ETB-Sync (#162): eine Rückmeldung/Anforderung server-autoritativ ins ETB
+  // übernehmen (Invariante #6, bestehender Endpoint; EA-Schreiber haben etb-Recht).
+  // One-way push — ein Klick = ein ETB-Eintrag „EA X · Rückmeldung: …".
+  // Kurze Bestätigung, die nach ein paar Sekunden von selbst verschwindet.
+  const flashEtbMsg = (msg: string) => {
+    setEtbSyncMsg(msg);
+    if (etbSyncTimerRef.current) clearTimeout(etbSyncTimerRef.current);
+    etbSyncTimerRef.current = window.setTimeout(() => setEtbSyncMsg(""), 4000);
+  };
+
+  const syncItemToEtb = async (a: Einsatzabschnitt, key: EaListKey, item: EaListItem) => {
+    if (!writable) return;
+    const text = item.text.trim();
+    if (!text) return;
+    try {
+      await api.createEtbEntry(session.room.joinCode, session.token, buildEaEtbEntry(a, key, text));
+      flashEtbMsg(`„${text.slice(0, 40)}“ ins ETB übernommen`);
+    } catch (err) {
+      console.debug("ETB-Übernahme fehlgeschlagen", err);
+      flashEtbMsg("ETB-Übernahme fehlgeschlagen.");
+    }
+  };
+
+  // Auto-Clear-Timer beim Unmount aufräumen.
+  useEffect(() => () => {
+    if (etbSyncTimerRef.current) clearTimeout(etbSyncTimerRef.current);
+  }, []);
+
   const deleteAbschnitt = (a: Einsatzabschnitt) => {
     if (!writable) return;
     const label = `${a.typ} ${a.titel}`.trim() || "(ohne Titel)";
@@ -339,6 +371,7 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
         </span>
         <span className="chip">Alle Felder werden synchronisiert</span>
         {importMessage && <span className="chip">{importMessage}</span>}
+        {etbSyncMsg && <span className="chip">{etbSyncMsg}</span>}
         <div className="spacer" />
         {writable && (
           <button className="tool" type="button" onClick={() => importInputRef.current?.click()}>
@@ -622,6 +655,12 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
                         onToggle={(itemId) => toggleItem(a.id, key, itemId)}
                         onSetText={(itemId, text) => setItemText(a.id, key, itemId, text)}
                         onDelete={(itemId) => deleteItem(a.id, key, itemId)}
+                        // ETB-Sync nur für Rückmeldungen + Anforderungen (#162).
+                        onSyncEtb={
+                          key === "auftraege"
+                            ? undefined
+                            : (item) => void syncItemToEtb(a, key, item)
+                        }
                       />
                     ))}
                   </div>
@@ -660,6 +699,7 @@ function EaItemList({
   onToggle,
   onSetText,
   onDelete,
+  onSyncEtb,
 }: {
   label: string;
   items: EaListItem[];
@@ -668,6 +708,8 @@ function EaItemList({
   onToggle: (id: string) => void;
   onSetText: (id: string, text: string) => void;
   onDelete: (id: string) => void;
+  // Optional: „→ ETB"-Button je Eintrag (nur Rückmeldungen/Anforderungen, #162).
+  onSyncEtb?: (item: EaListItem) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState("");
@@ -716,6 +758,18 @@ function EaItemList({
                     />
                   ) : (
                     <span className="ea-list__text">{item.text}</span>
+                  )}
+                  {writable && onSyncEtb && (
+                    <button
+                      type="button"
+                      className="ea-list__etb"
+                      title="Ins Einsatztagebuch übernehmen"
+                      aria-label="Ins Einsatztagebuch übernehmen"
+                      disabled={!item.text.trim()}
+                      onClick={() => onSyncEtb(item)}
+                    >
+                      → ETB
+                    </button>
                   )}
                   {writable && (
                     <button
