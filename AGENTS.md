@@ -25,7 +25,7 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   (Karte + `Palette.tsx` + DWD-Regenradar/KONRAD3D-Overlays + Pegel-Layer), `etb/`,
   `arbeitsblatt/` (`Arbeitsblatt.tsx`, `Wetter.tsx`), `kraefteubersicht/` (`Kraefteubersicht.tsx`
   — Bereitstellungsraum/Im-Einsatz, DV-100-Stärke, #100), `einsatzabschnitte/`
-  (`Einsatzabschnitte.tsx` — EA/UA + Fahrzeug-Zuordnung `einsatzabschnittId`, abgeleitete Stärke, #133),
+  (`Einsatzabschnitte.tsx` — EA/UA + Führungs-Singleton `EA_FUEHRUNG` (#154) + Fahrzeug-Zuordnung `einsatzabschnittId`, abgeleitete Stärke, #133),
   `sync/provider.ts` (`connectModule` mit `cache`-Opt-out fuer transiente Verbindungen).
   Client-Utilities: `wetter.ts` (BrightSky-Abruf), `pegel.ts` (PEGELONLINE/WSV-Pegelstaende,
   CORS-offen; reine Coercion + Status->Farbe, unit-getestet), `pdf.ts` (`etbToPdf`/`arbeitsblattToPdf`/`lagekarteToPngPdf`

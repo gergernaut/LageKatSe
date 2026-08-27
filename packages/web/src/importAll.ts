@@ -18,6 +18,7 @@ import {
   hasStabRole,
   isRecord,
   parseEinsatzabschnitteExport,
+  parseFuehrungExport,
   parseKraftExport,
   type LogEntry,
   type MapFeature,
@@ -153,15 +154,17 @@ export async function importBundle(session: Session, file: File): Promise<Bundle
 
   // --- Einsatzabschnitte (client-CRDT, ersetzen) ---
   if (cls.einsatzabschnitte) {
-    const rows = parseEinsatzabschnitteExport(parseJson(files[cls.einsatzabschnitte]), uid);
+    const payload = parseJson(files[cls.einsatzabschnitte]);
+    const rows = parseEinsatzabschnitteExport(payload, uid);
     if (!rows) {
       skipped.push("Einsatzabschnitte (ungültiges Format)");
     } else {
+      const fuehrung = parseFuehrungExport(payload);
       const conn = connectModule(session.room.id, "einsatzabschnitte", session.token, { cache: false });
       try {
         await waitForSync(conn);
         const abschnitte = conn.doc.getArray<Y.Map<unknown>>(EA_ABSCHNITTE);
-        applyEinsatzabschnitteImport(abschnitte, rows, { replace: true });
+        applyEinsatzabschnitteImport(abschnitte, rows, { replace: true, fuehrung });
       } finally {
         conn.destroy();
       }
