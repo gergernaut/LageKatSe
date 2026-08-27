@@ -971,15 +971,21 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .ea-list__count { margin-left: auto; font: 10px var(--mono); letter-spacing: .04em; color: var(--ink-3); }
 .ea-list__body { padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; }
 .ea-list__items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.ea-list__item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }
-.ea-list__item input[type="checkbox"] { accent-color: var(--ok); width: 15px; height: 15px; }
+.ea-list__item { display: flex; align-items: center; gap: 8px; }
+.ea-list__item input[type="checkbox"] { flex: none; accent-color: var(--ok); width: 15px; height: 15px; }
 .ea-list__text {
-  min-width: 0; border: 0; border-bottom: 1px solid transparent; background: transparent;
+  flex: 1; min-width: 0; border: 0; border-bottom: 1px solid transparent; background: transparent;
   color: var(--ink); font-size: 13px; padding: 3px 2px;
 }
 .ea-list__text:focus { outline: none; border-bottom-color: var(--forces); }
 .ea-list__item--done .ea-list__text { color: var(--ink-3); text-decoration: line-through; }
-.ea-list__rm { border: 0; background: transparent; color: var(--danger); font-size: 16px; line-height: 1; padding: 0 2px; }
+.ea-list__etb {
+  flex: none; border: 1px solid var(--line); background: var(--surface-2); color: var(--forces);
+  border-radius: 6px; padding: 3px 8px; font: 600 10px var(--mono); letter-spacing: .04em; white-space: nowrap;
+}
+.ea-list__etb:hover:not(:disabled) { border-color: var(--forces); }
+.ea-list__etb:disabled { opacity: .4; cursor: not-allowed; }
+.ea-list__rm { flex: none; border: 0; background: transparent; color: var(--danger); font-size: 16px; line-height: 1; padding: 0 2px; }
 .ea-list__add { display: flex; gap: 8px; align-items: center; }
 .ea-list__add input {
   flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface);

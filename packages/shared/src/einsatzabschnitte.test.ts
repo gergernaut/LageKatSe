@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   abschnittKraft,
   asEaTyp,
+  buildEaEtbEntry,
   coerceEaListItem,
   coerceEaListItems,
   coerceEinsatzabschnitt,
@@ -201,6 +202,27 @@ describe("Einsatzabschnitte-Modell", () => {
       expect(a.auftraege).toEqual([{ id: "a1", text: "T", erledigt: true }]);
       expect(a.rueckmeldungen).toEqual([]);
       expect(a.anforderungen).toEqual([]);
+    });
+  });
+
+  // ETB-Sync (#162)
+  describe("buildEaEtbEntry", () => {
+    it("Rückmeldung: Richtung E, Von = Abschnittstitel, Inhalt mit Einzahl-Label", () => {
+      expect(buildEaEtbEntry({ typ: "EA", titel: "Nord" }, "rueckmeldungen", "Lage stabil")).toEqual({
+        richtung: "E",
+        von: "EA Nord",
+        inhalt: "Rückmeldung: Lage stabil",
+      });
+    });
+    it("Anforderung + UA-Titel; Text wird getrimmt", () => {
+      expect(buildEaEtbEntry({ typ: "UA", titel: "1" }, "anforderungen", "  2x Rüstwagen  ")).toEqual({
+        richtung: "E",
+        von: "UA 1",
+        inhalt: "Anforderung: 2x Rüstwagen",
+      });
+    });
+    it("ohne Titel → Fallback-Von", () => {
+      expect(buildEaEtbEntry({ typ: "EA", titel: "" }, "rueckmeldungen", "x").von).toBe("EA");
     });
   });
 
