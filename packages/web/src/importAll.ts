@@ -11,11 +11,13 @@ import { unzipSync } from "fflate";
 import {
   AB_EXPORT_FORMAT,
   AB_EXPORT_VERSION,
+  EA_ABSCHNITTE,
   ETB_EXPORT_FORMAT,
   KRAFT_VEHICLES,
   LAGEKARTE_FEATURES,
   hasStabRole,
   isRecord,
+  parseEinsatzabschnitteExport,
   parseKraftExport,
   type LogEntry,
   type MapFeature,
@@ -29,6 +31,7 @@ import { uid } from "./uid";
 import { applyArbeitsblattImport } from "./arbeitsblatt/applyImport";
 import { applyLagekarteImport, parseLagekarteFeatures } from "./lagekarte/applyImport";
 import { applyKraftImport } from "./kraefteubersicht/applyImport";
+import { applyEinsatzabschnitteImport } from "./einsatzabschnitte/applyImport";
 
 export interface BundleImportResult {
   /** Menschlich lesbare Labels dessen, was eingespielt wurde. */
@@ -43,25 +46,31 @@ const PREFIXES = {
   arbeitsblatt: "arbeitsblatt-",
   etb: "einsatztagebuch-",
   kraefteubersicht: "kraefteuebersicht-",
+  einsatzabschnitte: "einsatzabschnitte-",
 } as const;
 
-/**
- * Ordnet die ZIP-Einträge den Modulen zu. Reine Funktion (unit-getestet): matcht
- * per Präfix + `.json`-Endung, nimmt je Modul den ersten Treffer, ignoriert
- * Unbekanntes (der Zeitstempel/Code im Dateinamen variiert).
- */
-export function classifyBundleFiles(names: string[]): {
+interface BundleFiles {
   lagekarte?: string;
   arbeitsblatt?: string;
   etb?: string;
   kraefteubersicht?: string;
-} {
-  const out: { lagekarte?: string; arbeitsblatt?: string; etb?: string; kraefteubersicht?: string } = {};
+  einsatzabschnitte?: string;
+}
+
+/**
+ * Ordnet die ZIP-Einträge den Modulen zu. Reine Funktion (unit-getestet): matcht
+ * per Präfix + `.json`-Endung, nimmt je Modul den ersten Treffer, ignoriert
+ * Unbekanntes (der Zeitstempel/Code im Dateinamen variiert). Die Präfixe
+ * "einsatzabschnitte-" und "einsatztagebuch-" sind eindeutig verschieden.
+ */
+export function classifyBundleFiles(names: string[]): BundleFiles {
+  const out: BundleFiles = {};
   for (const name of names) {
     if (!name.endsWith(".json")) continue;
     if (out.lagekarte === undefined && name.startsWith(PREFIXES.lagekarte)) out.lagekarte = name;
     else if (out.arbeitsblatt === undefined && name.startsWith(PREFIXES.arbeitsblatt)) out.arbeitsblatt = name;
     else if (out.kraefteubersicht === undefined && name.startsWith(PREFIXES.kraefteubersicht)) out.kraefteubersicht = name;
+    else if (out.einsatzabschnitte === undefined && name.startsWith(PREFIXES.einsatzabschnitte)) out.einsatzabschnitte = name;
     else if (out.etb === undefined && name.startsWith(PREFIXES.etb)) out.etb = name;
   }
   return out;
@@ -140,6 +149,26 @@ export async function importBundle(session: Session, file: File): Promise<Bundle
     }
   } else {
     skipped.push("Kräfteübersicht (nicht im Bundle)");
+  }
+
+  // --- Einsatzabschnitte (client-CRDT, ersetzen) ---
+  if (cls.einsatzabschnitte) {
+    const rows = parseEinsatzabschnitteExport(parseJson(files[cls.einsatzabschnitte]), uid);
+    if (!rows) {
+      skipped.push("Einsatzabschnitte (ungültiges Format)");
+    } else {
+      const conn = connectModule(session.room.id, "einsatzabschnitte", session.token, { cache: false });
+      try {
+        await waitForSync(conn);
+        const abschnitte = conn.doc.getArray<Y.Map<unknown>>(EA_ABSCHNITTE);
+        applyEinsatzabschnitteImport(abschnitte, rows, { replace: true });
+      } finally {
+        conn.destroy();
+      }
+      imported.push(`Einsatzabschnitte (${rows.length})`);
+    }
+  } else {
+    skipped.push("Einsatzabschnitte (nicht im Bundle)");
   }
 
   // --- Einsatztagebuch (server-autoritativ, ersetzen) ---

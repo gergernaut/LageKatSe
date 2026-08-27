@@ -70,3 +70,29 @@ export function coerceEinsatzabschnitt(value: unknown, fallbackId: () => string)
     createdAt: asString(r.createdAt),
   };
 }
+
+/* ---- Export/Import-Envelope (Teil des Stabsraum-Bundles, #139) ---- */
+export const EA_EXPORT_FORMAT = "lagekatse.einsatzabschnitte" as const;
+
+export interface EinsatzabschnitteExport {
+  format: typeof EA_EXPORT_FORMAT;
+  version: 1;
+  exportedAt: string; // ISO-8601
+  abschnitte: Einsatzabschnitt[];
+}
+
+/**
+ * Prüft den Export-Envelope und coerct die Zeilen. `null` = ungültiges Dateiformat;
+ * sonst die (defensiv bereinigten) Abschnitte. `fallbackId` vergibt eine id für
+ * Zeilen ohne eigene. IDs werden bewusst erhalten, damit die Fahrzeug-Zuordnung
+ * (`einsatzabschnittId` im kraefteubersicht-Export) nach dem Import weiter passt.
+ */
+export function parseEinsatzabschnitteExport(
+  payload: unknown,
+  fallbackId: () => string,
+): Einsatzabschnitt[] | null {
+  if (!isRecord(payload) || payload.format !== EA_EXPORT_FORMAT || !Array.isArray(payload.abschnitte)) {
+    return null;
+  }
+  return payload.abschnitte.map((a) => coerceEinsatzabschnitt(a, fallbackId));
+}

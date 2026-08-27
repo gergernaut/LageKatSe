@@ -29,4 +29,15 @@ describe("classifyBundleFiles", () => {
     const cls = classifyBundleFiles(["lagekarte-1.json", "lagekarte-2.json"]);
     expect(cls.lagekarte).toBe("lagekarte-1.json");
   });
+
+  it("unterscheidet einsatzabschnitte- und einsatztagebuch- trotz gleichem Präfix „einsatz“", () => {
+    const cls = classifyBundleFiles([
+      "einsatzabschnitte-ABCDEF-031748Aug26.json",
+      "einsatztagebuch-ABCDEF-031748Aug26.json",
+      "kraefteuebersicht-ABCDEF-031748Aug26.json",
+    ]);
+    expect(cls.einsatzabschnitte).toBe("einsatzabschnitte-ABCDEF-031748Aug26.json");
+    expect(cls.etb).toBe("einsatztagebuch-ABCDEF-031748Aug26.json");
+    expect(cls.kraefteubersicht).toBe("kraefteuebersicht-ABCDEF-031748Aug26.json");
+  });
 });
