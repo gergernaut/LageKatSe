@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "arbeitsblatt-mockup",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "4599", "--directory", "/tmp/claude-1000/-home-kevin/e0e3369c-2e8e-40cf-bc70-9229c339a704/scratchpad"],
+      "port": 4599
+    }
+  ]
+}
