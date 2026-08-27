@@ -15,6 +15,8 @@ import {
   AB_WETTER,
   AB_WETTER_SNAPSHOT,
   canWrite,
+  EA_ABSCHNITTE,
+  formatAbschnittTitel,
   formatStaerke,
   isRecord,
   KRAFT_VEHICLES,
@@ -28,6 +30,7 @@ import {
   type AbWetterSnapshot,
   type Arbeitsblatt as ArbeitsblattState,
   type ArbeitsblattExport,
+  type Einsatzabschnitt,
   type KraftVehicle,
   type Staerke,
 } from "@lagekatse/shared";
@@ -67,11 +70,6 @@ interface KraftKennzahlen {
   brCount: number; // Anzahl Fahrzeuge im Bereitstellungsraum
 }
 
-const EMPTY_KRAFT: KraftKennzahlen = {
-  einsatz: { fuehrer: 0, unterfuehrer: 0, helfer: 0, gesamt: 0 },
-  brCount: 0,
-};
-
 function stringValue(map: Y.Map<unknown>, field: string): string {
   const value = map.get(field);
   return typeof value === "string" ? value : "";
@@ -84,7 +82,9 @@ function booleanValue(map: Y.Map<unknown>, field: string): boolean {
 
 export function Arbeitsblatt({ session }: { session: Session }) {
   const [sheet, setSheet] = useState<ArbeitsblattState>(EMPTY_SHEET);
-  const [kraft, setKraft] = useState<KraftKennzahlen>(EMPTY_KRAFT);
+  // Feld C wird komplett aus diesen beiden read-only Cross-Reads abgeleitet:
+  const [vehicles, setVehicles] = useState<KraftVehicle[]>([]);
+  const [abschnitte, setAbschnitte] = useState<Einsatzabschnitt[]>([]);
   const [importMessage, setImportMessage] = useState("");
   const [pdfBusy, setPdfBusy] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -97,6 +97,18 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   const writable = canWrite(session.roles, "arbeitsblatt", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
   });
+
+  // Feld C komplett abgeleitet (read-only) aus den beiden Cross-Reads:
+  const einsatzVehicles = vehicles.filter((v) => v.status === "einsatz");
+  const kraft: KraftKennzahlen = {
+    einsatz: sumStaerke(einsatzVehicles),
+    brCount: vehicles.filter((v) => v.status === "br").length,
+  };
+  // Stärke + Fahrzeug-Anzahl je Abschnitt (aus den zugeordneten Einsatz-Fahrzeugen).
+  const abschnittKraft = (id: string) => {
+    const assigned = einsatzVehicles.filter((v) => v.einsatzabschnittId === id);
+    return { staerke: sumStaerke(assigned), count: assigned.length };
+  };
 
   useEffect(() => {
     const conn = connectModule(session.room.id, "arbeitsblatt", session.token);
@@ -164,23 +176,31 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     };
   }, [session.room.id, session.token, session.room.createdAt, writable]);
 
-  // Feld C — Kräfte-Kennzahlen: eine ZWEITE, read-only Verbindung zum
-  // kraefteubersicht-Modul. Rein abgeleitet (sumStaerke der Im-Einsatz-Fahrzeuge +
-  // Anzahl BR-Fahrzeuge) — kein Schreibpfad, kein eigener persistierter Zustand.
+  // Feld C — read-only Cross-Read des kraefteubersicht-Moduls: die rohen Fahrzeuge
+  // (daraus werden Gesamtstärke, BR-Anzahl UND die Stärke je Abschnitt abgeleitet).
+  // Kein Schreibpfad, kein eigener persistierter Zustand.
   useEffect(() => {
     const conn = connectModule(session.room.id, "kraefteubersicht", session.token);
     const vehicles = conn.doc.getArray<Y.Map<unknown>>(KRAFT_VEHICLES);
-    const refresh = () => {
-      const items = vehicles.toArray().map((v) => v.toJSON() as KraftVehicle);
-      setKraft({
-        einsatz: sumStaerke(items.filter((v) => v.status === "einsatz")),
-        brCount: items.filter((v) => v.status === "br").length,
-      });
-    };
+    const refresh = () => setVehicles(vehicles.toArray().map((v) => v.toJSON() as KraftVehicle));
     vehicles.observeDeep(refresh);
     refresh();
     return () => {
       vehicles.unobserveDeep(refresh);
+      conn.destroy();
+    };
+  }, [session.room.id, session.token]);
+
+  // Feld C — read-only Cross-Read der Einsatzabschnitte (#138): Liste unter der
+  // Gesamtstärke, Stärke je Abschnitt aus den zugeordneten Fahrzeugen abgeleitet.
+  useEffect(() => {
+    const conn = connectModule(session.room.id, "einsatzabschnitte", session.token);
+    const list = conn.doc.getArray<Y.Map<unknown>>(EA_ABSCHNITTE);
+    const refresh = () => setAbschnitte(list.toArray().map((m) => m.toJSON() as Einsatzabschnitt));
+    list.observeDeep(refresh);
+    refresh();
+    return () => {
+      list.unobserveDeep(refresh);
       conn.destroy();
     };
   }, [session.room.id, session.token]);
@@ -506,6 +526,23 @@ export function Arbeitsblatt({ session }: { session: Session }) {
             <span className="arbeitsblatt-kraft-stat__hint">Anzahl Fahrzeuge im BR</span>
           </div>
         </div>
+        {abschnitte.length > 0 && (
+          <div className="arbeitsblatt-ea-list">
+            <span className="arbeitsblatt-ea-list__label">Einsatzabschnitte</span>
+            {abschnitte.map((a) => {
+              const k = abschnittKraft(a.id);
+              return (
+                <div className="arbeitsblatt-ea-row" key={a.id}>
+                  <span className="arbeitsblatt-ea-row__tag">{formatAbschnittTitel(a)}</span>
+                  {a.auftrag && <span className="arbeitsblatt-ea-row__auftrag">{a.auftrag}</span>}
+                  <span className="arbeitsblatt-ea-row__staerke">
+                    {formatStaerke(k.staerke)} · {k.count} Fz.
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-auftraege-title">
