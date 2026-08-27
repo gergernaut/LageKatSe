@@ -482,6 +482,20 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .arbeitsblatt-kraft-stat__value { font: 700 26px var(--mono); color: var(--ink); letter-spacing: .02em; }
 .arbeitsblatt-kraft-stat__hint { font-size: 11px; color: var(--ink-3); }
 @media (max-width: 640px) { .arbeitsblatt-kraft-strip { grid-template-columns: 1fr; } }
+
+/* Feld C — read-only Liste der Einsatzabschnitte unter der Gesamtstärke (#138). */
+.arbeitsblatt-ea-list { padding: 0 18px 16px; display: flex; flex-direction: column; gap: 6px; }
+.arbeitsblatt-ea-list__label { font: 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+.arbeitsblatt-ea-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  border: 1px solid var(--line-2); border-radius: 8px; font-size: 13px;
+}
+.arbeitsblatt-ea-row__tag {
+  flex: none; background: rgba(225,29,29,.12); color: var(--ea-red);
+  font: 700 11px var(--mono); padding: 2px 8px; border-radius: 5px; white-space: nowrap;
+}
+.arbeitsblatt-ea-row__auftrag { min-width: 0; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arbeitsblatt-ea-row__staerke { margin-left: auto; flex: none; font-family: var(--mono); font-size: 12px; color: var(--ink-2); white-space: nowrap; }
 .arbeitsblatt-table {
   width: 100%; min-width: 820px; border-collapse: collapse; font-size: 13px;
 }
