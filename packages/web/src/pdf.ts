@@ -36,6 +36,14 @@ export interface AbKraftKennzahlen {
   brCount: number; // Anzahl Fahrzeuge im Bereitstellungsraum
 }
 
+/** Eine Einsatzabschnitts-Zeile für Feld C (#140) — bereits vom Aufrufer abgeleitet. */
+export interface AbAbschnittZeile {
+  titel: string; // formatAbschnittTitel(a) — "EA Nord" / "UA Nord-1"
+  auftrag: string;
+  staerke: Staerke; // Summe der zugeordneten Einsatz-Fahrzeuge
+  count: number; // Anzahl zugeordneter Fahrzeuge
+}
+
 const INK = rgb(0.05, 0.08, 0.11);
 const MUTED = rgb(0.42, 0.5, 0.58);
 const LINE = rgb(0.8, 0.84, 0.88);
@@ -270,6 +278,7 @@ function compass(deg: number): string {
 export async function arbeitsblattToPdf(
   sheet: Arbeitsblatt,
   kraft: AbKraftKennzahlen,
+  abschnitte: AbAbschnittZeile[],
   meta: PdfMeta,
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
@@ -409,6 +418,21 @@ export async function arbeitsblattToPdf(
   heading("C", "Einheiten / Kräfteübersicht");
   labelValue("Gesamtstärke im Einsatz", formatStaerke(kraft.einsatz));
   labelValue("Fahrzeuge im Bereitstellungsraum", String(kraft.brCount));
+  if (abschnitte.length > 0) {
+    gap(2);
+    need(LH);
+    page.drawText("Einsatzabschnitte", { x: M, y: y - S, size: S, font, color: INK });
+    y -= LH;
+    table(
+      [
+        { label: "Abschnitt", width: 150 },
+        { label: "Auftrag", width: 245 },
+        { label: "Stärke / Fz.", width: 128 },
+      ],
+      abschnitte.map((a) => [a.titel, a.auftrag, `${formatStaerke(a.staerke)} · ${a.count} Fz.`]),
+      "Keine Einsatzabschnitte.",
+    );
+  }
   gap();
 
   // D · Aufträge & Maßnahmen
