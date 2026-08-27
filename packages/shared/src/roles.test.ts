@@ -54,6 +54,14 @@ describe("effectiveWriteScopes / canWrite", () => {
     expect(canWrite(["ETB"], "kraefteubersicht", CHAT_ON)).toBe(true);
   });
 
+  it("Einsatzabschnitte sind Stabssache — nur S-Rollen + LdS (#135)", () => {
+    expect(canWrite(["S3"], "einsatzabschnitte", CHAT_ON)).toBe(true);
+    expect(canWrite(["LDS"], "einsatzabschnitte", CHAT_ON)).toBe(true);
+    expect(canWrite(["LAGEKARTE"], "einsatzabschnitte", CHAT_ON)).toBe(false);
+    expect(canWrite(["ETB"], "einsatzabschnitte", CHAT_ON)).toBe(false);
+    expect(canWrite(["BR_LEITER"], "einsatzabschnitte", CHAT_ON)).toBe(false);
+  });
+
   it("mehrere Rollen vereinigen ihre Rechte additiv", () => {
     const scopes = effectiveWriteScopes(["LAGEKARTE", "ETB"], CHAT_ON);
     expect([...scopes].sort()).toEqual(["chat", "etb", "kraefteubersicht", "lagekarte"]);
@@ -79,7 +87,7 @@ describe("effectiveWriteScopes / canWrite", () => {
     });
 
     it("MONITOR darf auch bei erlaubtem Chat nie in Feature-Module schreiben", () => {
-      for (const m of ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht"] as Module[]) {
+      for (const m of ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "einsatzabschnitte"] as Module[]) {
         expect(canWrite(["MONITOR"], m, CHAT_ON)).toBe(false);
       }
     });

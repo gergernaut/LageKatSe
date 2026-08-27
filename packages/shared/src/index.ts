@@ -7,4 +7,5 @@ export * from "./etb";
 export * from "./close";
 export * from "./arbeitsblatt";
 export * from "./kraefteubersicht";
+export * from "./einsatzabschnitte";
 export * from "./activity";
