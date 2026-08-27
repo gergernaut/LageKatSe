@@ -3,6 +3,8 @@ import {
   buildKraftEtbText,
   canWrite,
   countByTyp,
+  EA_ABSCHNITTE,
+  formatAbschnittTitel,
   formatStaerke,
   isRecord,
   KRAFT_EXPORT_FORMAT,
@@ -11,6 +13,7 @@ import {
   parseKraftExport,
   sumStaerke,
   vehicleStaerke,
+  type Einsatzabschnitt,
   type KraftExport,
   type KraftOrg,
   type KraftStatus,
@@ -35,6 +38,7 @@ function typBreakdown(vehicles: KraftVehicle[]): string {
 
 export function Kraefteubersicht({ session }: { session: Session }) {
   const [items, setItems] = useState<KraftVehicle[]>([]);
+  const [abschnitte, setAbschnitte] = useState<Einsatzabschnitt[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [importing, setImporting] = useState(false);
@@ -58,6 +62,20 @@ export function Kraefteubersicht({ session }: { session: Session }) {
     return () => {
       vehicles.unobserveDeep(refresh);
       vehiclesRef.current = null;
+      conn.destroy();
+    };
+  }, [session.room.id, session.token]);
+
+  // Read-only cross-module: die Einsatzabschnitte (id -> Titel), um bei einem
+  // zugeordneten Fahrzeug „→ EA A" anzuzeigen. Kein Schreibpfad (Zuordnen: EA-Modul).
+  useEffect(() => {
+    const conn = connectModule(session.room.id, "einsatzabschnitte", session.token);
+    const list = conn.doc.getArray<Y.Map<unknown>>(EA_ABSCHNITTE);
+    const refresh = () => setAbschnitte(list.toArray().map((m) => m.toJSON() as Einsatzabschnitt));
+    list.observeDeep(refresh);
+    refresh();
+    return () => {
+      list.unobserveDeep(refresh);
       conn.destroy();
     };
   }, [session.room.id, session.token]);
@@ -120,7 +138,13 @@ export function Kraefteubersicht({ session }: { session: Session }) {
   const moveVehicle = (vehicle: KraftVehicle, to: KraftStatus) => {
     if (!writable || vehicle.status === to) return;
     setNotice("");
-    setField(vehicle.id, "status", to);
+    const map = findMap(vehicle.id);
+    map?.doc?.transact(() => {
+      map.set("status", to);
+      // Zurück in den Bereitstellungsraum ⇒ Einsatzabschnitts-Zuordnung aufheben (#137).
+      if (to === "br") map.set("einsatzabschnittId", "");
+      map.set("updatedAt", new Date().toISOString());
+    });
     void logToEtb(buildKraftEtbText(vehicle, to === "einsatz" ? "toEinsatz" : "toBr"));
   };
 
@@ -193,6 +217,13 @@ export function Kraefteubersicht({ session }: { session: Session }) {
 
   const brItems = items.filter((v) => v.status === "br");
   const einsatzItems = items.filter((v) => v.status === "einsatz");
+
+  // Anzeigetitel des zugeordneten Abschnitts (oder null, wenn keiner/unbekannt).
+  const abschnittLabel = (id: string | undefined): string | null => {
+    if (!id) return null;
+    const a = abschnitte.find((x) => x.id === id);
+    return a ? formatAbschnittTitel(a) : null;
+  };
   const brStaerke = sumStaerke(brItems);
 
   const renderTable = (rows: KraftVehicle[], status: KraftStatus) => {
@@ -259,6 +290,11 @@ export function Kraefteubersicht({ session }: { session: Session }) {
                       />
                     ) : (
                       <span className="etb-value">{v.funkrufname}</span>
+                    )}
+                    {abschnittLabel(v.einsatzabschnittId) && (
+                      <span className="kraft-ea-badge" title="Zugeordneter Einsatzabschnitt">
+                        → {abschnittLabel(v.einsatzabschnittId)}
+                      </span>
                     )}
                   </td>
                   <td>
