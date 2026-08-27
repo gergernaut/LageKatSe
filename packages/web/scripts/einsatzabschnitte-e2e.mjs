@@ -98,19 +98,22 @@ async function main() {
   await sleep(600);
 
   // S3 legt einen Einsatzabschnitt an und ordnet ihm ein Einsatz-Fahrzeug zu.
-  We.doc.getArray("abschnitte").push([
-    eaRow({
-      id: "ea1",
-      typ: "EA",
-      titel: "A",
-      befehlsstelle: "FW 1",
-      leiter: "B-Dienst",
-      kommunikation: "Florian 1",
-      auftrag: "Menschenrettung",
-      einsatzbeginn: "260918Aug26",
-      createdAt: "2026-08-26T09:18:00.000Z",
-    }),
-  ]);
+  // Die Auftragsliste (#161) ist eine verschachtelte Y.Array<Y.Map> in der Abschnitts-Map.
+  const ea1 = eaRow({
+    id: "ea1",
+    typ: "EA",
+    titel: "A",
+    befehlsstelle: "FW 1",
+    leiter: "B-Dienst",
+    kommunikation: "Florian 1",
+    auftrag: "Menschenrettung",
+    einsatzbeginn: "260918Aug26",
+    createdAt: "2026-08-26T09:18:00.000Z",
+  });
+  const auftraege = new Y.Array();
+  auftraege.push([eaRow({ id: "i1", text: "Menschenrettung EG", erledigt: true })]);
+  ea1.set("auftraege", auftraege);
+  We.doc.getArray("abschnitte").push([ea1]);
   Wk.doc.getArray("vehicles").push([
     eaRow({
       id: "v1",
@@ -161,10 +164,12 @@ async function main() {
     { f: 0, u: 0, h: 0 },
   );
   const staerkeStr = `${staerke.f}/${staerke.u}/${staerke.h}//${staerke.f + staerke.u + staerke.h}`;
-  console.log("observer sieht:", { abschnitt, assignedCount: assigned.length, staerke: staerkeStr });
+  const auftragListe = abschnitt && Array.isArray(abschnitt.auftraege) ? abschnitt.auftraege : [];
+  console.log("observer sieht:", { abschnitt, assignedCount: assigned.length, staerke: staerkeStr, auftragListe });
   const test1 =
     !!abschnitt && abschnitt.titel === "A" && abschnitt.typ === "EA" &&
-    assigned.length === 1 && assigned[0].funkrufname === "Florian OWL 1-44-1" && staerkeStr === "1/0/5//6";
+    assigned.length === 1 && assigned[0].funkrufname === "Florian OWL 1-44-1" && staerkeStr === "1/0/5//6" &&
+    auftragListe.length === 1 && auftragListe[0].text === "Menschenrettung EG" && auftragListe[0].erledigt === true;
 
   // Führung: Observer sieht den Singleton + das Führungsmittel (Stärke ableitbar).
   const of = Oe.doc.getMap("fuehrung").toJSON();
