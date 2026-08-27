@@ -344,7 +344,12 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     setImportMessage("");
     try {
       const { arbeitsblattToPdf } = await import("../pdf");
-      const bytes = await arbeitsblattToPdf(sheet, kraft, {
+      // Feld C · Einsatzabschnitte identisch zur Bildschirm-Liste ableiten (#140).
+      const abschnittZeilen = abschnitte.map((a) => {
+        const k = abschnittKraft(a.id);
+        return { titel: formatAbschnittTitel(a), auftrag: a.auftrag, staerke: k.staerke, count: k.count };
+      });
+      const bytes = await arbeitsblattToPdf(sheet, kraft, abschnittZeilen, {
         roomName: session.room.name,
         joinCode: session.room.joinCode,
         stamp: dug(),
