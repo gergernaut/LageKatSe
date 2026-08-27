@@ -865,9 +865,9 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
   box-shadow: 0 1px 2px rgba(11,17,25,.05); display: flex; flex-direction: column;
 }
-.ea-card__head { display: grid; grid-template-columns: 104px minmax(0, 1fr) 166px; border-bottom: 2px solid var(--ink); }
+.ea-card__head { display: grid; grid-template-columns: 124px minmax(0, 1fr) 166px; border-bottom: 2px solid var(--ink); }
 .ea-card__badge {
-  background: var(--ea-red); color: #fff; padding: 8px; display: flex; flex-direction: column; gap: 6px;
+  background: var(--ea-red); color: #fff; padding: 8px 6px; display: flex; flex-direction: column; gap: 6px;
   border-right: 2px solid var(--ink);
 }
 .ea-card__badge select {
@@ -879,7 +879,7 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .ea-card__title { flex: 1; display: flex; align-items: center; justify-content: center; }
 .ea-card__title input {
   width: 100%; text-align: center; border: 0; background: transparent; color: #fff;
-  font: 800 32px var(--sans); border-bottom: 2px solid rgba(255,255,255,.7); padding: 0 2px 2px;
+  font: 800 18px var(--sans); border-bottom: 2px solid rgba(255,255,255,.7); padding: 0 2px 2px;
 }
 .ea-card__title input::placeholder { color: rgba(255,255,255,.5); }
 .ea-card__title input:read-only { cursor: default; }
