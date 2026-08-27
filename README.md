@@ -40,6 +40,10 @@ durchgesetzt. Läuft im Browser, ohne Installation beim Nutzer — im Internet
   **Wetter-Rückseite** (DWD/Bright Sky). JSON-Im-/Export und PDF-Export.
 - **🚒 Kräfteübersicht** — Bereitstellungsraum ↔ Im Einsatz, Stärke nach **DV 100**
   mit automatischer Summierung; Verschieben/Entlassen wird ins ETB protokolliert.
+- **🗂️ Einsatzabschnitte** — Einsatzabschnitte (EA) und Unterabschnitte (UA) mit
+  Befehlsstelle, Leiter, Auftrag und Kommunikation; Fahrzeuge werden aus der
+  Kräfteübersicht zugeordnet, die **Stärke je Abschnitt** ergibt sich automatisch.
+  Fließt in Feld C der Taktischen Übersicht (Bildschirm + PDF) ein. JSON-Im-/Export.
 - **💬 Übersicht, Präsenz & Chat** — wer ist online, Stabsraum-Chat, und
   **Aktivitäts-Hinweise** (Punkt am Rail + Zähler im Browser-Tab; optionale
   Desktop-Benachrichtigungen bei HTTPS/localhost).

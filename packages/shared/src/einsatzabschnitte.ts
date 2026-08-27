@@ -16,6 +16,7 @@
  * dem kraefteubersicht-Dokument ab (gleiches Muster wie die Kräfte-Kennzahlen in Feld C).
  */
 import { asString, isRecord } from "./arbeitsblatt";
+import { sumStaerke, type KraftVehicle, type Staerke } from "./kraefteubersicht";
 
 /** Y.Array-Key innerhalb des "einsatzabschnitte"-Dokuments. */
 export const EA_ABSCHNITTE = "abschnitte" as const;
@@ -53,6 +54,39 @@ export function asEaTyp(value: unknown): EaTyp {
 /** Anzeigetitel „EA A" / „UA B1" (Typ + Titel), z. B. für die Taktische Übersicht. */
 export function formatAbschnittTitel(a: Pick<Einsatzabschnitt, "typ" | "titel">): string {
   return `${a.typ} ${a.titel}`.trim();
+}
+
+/* ---- Kräfte-Ableitung je Abschnitt (read-only aus dem kraefteubersicht-Doc) ----
+ * Die Zuordnung lebt als `einsatzabschnittId` am Fahrzeug; nur Fahrzeuge „im
+ * Einsatz" zählen. Rein & testbar — genutzt vom Einsatzabschnitte-Modul UND von
+ * Feld C der Taktischen Übersicht, damit beide dieselben Zahlen zeigen (#138/#140). */
+
+/** Fahrzeuge im Einsatz, die diesem Abschnitt zugeordnet sind. */
+export function vehiclesInAbschnitt(
+  vehicles: readonly KraftVehicle[],
+  abschnittId: string,
+): KraftVehicle[] {
+  return vehicles.filter((v) => v.status === "einsatz" && v.einsatzabschnittId === abschnittId);
+}
+
+/** Fahrzeuge im Einsatz ohne Abschnitts-Zuordnung (Kandidaten für „Fzg. zuordnen"). */
+export function unassignedEinsatzVehicles(vehicles: readonly KraftVehicle[]): KraftVehicle[] {
+  return vehicles.filter((v) => v.status === "einsatz" && !v.einsatzabschnittId);
+}
+
+/** Abgeleitete Stärke + Fahrzeug-Anzahl eines Abschnitts. */
+export interface AbschnittKraft {
+  staerke: Staerke;
+  count: number;
+}
+
+/** Stärke (Summe) und Fahrzeug-Anzahl der einem Abschnitt zugeordneten Einsatzkräfte. */
+export function abschnittKraft(
+  vehicles: readonly KraftVehicle[],
+  abschnittId: string,
+): AbschnittKraft {
+  const assigned = vehiclesInAbschnitt(vehicles, abschnittId);
+  return { staerke: sumStaerke(assigned), count: assigned.length };
 }
 
 /** Defensive Coercion einer Fremd-Zeile in einen gültigen Einsatzabschnitt. */

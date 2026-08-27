@@ -13,7 +13,7 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
 - `packages/shared` — `@lagekatse/shared`: Rollen/Rechte (`roles.ts`: `canWrite`,
   `effectiveWriteScopes`, `WRITE_SCOPES`, `hasStabRole`; Rollen S1–S6, **LdS, LAGEKARTE, ETB,
   MONITOR, BR_LEITER**), Module (`modules.ts`), Protokoll, Datenmodelle (`lagekarte.ts`,
-  `arbeitsblatt.ts`, `etb.ts`, `kraefteubersicht.ts`, `close.ts`). Von Client **und** Server
+  `arbeitsblatt.ts`, `etb.ts`, `kraefteubersicht.ts`, `einsatzabschnitte.ts`, `close.ts`). Von Client **und** Server
   genutzt — die gemeinsame Quelle der Wahrheit.
 - `packages/server` — `@lagekatse/server`: Fastify HTTP-API + WebSocket-Sync-Gateway.
   `index.ts` (Bootstrap + Shutdown + Auto-Retention-Sweep), `http.ts` (REST: Räume, Join, autoritatives
@@ -24,8 +24,9 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
 - `packages/web` — `@lagekatse/web`: React/Vite-SPA. `lobby/`, `uebersicht/`, `lagekarte/`
   (Karte + `Palette.tsx` + DWD-Regenradar/KONRAD3D-Overlays + Pegel-Layer), `etb/`,
   `arbeitsblatt/` (`Arbeitsblatt.tsx`, `Wetter.tsx`), `kraefteubersicht/` (`Kraefteubersicht.tsx`
-  — Bereitstellungsraum/Im-Einsatz, DV-100-Stärke, #100), `sync/provider.ts` (`connectModule`
-  mit `cache`-Opt-out fuer transiente Verbindungen).
+  — Bereitstellungsraum/Im-Einsatz, DV-100-Stärke, #100), `einsatzabschnitte/`
+  (`Einsatzabschnitte.tsx` — EA/UA + Fahrzeug-Zuordnung `einsatzabschnittId`, abgeleitete Stärke, #133),
+  `sync/provider.ts` (`connectModule` mit `cache`-Opt-out fuer transiente Verbindungen).
   Client-Utilities: `wetter.ts` (BrightSky-Abruf), `pegel.ts` (PEGELONLINE/WSV-Pegelstaende,
   CORS-offen; reine Coercion + Status->Farbe, unit-getestet), `pdf.ts` (`etbToPdf`/`arbeitsblattToPdf`/`lagekarteToPngPdf`
   via pdf-lib, Schrift `public/fonts/DejaVuSans.ttf`; Lagekarten-PDF rastert via `html-to-image`), `exportAll.ts` (Gesamt-Export) +
@@ -48,8 +49,8 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   Import-Coercion (`shared/arbeitsblatt.ts`), `format`/`dug`, PDF-Textumbruch. Tests liegen als
   `*.test.ts` **neben** dem Code (Node-Umgebung, kein DOM). Neue reine Helfer bitte mit Test.
 - Smoke-Tests sind handgeschriebene `.mjs` unter `packages/web/scripts/` (`e2e.mjs`,
-  `lagekarte-e2e.mjs`, `arbeitsblatt-e2e.mjs`, `kraefteubersicht-e2e.mjs`, `bundle-import-e2e.mjs`,
-  `close-e2e.mjs`, `ratelimit-e2e.mjs`), mit `node` **gegen einen laufenden Server** ausgefuehrt — sie bleiben **ergänzend** zu den Unit-Tests. Server-Default
+  `lagekarte-e2e.mjs`, `arbeitsblatt-e2e.mjs`, `kraefteubersicht-e2e.mjs`, `einsatzabschnitte-e2e.mjs`,
+  `bundle-import-e2e.mjs`, `close-e2e.mjs`, `ratelimit-e2e.mjs`), mit `node` **gegen einen laufenden Server** ausgefuehrt — sie bleiben **ergänzend** zu den Unit-Tests. Server-Default
   = **Memory-Store** (`pnpm dev:server`); Postgres via `pnpm db:up` + `DATABASE_URL`.
 - Konfiguration: `.env` **im Repo-Root** (Backend via dotenv, Vite via envDir), **einmal beim
   Start** gelesen — nach Änderung Dev neu starten.
