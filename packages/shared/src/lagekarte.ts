@@ -33,6 +33,8 @@ export interface AreaFeature {
   radiusM?: number; // circle only, metres
   color: string; // e.g. "#d5372b"
   opacity: number; // fill opacity 0..1
+  /** Border line style: "" (default) = solid, "5,5" = dashed, "2,4" = dotted. */
+  dashArray?: string;
   label?: string;
   description?: string;
   createdBy: string;

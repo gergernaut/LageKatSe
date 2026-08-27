@@ -647,6 +647,19 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   border-color: var(--signal); background: rgba(247,168,27,.13); color: var(--ink);
   box-shadow: inset 0 0 0 1px var(--signal);
 }
+.lagekarte-dash {
+  display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line-dark);
+  border-radius: 8px; padding: 2px; margin: 0;
+}
+.lagekarte-dash legend { font: 9px var(--mono); color: var(--on-dark-3); padding: 0 4px; }
+.lagekarte-dash button {
+  background: transparent; border: none; border-radius: 5px; padding: 2px 6px;
+  font-size: 16px; line-height: 1; color: var(--on-dark-2); cursor: pointer;
+}
+.lagekarte-dash button[aria-pressed="true"] {
+  background: var(--ground-2); color: var(--signal);
+}
+.lagekarte-dash button:hover { color: var(--on-dark); }
 .lagekarte-draw__cancel { display: flex; gap: 7px; align-items: center; }
 .lagekarte-draw__cancel span { font: 9px var(--mono); color: var(--ink-3); }
 .lagekarte-swatches { display: flex; align-items: center; gap: 6px; }
