@@ -12,6 +12,8 @@ import {
   KRAFT_VEHICLES,
   parseEinsatzabschnitteExport,
   sumStaerke,
+  unassignedEinsatzVehicles,
+  vehiclesInAbschnitt,
   type AbKanal,
   type EaTyp,
   type Einsatzabschnitt,
@@ -174,12 +176,12 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     if (index >= 0) rows.delete(index, 1);
   };
 
+  // Geteilte, getestete Primitive (#141) — gleiche Ableitung wie Feld C der Übersicht.
   const assignedVehicles = (abschnittId: string): KraftVehicle[] =>
-    vehicles.filter((v) => v.status === "einsatz" && v.einsatzabschnittId === abschnittId);
+    vehiclesInAbschnitt(vehicles, abschnittId);
 
   // Im Einsatz und (noch) keinem Abschnitt zugeordnet → für das Zuordnen-Dropdown.
-  const unassignedVehicles = (): KraftVehicle[] =>
-    vehicles.filter((v) => v.status === "einsatz" && !v.einsatzabschnittId);
+  const unassignedVehicles = (): KraftVehicle[] => unassignedEinsatzVehicles(vehicles);
 
   // Einzeldatei-Export: nur die Abschnitte selbst. Die Fahrzeug-Zuordnung liegt am
   // Fahrzeug (kraefteubersicht-Export) — der Gesamt-Export im Übersicht-Tab hält beide zusammen.
