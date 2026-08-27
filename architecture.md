@@ -1043,6 +1043,9 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
 ### Nach M4 ergänzt
 - ✅ **Modul 4: Kräfteübersicht** (#100): Bereitstellungsraum / Im Einsatz, DV-100-Stärke, ETB-Kopplung
   via `/kraft/etb-log`; Übersichtskarte auf der Übersichtsseite (#109)
+- ✅ **Modul 5: Einsatzabschnitte** (#133, M3): EA/UA mit Fahrzeug-Zuordnung (`einsatzabschnittId` am
+  Fahrzeug, Option A) und abgeleiteter Stärke; Cross-Reads in Taktische Übersicht (Feld C + PDF) und
+  Kräfteübersicht-Badge; Export/Import (Einzeldatei + Bundle)
 - ✅ **Neue Rollen** (#102): **LdS / Einsatzleiter** (Stabsrolle, Vollzugriff) + **Leiter BR**
   (nur Kräfteübersicht); **keine Standardrollenauswahl** in der Lobby (#103)
 - ✅ **Docker-Images via GHCR** (#99/#108): CI baut + pusht Backend/Web nach GHCR;
@@ -1078,6 +1081,32 @@ angefragt. Wie das Arbeitsblatt **ohne** server-autoritative Felder → reine Cl
 - **Bewusst v1:** keine Qualifikations-Checkboxen (spätere Ausbaustufe); keine Auto-Übernahme aus
   der Lagekarte (manuelle Tabellen laut Zielgruppen-Abstimmung); PDF-Export offen (Phase 2).
 
+### Modul 5 – Einsatzabschnitte (#133, Milestone M3) — ✅ umgesetzt
+Einsatzabschnitte (EA) und Unterabschnitte (UA) im Stil der taktischen Arbeitstafel (IdF NRW).
+Wie Kräfteübersicht und Taktische Übersicht **ohne** server-autoritative Felder → reine
+Client-CRDT-Writes, kein eigener Endpoint, kein Seeding.
+
+- **Datenstruktur** (Yjs-Dokument `einsatzabschnitte`, `shared/src/einsatzabschnitte.ts`): **eine**
+  `Y.Array` `abschnitte`; jede Zeile eine `Y.Map` (Feld-Level-Merge wie ETB-/Kräfte-Zeilen).
+  Felder: `typ` (EA/UA), `titel`, `befehlsstelle`, `leiter`, `kommunikation`, `auftrag`,
+  `einsatzbeginn` (DUG, bei Anlage vorbelegt), `createdAt`. `id` via `uid()` (Invariante #3).
+- **Zuordnung von Fahrzeugen (Option A):** ein Fahrzeug ↔ höchstens ein Abschnitt, gespeichert als
+  `einsatzabschnittId` **am Fahrzeug im `kraefteubersicht`-Dokument** — ein merge-sicherer Feld-Write,
+  kein Cross-Doc-Transfer. Beim Zurückschieben Einsatz→BR und beim Entlassen wird die Zuordnung
+  geleert (#137). Die **Stärke je Abschnitt** ist damit **abgeleitet** (nie gespeichert) und kann
+  nicht driften — über die reinen, unit-getesteten Helfer `vehiclesInAbschnitt` / `abschnittKraft` /
+  `unassignedEinsatzVehicles` (gezählt werden **nur** Fahrzeuge „im Einsatz").
+- **Cross-Modul (read-only):** Feld C der Taktischen Übersicht listet die Abschnitte samt
+  abgeleiteter Stärke (#138) und übernimmt sie in den PDF-Export (#140); die Kräfteübersicht zeigt
+  je zugeordnetem Fahrzeug ein „→ EA/UA"-Badge. Alle drei nutzen dieselben Helfer → identische Zahlen.
+- **Rechte:** Schreiben dürfen **nur** S1–S6 und LdS (Stabssache, #135); LAGEKARTE/ETB/BR_LEITER
+  **nicht**. Monitor read-only. (Die Fahrzeug-Zuordnung schreibt ins `kraefteubersicht`-Doc, für das
+  die S-Rollen/LdS ebenfalls Schreibrecht haben → keine Rechtelücke.)
+- **Export/Import:** verlustfreies JSON (`lagekatse.einsatzabschnitte`, IDs bleiben erhalten, damit
+  die Fahrzeug-Zuordnung den Import übersteht), Teil des Bundles (§12); Apply client-CRDT über
+  `einsatzabschnitte/applyImport.ts` (React-frei, von Einzeldatei- **und** Bundle-Import geteilt).
+  Smoke: `packages/web/scripts/einsatzabschnitte-e2e.mjs`.
+
 ---
 
 ## 19. Vorgeschlagene Projektstruktur
@@ -1107,6 +1136,7 @@ lagekatse/
 │           ├── etb/                 # M2: Einsatztagebuch (Tabelle, autoritatives Anlegen)
 │           ├── arbeitsblatt/        # M3: Taktisches Arbeitsblatt (Felder A–F, Wetter-Rückseite)
 │           ├── kraefteubersicht/    # Modul 4: Bereitstellungsraum / Im Einsatz (#100)
+│           ├── einsatzabschnitte/   # Modul 5: EA/UA + Fahrzeug-Zuordnung (#133)
 │           └── sync/                # Yjs-Provider, Awareness-Bindung
 └── README.md
 ```
