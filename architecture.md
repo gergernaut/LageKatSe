@@ -1090,10 +1090,14 @@ Client-CRDT-Writes, kein eigener Endpoint, kein Seeding.
   `Y.Array` `abschnitte`; jede Zeile eine `Y.Map` (Feld-Level-Merge wie ETB-/Kräfte-Zeilen).
   Felder: `typ` (EA/UA), `titel`, `befehlsstelle`, `leiter`, `kommunikation`, `auftrag`,
   `einsatzbeginn` (DUG, bei Anlage vorbelegt), `createdAt`. `id` via `uid()` (Invariante #3).
-- **Zuordnung von Fahrzeugen (Option A):** ein Fahrzeug ↔ höchstens ein Abschnitt, gespeichert als
-  `einsatzabschnittId` **am Fahrzeug im `kraefteubersicht`-Dokument** — ein merge-sicherer Feld-Write,
-  kein Cross-Doc-Transfer. Beim Zurückschieben Einsatz→BR und beim Entlassen wird die Zuordnung
-  geleert (#137). Die **Stärke je Abschnitt** ist damit **abgeleitet** (nie gespeichert) und kann
+- **Führung (#154):** Singleton „eigene Führungsstelle" über den Abschnitten — **eine** `Y.Map`
+  unter Key `EA_FUEHRUNG` im selben Dokument (Führer/Befehlsstelle/Kommunikation/Standort). Derselbe
+  reservierte Wert `EA_FUEHRUNG` dient als `einsatzabschnittId`, um ein **Führungsmittel** zuzuordnen
+  (uid() erzeugt ihn nie → keine Kollision). Die Kräfteübersicht löst ihn zum Badge „→ Führung" auf.
+- **Zuordnung von Fahrzeugen (Option A):** ein Fahrzeug ↔ höchstens ein Abschnitt (oder die Führung),
+  gespeichert als `einsatzabschnittId` **am Fahrzeug im `kraefteubersicht`-Dokument** — ein merge-sicherer
+  Feld-Write, kein Cross-Doc-Transfer. Beim Zurückschieben Einsatz→BR und beim Entlassen wird die
+  Zuordnung geleert (#137). Die **Stärke je Abschnitt** ist damit **abgeleitet** (nie gespeichert) und kann
   nicht driften — über die reinen, unit-getesteten Helfer `vehiclesInAbschnitt` / `abschnittKraft` /
   `unassignedEinsatzVehicles` (gezählt werden **nur** Fahrzeuge „im Einsatz").
 - **Cross-Modul (read-only):** Feld C der Taktischen Übersicht listet die Abschnitte samt
@@ -1103,7 +1107,8 @@ Client-CRDT-Writes, kein eigener Endpoint, kein Seeding.
   **nicht**. Monitor read-only. (Die Fahrzeug-Zuordnung schreibt ins `kraefteubersicht`-Doc, für das
   die S-Rollen/LdS ebenfalls Schreibrecht haben → keine Rechtelücke.)
 - **Export/Import:** verlustfreies JSON (`lagekatse.einsatzabschnitte`, IDs bleiben erhalten, damit
-  die Fahrzeug-Zuordnung den Import übersteht), Teil des Bundles (§12); Apply client-CRDT über
+  die Fahrzeug-Zuordnung den Import übersteht; **inkl. Führungs-Singleton** `fuehrung`, optional →
+  ältere Dateien bleiben gültig), Teil des Bundles (§12); Apply client-CRDT über
   `einsatzabschnitte/applyImport.ts` (React-frei, von Einzeldatei- **und** Bundle-Import geteilt).
   Smoke: `packages/web/scripts/einsatzabschnitte-e2e.mjs`.
 

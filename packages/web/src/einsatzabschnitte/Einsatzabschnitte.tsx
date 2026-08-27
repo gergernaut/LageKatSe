@@ -4,13 +4,19 @@ import {
   AB_KANAL_FIELDS,
   AB_ORGANISATION,
   canWrite,
+  coerceFuehrung,
   EA_ABSCHNITTE,
   EA_EXPORT_FORMAT,
+  EA_FUEHRUNG,
   EA_TYPEN,
+  EMPTY_FUEHRUNG,
   formatStaerke,
+  FUEHRUNG_FIELDS,
+  FUEHRUNG_LABELS,
   isRecord,
   KRAFT_VEHICLES,
   parseEinsatzabschnitteExport,
+  parseFuehrungExport,
   sumStaerke,
   unassignedEinsatzVehicles,
   vehiclesInAbschnitt,
@@ -18,6 +24,8 @@ import {
   type EaTyp,
   type Einsatzabschnitt,
   type EinsatzabschnitteExport,
+  type Fuehrung,
+  type FuehrungField,
   type KraftVehicle,
 } from "@lagekatse/shared";
 import * as Y from "yjs";
@@ -34,29 +42,40 @@ function stringValue(map: Y.Map<unknown>, field: string): string {
 
 export function Einsatzabschnitte({ session }: { session: Session }) {
   const [abschnitte, setAbschnitte] = useState<Einsatzabschnitt[]>([]);
+  const [fuehrung, setFuehrung] = useState<Fuehrung>(EMPTY_FUEHRUNG);
   const [vehicles, setVehicles] = useState<KraftVehicle[]>([]);
   const [funkkanaele, setFunkkanaele] = useState<string[]>([]);
-  // Auswahl im Zuordnen-Dropdown je Abschnitt (abschnittId -> vehicleId).
+  // Auswahl im Zuordnen-Dropdown je Abschnitt (abschnittId -> vehicleId);
+  // die Führung nutzt denselben Mechanismus unter dem Key EA_FUEHRUNG.
   const [assignSel, setAssignSel] = useState<Record<string, string>>({});
   const [importMessage, setImportMessage] = useState("");
   const abschnitteRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
+  const fuehrungRef = useRef<Y.Map<unknown> | null>(null);
   const vehiclesRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const writable = canWrite(session.roles, "einsatzabschnitte", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
   });
 
-  // Eigenes Modul-Dokument: die Einsatzabschnitte (CRUD).
+  // Eigenes Modul-Dokument: die Einsatzabschnitte (CRUD) + der Führungs-Singleton (#154).
   useEffect(() => {
     const conn = connectModule(session.room.id, "einsatzabschnitte", session.token);
     const abschnitte = conn.doc.getArray<Y.Map<unknown>>(EA_ABSCHNITTE);
+    const fuehrungMap = conn.doc.getMap<unknown>(EA_FUEHRUNG);
     abschnitteRef.current = abschnitte;
-    const refresh = () => setAbschnitte(abschnitte.toArray().map((m) => m.toJSON() as Einsatzabschnitt));
+    fuehrungRef.current = fuehrungMap;
+    const refresh = () => {
+      setAbschnitte(abschnitte.toArray().map((m) => m.toJSON() as Einsatzabschnitt));
+      setFuehrung(coerceFuehrung(fuehrungMap.toJSON()));
+    };
     abschnitte.observeDeep(refresh);
+    fuehrungMap.observe(refresh);
     refresh();
     return () => {
       abschnitte.unobserveDeep(refresh);
+      fuehrungMap.unobserve(refresh);
       abschnitteRef.current = null;
+      fuehrungRef.current = null;
       conn.destroy();
     };
   }, [session.room.id, session.token]);
@@ -106,6 +125,11 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     if (!writable) return;
     const row = abschnitteRef.current?.toArray().find((m) => m.get("id") === id);
     row?.set(field, value);
+  };
+
+  const setFuehrungField = (field: FuehrungField, value: string) => {
+    if (!writable) return;
+    fuehrungRef.current?.set(field, value);
   };
 
   const addAbschnitt = () => {
@@ -191,6 +215,7 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
       version: 1,
       exportedAt: new Date().toISOString(),
       abschnitte,
+      fuehrung,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -232,7 +257,7 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
       ) {
         return;
       }
-      applyEinsatzabschnitteImport(list, rows, { replace: true });
+      applyEinsatzabschnitteImport(list, rows, { replace: true, fuehrung: parseFuehrungExport(parsed) });
       setImportMessage(`${rows.length} Einsatzabschnitt${rows.length === 1 ? "" : "e"} importiert.`);
     } catch (err) {
       console.debug("Einsatzabschnitte-Import fehlgeschlagen", err);
@@ -288,6 +313,89 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
         )}
         <span className="chip">{writable ? "Bearbeiten" : "Nur Lesen"}</span>
       </div>
+
+      {(() => {
+        const fuAssigned = assignedVehicles(EA_FUEHRUNG);
+        return (
+          <section className="ea-fuehrung" aria-label="Führung">
+            <div className="ea-fuehrung__head">
+              <span className="ea-fuehrung__badge">Führung</span>
+              <span className="ea-fuehrung__hint">Eigene Führungsstelle &amp; Führungsmittel</span>
+              <span className="ea-fuehrung__staerke mono">
+                {formatStaerke(sumStaerke(fuAssigned))} · {fuAssigned.length} Fz.
+              </span>
+            </div>
+            <div className="ea-fuehrung__fields">
+              {FUEHRUNG_FIELDS.map((f) => (
+                <label className="ea-field" key={f}>
+                  <span>{FUEHRUNG_LABELS[f]}</span>
+                  <input
+                    {...(f === "kommunikation" ? { list: "ea-funkkanaele" } : {})}
+                    value={fuehrung[f]}
+                    readOnly={!writable}
+                    onChange={(e) => setFuehrungField(f, e.currentTarget.value)}
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="ea-fuehrung__units">
+              <div className="ea-body-head">
+                <span>Führungsmittel</span>
+                <span>Stärke (F/U/H//Ges.)</span>
+              </div>
+              {fuAssigned.length === 0 ? (
+                <p className="ea-empty">Noch kein Führungsmittel zugeordnet</p>
+              ) : (
+                <div className="ea-units">
+                  {fuAssigned.map((v) => (
+                    <div className="ea-units__row" key={v.id}>
+                      <span className="fz">{v.funkrufname || "(ohne Funkrufname)"}</span>
+                      <span className="st">{formatStaerke(sumStaerke([v]))}</span>
+                      {writable && (
+                        <button
+                          className="ea-units__rm"
+                          type="button"
+                          title="Zuordnung entfernen"
+                          aria-label={`${v.funkrufname || "Fahrzeug"} aus der Führung entfernen`}
+                          onClick={() => unassignVehicle(v.id)}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {writable && (
+                <div className="ea-assign">
+                  <select
+                    aria-label="Führungsmittel zuordnen"
+                    value={assignSel[EA_FUEHRUNG] ?? ""}
+                    onChange={(e) => {
+                      const vehicleId = e.currentTarget.value;
+                      setAssignSel((prev) => ({ ...prev, [EA_FUEHRUNG]: vehicleId }));
+                    }}
+                  >
+                    <option value="">Fahrzeug wählen … (im Einsatz, noch nicht zugeordnet)</option>
+                    {unassignedVehicles().map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {(v.funkrufname || "(ohne Funkrufname)") + " · " + formatStaerke(sumStaerke([v]))}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!assignSel[EA_FUEHRUNG]}
+                    onClick={() => assignVehicle(EA_FUEHRUNG)}
+                  >
+                    Fzg. zuordnen
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
+        );
+      })()}
 
       {abschnitte.length === 0 ? (
         <p className="einsatzabschnitte__empty">
