@@ -90,7 +90,7 @@ export function Uebersicht({
       if (!file || importing) return;
       if (
         !window.confirm(
-          "Der geteilte Stand aller Module (Lagekarte, Einsatztagebuch, Taktische Übersicht) wird durch das Bundle ersetzt — für alle im Stabsraum. Fortfahren?",
+          "Der geteilte Stand aller Module (Lagekarte, Einsatztagebuch, Taktische Übersicht, Kräfteübersicht, Einsatzabschnitte) wird durch das Bundle ersetzt — für alle im Stabsraum. Fortfahren?",
         )
       ) {
         return;

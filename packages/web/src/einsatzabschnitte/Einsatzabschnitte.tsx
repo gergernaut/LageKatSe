@@ -1,17 +1,21 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
   AB_KANAELE,
   AB_KANAL_FIELDS,
   AB_ORGANISATION,
   canWrite,
   EA_ABSCHNITTE,
+  EA_EXPORT_FORMAT,
   EA_TYPEN,
   formatStaerke,
+  isRecord,
   KRAFT_VEHICLES,
+  parseEinsatzabschnitteExport,
   sumStaerke,
   type AbKanal,
   type EaTyp,
   type Einsatzabschnitt,
+  type EinsatzabschnitteExport,
   type KraftVehicle,
 } from "@lagekatse/shared";
 import * as Y from "yjs";
@@ -19,6 +23,7 @@ import type { Session } from "../session";
 import { connectModule } from "../sync/provider";
 import { uid } from "../uid";
 import { dug } from "../dug";
+import { applyEinsatzabschnitteImport } from "./applyImport";
 
 function stringValue(map: Y.Map<unknown>, field: string): string {
   const value = map.get(field);
@@ -31,8 +36,10 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
   const [funkkanaele, setFunkkanaele] = useState<string[]>([]);
   // Auswahl im Zuordnen-Dropdown je Abschnitt (abschnittId -> vehicleId).
   const [assignSel, setAssignSel] = useState<Record<string, string>>({});
+  const [importMessage, setImportMessage] = useState("");
   const abschnitteRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const vehiclesRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const writable = canWrite(session.roles, "einsatzabschnitte", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
   });
@@ -174,6 +181,65 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
   const unassignedVehicles = (): KraftVehicle[] =>
     vehicles.filter((v) => v.status === "einsatz" && !v.einsatzabschnittId);
 
+  // Einzeldatei-Export: nur die Abschnitte selbst. Die Fahrzeug-Zuordnung liegt am
+  // Fahrzeug (kraefteubersicht-Export) — der Gesamt-Export im Übersicht-Tab hält beide zusammen.
+  const exportJson = () => {
+    const payload: EinsatzabschnitteExport = {
+      format: EA_EXPORT_FORMAT,
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      abschnitte,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `einsatzabschnitte-${session.room.joinCode}-${dug()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // Einzeldatei-Import (Gegenstück): validiert gegen das Envelope-Schema und ersetzt
+  // die (geteilten!) Abschnitte in EINER Transaktion. Nur Schreibberechtigte, mit Bestätigung.
+  const importJson = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget; // vor await sichern (React nullt currentTarget)
+    const file = input.files?.[0];
+    try {
+      if (!file) return;
+      if (!writable) {
+        setImportMessage("Import nicht erlaubt.");
+        return;
+      }
+      const parsed: unknown = JSON.parse(await file.text());
+      if (!isRecord(parsed) || parsed.format !== EA_EXPORT_FORMAT) {
+        setImportMessage("Import fehlgeschlagen: kein gültiges Einsatzabschnitte-Export-Format.");
+        return;
+      }
+      const rows = parseEinsatzabschnitteExport(parsed, uid);
+      const list = abschnitteRef.current;
+      if (!rows || !list) {
+        setImportMessage("Import fehlgeschlagen.");
+        return;
+      }
+      if (
+        !window.confirm(
+          "Die aktuellen Einsatzabschnitte werden durch die importierten ersetzt — für alle im Stabsraum. Fortfahren?",
+        )
+      ) {
+        return;
+      }
+      applyEinsatzabschnitteImport(list, rows, { replace: true });
+      setImportMessage(`${rows.length} Einsatzabschnitt${rows.length === 1 ? "" : "e"} importiert.`);
+    } catch (err) {
+      console.debug("Einsatzabschnitte-Import fehlgeschlagen", err);
+      setImportMessage("Import fehlgeschlagen: ungültige JSON-Datei.");
+    } finally {
+      input.value = "";
+    }
+  };
+
   return (
     <div className="einsatzabschnitte">
       <div className="work__bar einsatzabschnitte__bar">
@@ -190,7 +256,29 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
           {abschnitte.length} {abschnitte.length === 1 ? "Abschnitt" : "Abschnitte"}
         </span>
         <span className="chip">Alle Felder werden synchronisiert</span>
+        {importMessage && <span className="chip">{importMessage}</span>}
         <div className="spacer" />
+        {writable && (
+          <button className="tool" type="button" onClick={() => importInputRef.current?.click()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+            </svg>
+            Import JSON
+          </button>
+        )}
+        <input
+          ref={importInputRef}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={importJson}
+        />
+        <button className="tool" type="button" onClick={exportJson}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M12 15V3M7 8l5-5 5 5M5 21h14" />
+          </svg>
+          Export JSON
+        </button>
         {writable && (
           <button className="btn btn--primary" type="button" onClick={addAbschnitt}>
             + Neuer Einsatzabschnitt
