@@ -1017,6 +1017,9 @@ export function Lagekarte({
         });
         layer.on("click", (event) => {
           L.DomEvent.stopPropagation(event);
+          // Ist ein Palette-Symbol aktiv, setzt der Klick ein Zeichen (auch über
+          // einem vorhandenen), statt dieses auszuwählen (#152).
+          if (placePendingSymbol(event.latlng)) return;
           if (!writableRef.current) return;
           const current = featuresMap.get(id);
           if (current?.kind !== "symbol") return;
@@ -1026,6 +1029,9 @@ export function Lagekarte({
       } else if (feature.kind === "area") {
         layer.on("click", (event) => {
           L.DomEvent.stopPropagation(event);
+          // Klick in eine Fläche soll im Platzier-Modus ein Zeichen setzen, statt
+          // die Fläche auszuwählen — sonst ließe sich in Flächen nichts setzen (#152).
+          if (placePendingSymbol(event.latlng)) return;
           if (!writableRef.current) return;
           const current = featuresMap.get(id);
           if (current?.kind !== "area") return;
@@ -1090,18 +1096,22 @@ export function Lagekarte({
     features = new Map(featuresMap.entries());
     renderAll();
 
-    const onMapClick = (event: L.LeafletMouseEvent) => {
-      if (!writableRef.current) return;
-      if (activeDrawRef.current) return;
+    // Setzt das in der Palette aktive Symbol an `latlng` und meldet, ob platziert
+    // wurde. Wird sowohl vom leeren Karten-Klick als auch von den Feature-Klick-
+    // Handlern genutzt: interaktive Layer (Flächen/Marker) schlucken sonst den
+    // Karten-`click`, sodass man kein Zeichen in eine Fläche setzen könnte (#152).
+    const placePendingSymbol = (latlng: L.LatLng): boolean => {
+      if (!writableRef.current) return false;
+      if (activeDrawRef.current) return false;
       const symbol = selectedSymbolRef.current;
-      if (!symbol) return;
+      if (!symbol) return false;
       const id = uid();
       const now = new Date().toISOString();
       const feature: SymbolFeature = {
         id,
         kind: "symbol",
         symbolId: symbol.id,
-        position: [event.latlng.lat, event.latlng.lng],
+        position: [latlng.lat, latlng.lng],
         rotation: 0,
         label: symbol.label,
         description: "",
@@ -1110,6 +1120,11 @@ export function Lagekarte({
         updatedAt: now,
       };
       featuresMap.set(id, feature);
+      return true;
+    };
+
+    const onMapClick = (event: L.LeafletMouseEvent) => {
+      placePendingSymbol(event.latlng);
     };
     map.on("click", onMapClick);
 
