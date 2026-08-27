@@ -417,6 +417,12 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 }
 .kraft-move:hover { background: rgba(47,107,216,.16); }
 .kraft-release { margin-top: 0; }
+/* Zugeordneter Einsatzabschnitt (#133) — kleines Kennzeichen unter dem Funkrufnamen. */
+.kraft-ea-badge {
+  display: inline-flex; align-items: center; margin-top: 4px; padding: 1px 7px;
+  border-radius: 999px; background: rgba(225,29,29,.12); color: var(--ea-red);
+  font: 600 10.5px var(--mono); letter-spacing: .02em; white-space: nowrap;
+}
 
 /* ---------- Arbeitsblatt ---------- */
 .arbeitsblatt {
