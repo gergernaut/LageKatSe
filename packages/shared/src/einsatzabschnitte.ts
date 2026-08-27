@@ -71,6 +71,42 @@ export const EA_TYPEN = ["EA", "UA"] as const;
 export type EaTyp = (typeof EA_TYPEN)[number];
 
 /**
+ * Ein Eintrag der Auftrags-/Rückmeldungs-/Anforderungslisten je Abschnitt (#155/#161).
+ * Abhakbar (`erledigt`). Als Y.Map in einer verschachtelten Y.Array gespeichert →
+ * abhaken ist ein Feld-Write (item-level Merge, wie ETB-/Kräfte-Zeilen).
+ */
+export interface EaListItem {
+  id: string;
+  text: string;
+  erledigt: boolean;
+}
+
+/** Die drei abhakbaren Listen je Abschnitt (Reihenfolge = Anzeige-Reihenfolge). */
+export const EA_LISTS = ["auftraege", "rueckmeldungen", "anforderungen"] as const;
+export type EaListKey = (typeof EA_LISTS)[number];
+
+export const EA_LIST_LABELS: Record<EaListKey, string> = {
+  auftraege: "Aufträge",
+  rueckmeldungen: "Rückmeldungen",
+  anforderungen: "Anforderungen",
+};
+
+/** Defensive Coercion einer Listen-Zeile (fehlende/defekte Felder → sichere Defaults). */
+export function coerceEaListItem(value: unknown, fallbackId: () => string): EaListItem {
+  const r: Record<string, unknown> = isRecord(value) ? value : {};
+  return {
+    id: asString(r.id) || fallbackId(),
+    text: asString(r.text),
+    erledigt: r.erledigt === true,
+  };
+}
+
+/** Coerct eine ganze Liste; Nicht-Arrays werden zu []. */
+export function coerceEaListItems(value: unknown, fallbackId: () => string): EaListItem[] {
+  return Array.isArray(value) ? value.map((v) => coerceEaListItem(v, fallbackId)) : [];
+}
+
+/**
  * Ein Einsatzabschnitt/Unterabschnitt. Als Y.Map in EA_ABSCHNITTE; `id` via uid()
  * (kein crypto.randomUUID, Invariante #3). `einsatzbeginn` ist eine DUG-Zeichenkette
  * (bei Anlage vorbelegt, frei editierbar). Die Kräfte-/Fahrzeug-Summen sind NICHT
@@ -86,6 +122,10 @@ export interface Einsatzabschnitt {
   auftrag: string;
   einsatzbeginn: string; // DUG (dug()), bei Anlage vorbelegt
   createdAt: string; // ISO-8601
+  // Abhakbare Listen (#155/#161) — je als verschachtelte Y.Array<Y.Map> gespeichert.
+  auftraege: EaListItem[];
+  rueckmeldungen: EaListItem[];
+  anforderungen: EaListItem[];
 }
 
 /** Felder, die ein Client direkt via Y.Map.set editiert (alles außer der id). */
@@ -147,6 +187,9 @@ export function coerceEinsatzabschnitt(value: unknown, fallbackId: () => string)
     auftrag: asString(r.auftrag),
     einsatzbeginn: asString(r.einsatzbeginn),
     createdAt: asString(r.createdAt),
+    auftraege: coerceEaListItems(r.auftraege, fallbackId),
+    rueckmeldungen: coerceEaListItems(r.rueckmeldungen, fallbackId),
+    anforderungen: coerceEaListItems(r.anforderungen, fallbackId),
   };
 }
 
