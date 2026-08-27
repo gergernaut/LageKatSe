@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   abschnittKraft,
   asEaTyp,
+  coerceEaListItem,
+  coerceEaListItems,
   coerceEinsatzabschnitt,
   coerceFuehrung,
   EA_EXPORT_FORMAT,
@@ -80,6 +82,9 @@ describe("Einsatzabschnitte-Modell", () => {
         auftrag: "Riegelstellung",
         einsatzbeginn: "260918Aug26",
         createdAt: "2026-08-26T09:18:00.000Z",
+        auftraege: [],
+        rueckmeldungen: [],
+        anforderungen: [],
       });
     });
 
@@ -162,6 +167,40 @@ describe("Einsatzabschnitte-Modell", () => {
       expect(parseEinsatzabschnitteExport({ format: "fremd", abschnitte: [] }, () => "x")).toBeNull();
       expect(parseEinsatzabschnitteExport({ format: EA_EXPORT_FORMAT }, () => "x")).toBeNull();
       expect(parseEinsatzabschnitteExport(null, () => "x")).toBeNull();
+    });
+  });
+
+  // Abhakbare Listen (#161)
+  describe("coerceEaListItem / coerceEaListItems", () => {
+    it("übernimmt Text + erledigt, behält die id", () => {
+      expect(coerceEaListItem({ id: "i1", text: "Riegel legen", erledigt: true }, () => "gen")).toEqual({
+        id: "i1",
+        text: "Riegel legen",
+        erledigt: true,
+      });
+    });
+
+    it("erledigt ist nur bei echtem true wahr; fehlende id → fallback", () => {
+      expect(coerceEaListItem({ text: "x", erledigt: "ja" }, () => "gen")).toEqual({
+        id: "gen",
+        text: "x",
+        erledigt: false,
+      });
+    });
+
+    it("coerceEaListItems: Nicht-Array → [], sonst zeilenweise coerct", () => {
+      expect(coerceEaListItems(undefined, () => "x")).toEqual([]);
+      expect(coerceEaListItems([{ text: "a" }, "müll"], () => "gen").map((i) => i.text)).toEqual(["a", ""]);
+    });
+
+    it("coerceEinsatzabschnitt zieht die drei Listen mit (fehlend → [])", () => {
+      const a = coerceEinsatzabschnitt(
+        { id: "ea1", auftraege: [{ id: "a1", text: "T", erledigt: true }] },
+        () => "gen",
+      );
+      expect(a.auftraege).toEqual([{ id: "a1", text: "T", erledigt: true }]);
+      expect(a.rueckmeldungen).toEqual([]);
+      expect(a.anforderungen).toEqual([]);
     });
   });
 
