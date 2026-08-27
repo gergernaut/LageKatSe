@@ -17,6 +17,7 @@ import {
   canWrite,
   EA_ABSCHNITTE,
   formatAbschnittTitel,
+  vehiclesInAbschnitt,
   formatStaerke,
   isRecord,
   KRAFT_VEHICLES,
@@ -104,9 +105,9 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     einsatz: sumStaerke(einsatzVehicles),
     brCount: vehicles.filter((v) => v.status === "br").length,
   };
-  // Stärke + Fahrzeug-Anzahl je Abschnitt (aus den zugeordneten Einsatz-Fahrzeugen).
+  // Stärke + Fahrzeug-Anzahl je Abschnitt (geteiltes, getestetes Primitiv, #141).
   const abschnittKraft = (id: string) => {
-    const assigned = einsatzVehicles.filter((v) => v.einsatzabschnittId === id);
+    const assigned = vehiclesInAbschnitt(vehicles, id);
     return { staerke: sumStaerke(assigned), count: assigned.length };
   };
 
