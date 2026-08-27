@@ -34,6 +34,7 @@ interface ActiveDraw {
   shape: DrawShape;
   color: string;
   opacity: number;
+  dashArray: string;
 }
 
 const AREA_COLORS = [
@@ -139,6 +140,7 @@ function areaFromLayer(
     ...area,
     color: draw.color,
     opacity: draw.opacity,
+    dashArray: draw.dashArray || "",
     label: "",
     description: "",
     createdBy,
@@ -211,6 +213,7 @@ function createLayer(
       color: feature.color,
       fillColor: feature.color,
       fillOpacity: feature.opacity,
+      dashArray: feature.dashArray || undefined,
     };
     let shape: L.Circle | L.Rectangle | L.Polygon;
 
@@ -300,8 +303,10 @@ export function Lagekarte({
   const [activeDraw, setActiveDraw] = useState<ActiveDraw | null>(null);
   const [drawColor, setDrawColor] = useState("#d5372b");
   const [drawOpacity, setDrawOpacity] = useState(0.3);
+  const [drawDash, setDrawDash] = useState("");
   const [areaColor, setAreaColor] = useState("#d5372b");
   const [areaOpacity, setAreaOpacity] = useState(0.3);
+  const [areaDash, setAreaDash] = useState("");
   const [label, setLabel] = useState("");
   const [description, setDescription] = useState("");
   // Ausrichtung des ausgewählten Symbols (0–359°, 0 = Norden). Pro Symbol, nicht global
@@ -478,6 +483,7 @@ export function Lagekarte({
     if (selectedFeature.kind === "area") {
       setAreaColor(selectedFeature.color);
       setAreaOpacity(selectedFeature.opacity);
+      setAreaDash(selectedFeature.dashArray ?? "");
     } else {
       setRotation(selectedFeature.rotation ?? 0);
     }
@@ -528,36 +534,42 @@ export function Lagekarte({
     setActiveDraw(null);
   };
 
-  const enableDrawing = (shape: DrawShape, color = drawColor, opacity = drawOpacity) => {
+  const enableDrawing = (shape: DrawShape, color = drawColor, opacity = drawOpacity, dash = drawDash) => {
     if (!writableRef.current) return;
-    if (activeDrawRef.current?.shape === shape && color === drawColor && opacity === drawOpacity) {
+    if (activeDrawRef.current?.shape === shape && color === drawColor && opacity === drawOpacity && dash === drawDash) {
       cancelDrawing();
       return;
     }
 
     selectedSymbolRef.current = null;
     setSelectedSymbol(null);
-    const draw = { shape, color, opacity };
+    const draw = { shape, color, opacity, dashArray: dash };
     activeDrawRef.current = draw;
     setActiveDraw(draw);
     const map = mapRef.current;
     if (!map) return;
     map.pm.disableDraw();
     map.pm.enableDraw(shape, {
-      pathOptions: { color, fillColor: color, fillOpacity: opacity },
+      pathOptions: { color, fillColor: color, fillOpacity: opacity, dashArray: dash || undefined },
     });
   };
 
   const changeDrawColor = (color: string) => {
     setDrawColor(color);
     const current = activeDrawRef.current;
-    if (current) enableDrawing(current.shape, color, current.opacity);
+    if (current) enableDrawing(current.shape, color, current.opacity, current.dashArray);
   };
 
   const changeDrawOpacity = (opacity: number) => {
     setDrawOpacity(opacity);
     const current = activeDrawRef.current;
-    if (current) enableDrawing(current.shape, current.color, opacity);
+    if (current) enableDrawing(current.shape, current.color, opacity, current.dashArray);
+  };
+
+  const changeDrawDash = (dash: string) => {
+    setDrawDash(dash);
+    const current = activeDrawRef.current;
+    if (current) enableDrawing(current.shape, current.color, current.opacity, dash);
   };
 
   const saveSelectedFeature = () => {
@@ -574,6 +586,7 @@ export function Lagekarte({
         ...current,
         color: areaColor,
         opacity: areaOpacity,
+        dashArray: areaDash || "",
         label,
         description,
         updatedAt,
@@ -1325,6 +1338,12 @@ export function Lagekarte({
                 onChange={(event) => changeDrawOpacity(Number(event.target.value))}
               />
             </label>
+            <fieldset className="lagekarte-dash">
+              <legend>Linie</legend>
+              <button type="button" title="Durchgehend" aria-pressed={drawDash === ""} onClick={() => changeDrawDash("")}>━</button>
+              <button type="button" title="Gestrichelt" aria-pressed={drawDash === "5,5"} onClick={() => changeDrawDash("5,5")}>╌</button>
+              <button type="button" title="Gepunktet" aria-pressed={drawDash === "2,4"} onClick={() => changeDrawDash("2,4")}>┄</button>
+            </fieldset>
             {activeDraw && (
               <button className="lagekarte-draw__cancel" type="button" onClick={cancelDrawing}>
                 Abbrechen <span>Esc</span>
@@ -1395,6 +1414,12 @@ export function Lagekarte({
                       onChange={(event) => setAreaOpacity(Number(event.target.value))}
                     />
                   </label>
+                  <fieldset className="lagekarte-dash">
+                    <legend>Linie</legend>
+                    <button type="button" title="Durchgehend" aria-pressed={areaDash === ""} onClick={() => setAreaDash("")}>━</button>
+                    <button type="button" title="Gestrichelt" aria-pressed={areaDash === "5,5"} onClick={() => setAreaDash("5,5")}>╌</button>
+                    <button type="button" title="Gepunktet" aria-pressed={areaDash === "2,4"} onClick={() => setAreaDash("2,4")}>┄</button>
+                  </fieldset>
                 </>
               )}
               {selectedFeature.kind === "symbol" && (
