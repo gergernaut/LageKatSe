@@ -4,10 +4,13 @@ import {
   AB_KANAL_FIELDS,
   AB_ORGANISATION,
   canWrite,
+  coerceEinsatzabschnitt,
   coerceFuehrung,
   EA_ABSCHNITTE,
   EA_EXPORT_FORMAT,
   EA_FUEHRUNG,
+  EA_LIST_LABELS,
+  EA_LISTS,
   EA_TYPEN,
   EMPTY_FUEHRUNG,
   formatStaerke,
@@ -21,6 +24,8 @@ import {
   unassignedEinsatzVehicles,
   vehiclesInAbschnitt,
   type AbKanal,
+  type EaListItem,
+  type EaListKey,
   type EaTyp,
   type Einsatzabschnitt,
   type EinsatzabschnitteExport,
@@ -33,7 +38,7 @@ import type { Session } from "../session";
 import { connectModule } from "../sync/provider";
 import { uid } from "../uid";
 import { dug } from "../dug";
-import { applyEinsatzabschnitteImport } from "./applyImport";
+import { abschnittToYMap, applyEinsatzabschnitteImport } from "./applyImport";
 
 function stringValue(map: Y.Map<unknown>, field: string): string {
   const value = map.get(field);
@@ -65,7 +70,9 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     abschnitteRef.current = abschnitte;
     fuehrungRef.current = fuehrungMap;
     const refresh = () => {
-      setAbschnitte(abschnitte.toArray().map((m) => m.toJSON() as Einsatzabschnitt));
+      // coerce statt roher toJSON-Cast: ältere Abschnitte ohne die Listen-Felder
+      // (#161) bekommen so sichere Defaults (leere Listen).
+      setAbschnitte(abschnitte.toArray().map((m) => coerceEinsatzabschnitt(m.toJSON(), () => "")));
       setFuehrung(coerceFuehrung(fuehrungMap.toJSON()));
     };
     abschnitte.observeDeep(refresh);
@@ -147,10 +154,12 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
       auftrag: "",
       einsatzbeginn: dug(),
       createdAt: new Date().toISOString(),
+      auftraege: [],
+      rueckmeldungen: [],
+      anforderungen: [],
     };
-    const row = new Y.Map<unknown>();
-    Object.entries(value).forEach(([field, fieldValue]) => row.set(field, fieldValue));
-    rows.push([row]);
+    // Builder legt die drei Listen als verschachtelte Y.Array<Y.Map> an (#161).
+    rows.push([abschnittToYMap(value)]);
   };
 
   // Schreibt einsatzabschnittId auf ein Fahrzeug im kraefteubersicht-Doc (Option A,
@@ -177,6 +186,52 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
   const unassignVehicle = (vehicleId: string) => {
     if (!writable) return;
     setVehicleEa(vehicleId, "");
+  };
+
+  // Listen-Operationen (#161): die drei Listen liegen als verschachtelte
+  // Y.Array<Y.Map> je Abschnitt — alle Mutationen über diese Handles (Feld-Merge).
+  const listArray = (abschnittId: string, key: EaListKey): Y.Array<Y.Map<unknown>> | null => {
+    const row = abschnitteRef.current?.toArray().find((m) => m.get("id") === abschnittId);
+    if (!row) return null;
+    const existing = row.get(key);
+    if (existing instanceof Y.Array) return existing as Y.Array<Y.Map<unknown>>;
+    // Älterer Abschnitt ohne diese Liste: einmalig anlegen.
+    const arr = new Y.Array<Y.Map<unknown>>();
+    row.set(key, arr);
+    return arr;
+  };
+
+  const addItem = (abschnittId: string, key: EaListKey, text: string) => {
+    if (!writable) return;
+    const t = text.trim();
+    if (!t) return;
+    const arr = listArray(abschnittId, key);
+    if (!arr) return;
+    const item = new Y.Map<unknown>();
+    item.set("id", uid());
+    item.set("text", t);
+    item.set("erledigt", false);
+    arr.push([item]);
+  };
+
+  const toggleItem = (abschnittId: string, key: EaListKey, itemId: string) => {
+    if (!writable) return;
+    const item = listArray(abschnittId, key)?.toArray().find((m) => m.get("id") === itemId);
+    if (item) item.set("erledigt", item.get("erledigt") !== true);
+  };
+
+  const setItemText = (abschnittId: string, key: EaListKey, itemId: string, text: string) => {
+    if (!writable) return;
+    const item = listArray(abschnittId, key)?.toArray().find((m) => m.get("id") === itemId);
+    item?.set("text", text);
+  };
+
+  const deleteItem = (abschnittId: string, key: EaListKey, itemId: string) => {
+    if (!writable) return;
+    const arr = listArray(abschnittId, key);
+    if (!arr) return;
+    const index = arr.toArray().findIndex((m) => m.get("id") === itemId);
+    if (index >= 0) arr.delete(index, 1);
   };
 
   const deleteAbschnitt = (a: Einsatzabschnitt) => {
@@ -556,6 +611,21 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
                       </button>
                     </div>
                   )}
+                  <div className="ea-lists">
+                    {EA_LISTS.map((key) => (
+                      <EaItemList
+                        key={key}
+                        label={EA_LIST_LABELS[key]}
+                        items={a[key]}
+                        writable={writable}
+                        onAdd={(text) => addItem(a.id, key, text)}
+                        onToggle={(itemId) => toggleItem(a.id, key, itemId)}
+                        onSetText={(itemId, text) => setItemText(a.id, key, itemId, text)}
+                        onDelete={(itemId) => deleteItem(a.id, key, itemId)}
+                      />
+                    ))}
+                  </div>
+
                   {writable && (
                     <button className="ea-del" type="button" onClick={() => deleteAbschnitt(a)}>
                       Abschnitt löschen
@@ -574,5 +644,115 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
         ))}
       </datalist>
     </div>
+  );
+}
+
+/**
+ * Eine ausklappbare, abhakbare Liste (#161). Ausklapp-Zustand + Entwurfstext sind
+ * client-lokal (React-State, kein CRDT) — der Zustand überlebt CRDT-Updates, weil
+ * React die Instanz per key (Listen-Key) reconcilet.
+ */
+function EaItemList({
+  label,
+  items,
+  writable,
+  onAdd,
+  onToggle,
+  onSetText,
+  onDelete,
+}: {
+  label: string;
+  items: EaListItem[];
+  writable: boolean;
+  onAdd: (text: string) => void;
+  onToggle: (id: string) => void;
+  onSetText: (id: string, text: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [draft, setDraft] = useState("");
+  const offen = items.filter((i) => !i.erledigt).length;
+  const submit = () => {
+    onAdd(draft);
+    setDraft("");
+  };
+  return (
+    <section className="ea-list">
+      <button
+        type="button"
+        className="ea-list__toggle"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <span className="ea-list__chevron" aria-hidden="true">
+          {expanded ? "▾" : "▸"}
+        </span>
+        <span className="ea-list__label">{label}</span>
+        <span className="ea-list__count">
+          {items.length === 0 ? "leer" : `${offen} offen / ${items.length}`}
+        </span>
+      </button>
+      {expanded && (
+        <div className="ea-list__body">
+          {items.length === 0 ? (
+            <p className="ea-empty">Noch keine Einträge</p>
+          ) : (
+            <ul className="ea-list__items">
+              {items.map((item) => (
+                <li className={`ea-list__item ${item.erledigt ? "ea-list__item--done" : ""}`} key={item.id}>
+                  <input
+                    type="checkbox"
+                    checked={item.erledigt}
+                    disabled={!writable}
+                    aria-label="erledigt"
+                    onChange={() => onToggle(item.id)}
+                  />
+                  {writable ? (
+                    <input
+                      className="ea-list__text"
+                      value={item.text}
+                      aria-label="Eintragstext"
+                      onChange={(e) => onSetText(item.id, e.currentTarget.value)}
+                    />
+                  ) : (
+                    <span className="ea-list__text">{item.text}</span>
+                  )}
+                  {writable && (
+                    <button
+                      type="button"
+                      className="ea-list__rm"
+                      title="Eintrag löschen"
+                      aria-label="Eintrag löschen"
+                      onClick={() => onDelete(item.id)}
+                    >
+                      ×
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {writable && (
+            <form
+              className="ea-list__add"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submit();
+              }}
+            >
+              <input
+                value={draft}
+                placeholder="Eintrag hinzufügen …"
+                aria-label={`${label}: Eintrag hinzufügen`}
+                onChange={(e) => setDraft(e.currentTarget.value)}
+              />
+              <button type="submit" disabled={!draft.trim()}>
+                +
+              </button>
+            </form>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
