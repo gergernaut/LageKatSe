@@ -57,6 +57,7 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
   const [assignSel, setAssignSel] = useState<Record<string, string>>({});
   const [importMessage, setImportMessage] = useState("");
   const [etbSyncMsg, setEtbSyncMsg] = useState("");
+  const etbSyncTimerRef = useRef<number | null>(null);
   const abschnitteRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const fuehrungRef = useRef<Y.Map<unknown> | null>(null);
   const vehiclesRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
@@ -240,18 +241,30 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
   // ETB-Sync (#162): eine Rückmeldung/Anforderung server-autoritativ ins ETB
   // übernehmen (Invariante #6, bestehender Endpoint; EA-Schreiber haben etb-Recht).
   // One-way push — ein Klick = ein ETB-Eintrag „EA X · Rückmeldung: …".
+  // Kurze Bestätigung, die nach ein paar Sekunden von selbst verschwindet.
+  const flashEtbMsg = (msg: string) => {
+    setEtbSyncMsg(msg);
+    if (etbSyncTimerRef.current) clearTimeout(etbSyncTimerRef.current);
+    etbSyncTimerRef.current = window.setTimeout(() => setEtbSyncMsg(""), 4000);
+  };
+
   const syncItemToEtb = async (a: Einsatzabschnitt, key: EaListKey, item: EaListItem) => {
     if (!writable) return;
     const text = item.text.trim();
     if (!text) return;
     try {
       await api.createEtbEntry(session.room.joinCode, session.token, buildEaEtbEntry(a, key, text));
-      setEtbSyncMsg(`„${text.slice(0, 40)}“ ins ETB übernommen`);
+      flashEtbMsg(`„${text.slice(0, 40)}“ ins ETB übernommen`);
     } catch (err) {
       console.debug("ETB-Übernahme fehlgeschlagen", err);
-      setEtbSyncMsg("ETB-Übernahme fehlgeschlagen.");
+      flashEtbMsg("ETB-Übernahme fehlgeschlagen.");
     }
   };
+
+  // Auto-Clear-Timer beim Unmount aufräumen.
+  useEffect(() => () => {
+    if (etbSyncTimerRef.current) clearTimeout(etbSyncTimerRef.current);
+  }, []);
 
   const deleteAbschnitt = (a: Einsatzabschnitt) => {
     if (!writable) return;
