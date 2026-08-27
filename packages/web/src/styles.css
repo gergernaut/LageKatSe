@@ -604,7 +604,7 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .lagekarte-symbol__label {
   position: absolute; top: calc(100% + 2px); left: 50%; transform: translateX(-50%);
   font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--ink);
-  background: rgba(255,255,255,.9); padding: 1px 5px; border-radius: 4px;
+  background: var(--surface); padding: 1px 5px; border-radius: 4px;
   white-space: nowrap; letter-spacing: .02em; pointer-events: none;
 }
 .lagekarte-area-label { background: transparent; border: 0; }
