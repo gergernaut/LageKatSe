@@ -126,6 +126,29 @@ async function main() {
       updatedAt: "2026-08-26T09:18:00.000Z",
     }),
   ]);
+
+  // Führung (#154): Singleton-Y.Map "fuehrung" + Führungsmittel via reservierter
+  // einsatzabschnittId "fuehrung" (kein echter Abschnitt).
+  const wf = We.doc.getMap("fuehrung");
+  wf.set("fuehrer", "EL Muster");
+  wf.set("befehlsstelle", "FüKW");
+  wf.set("kommunikation", "Florian 10");
+  wf.set("standort", "Rathausplatz");
+  Wk.doc.getArray("vehicles").push([
+    eaRow({
+      id: "v2",
+      org: "FW",
+      typ: "ELW 1",
+      funkrufname: "Florian OWL 1-11-1",
+      fuehrer: 1,
+      unterfuehrer: 1,
+      helfer: 1,
+      status: "einsatz",
+      einsatzabschnittId: "fuehrung",
+      createdAt: "2026-08-26T09:18:00.000Z",
+      updatedAt: "2026-08-26T09:18:00.000Z",
+    }),
+  ]);
   await sleep(900);
 
   // Observer: sieht Abschnitt + zugeordnetes Fahrzeug, Stärke ableitbar.
@@ -143,6 +166,17 @@ async function main() {
     !!abschnitt && abschnitt.titel === "A" && abschnitt.typ === "EA" &&
     assigned.length === 1 && assigned[0].funkrufname === "Florian OWL 1-44-1" && staerkeStr === "1/0/5//6";
 
+  // Führung: Observer sieht den Singleton + das Führungsmittel (Stärke ableitbar).
+  const of = Oe.doc.getMap("fuehrung").toJSON();
+  const fuAssigned = ov.toArray().map((v) => v.toJSON()).filter((v) => v.status === "einsatz" && v.einsatzabschnittId === "fuehrung");
+  const fuStaerke = fuAssigned.reduce(
+    (a, v) => ({ f: a.f + (v.fuehrer || 0), u: a.u + (v.unterfuehrer || 0), h: a.h + (v.helfer || 0) }),
+    { f: 0, u: 0, h: 0 },
+  );
+  const fuStr = `${fuStaerke.f}/${fuStaerke.u}/${fuStaerke.h}//${fuStaerke.f + fuStaerke.u + fuStaerke.h}`;
+  console.log("observer sieht Führung:", { fuehrung: of, fuAssignedCount: fuAssigned.length, staerke: fuStr });
+  const test3 = of.fuehrer === "EL Muster" && of.standort === "Rathausplatz" && fuAssigned.length === 1 && fuStr === "1/1/1//3";
+
   // Monitor versucht, einen Abschnitt anzulegen — muss serverseitig verworfen werden.
   Me.doc.getArray("abschnitte").push([eaRow({ id: "hack", typ: "EA", titel: "MONITOR HACK" })]);
   await sleep(900);
@@ -151,11 +185,12 @@ async function main() {
   const test2 = oa.length === 1 && !titles.includes("MONITOR HACK");
 
   console.log(`[${test1 ? "PASS" : "FAIL"}] S3 legt Abschnitt an + ordnet Fzg zu → Observer sieht ihn + Stärke 1/0/5//6 (Sync + Ableitung)`);
+  console.log(`[${test3 ? "PASS" : "FAIL"}] Führung-Singleton + Führungsmittel synchron → Observer sieht ihn + Stärke 1/1/1//3 (#154)`);
   console.log(`[${test2 ? "PASS" : "FAIL"}] Monitor-Write auf einsatzabschnitte blockiert (Rechte)`);
 
   [We, Wk, Oe, Ok, Me].forEach((c) => c.provider.destroy());
   await sleep(150);
-  process.exit(test1 && test2 ? 0 : 1);
+  process.exit(test1 && test2 && test3 ? 0 : 1);
 }
 
 main().catch((err) => {

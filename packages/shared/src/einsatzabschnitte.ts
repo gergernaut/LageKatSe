@@ -21,6 +21,51 @@ import { sumStaerke, type KraftVehicle, type Staerke } from "./kraefteubersicht"
 /** Y.Array-Key innerhalb des "einsatzabschnitte"-Dokuments. */
 export const EA_ABSCHNITTE = "abschnitte" as const;
 
+/**
+ * Singleton „Führung" (#154): die eigene Führungsstelle über den Abschnitten.
+ * Liegt als **eine** Y.Map unter diesem Key im selben Dokument (kein Array — es
+ * gibt genau eine). Derselbe Wert dient als reservierte `einsatzabschnittId` am
+ * Fahrzeug, um ein Führungsmittel der Führung zuzuordnen (uid() erzeugt diesen
+ * Wert nie, also keine Kollision mit einem echten Abschnitt).
+ */
+export const EA_FUEHRUNG = "fuehrung" as const;
+
+/** Die eigene Führungsstelle (Führer + Befehlsstelle + Kommunikation + Standort). */
+export interface Fuehrung {
+  fuehrer: string;
+  befehlsstelle: string;
+  kommunikation: string;
+  standort: string;
+}
+
+export const FUEHRUNG_FIELDS = ["fuehrer", "befehlsstelle", "kommunikation", "standort"] as const;
+export type FuehrungField = (typeof FUEHRUNG_FIELDS)[number];
+
+export const FUEHRUNG_LABELS: Record<FuehrungField, string> = {
+  fuehrer: "Führer",
+  befehlsstelle: "Befehlsstelle",
+  kommunikation: "Kommunikation",
+  standort: "Standort",
+};
+
+export const EMPTY_FUEHRUNG: Fuehrung = {
+  fuehrer: "",
+  befehlsstelle: "",
+  kommunikation: "",
+  standort: "",
+};
+
+/** Defensive Coercion des Führungs-Singletons (fehlende/defekte Felder → ""). */
+export function coerceFuehrung(value: unknown): Fuehrung {
+  const r: Record<string, unknown> = isRecord(value) ? value : {};
+  return {
+    fuehrer: asString(r.fuehrer),
+    befehlsstelle: asString(r.befehlsstelle),
+    kommunikation: asString(r.kommunikation),
+    standort: asString(r.standort),
+  };
+}
+
 /** Einsatzabschnitt (EA) oder Unterabschnitt (UA). */
 export const EA_TYPEN = ["EA", "UA"] as const;
 export type EaTyp = (typeof EA_TYPEN)[number];
@@ -113,6 +158,15 @@ export interface EinsatzabschnitteExport {
   version: 1;
   exportedAt: string; // ISO-8601
   abschnitte: Einsatzabschnitt[];
+  fuehrung?: Fuehrung; // #154 — optional (ältere Exporte ohne bleiben gültig)
+}
+
+/**
+ * Liest den Führungs-Singleton aus einem Export-Envelope (defensiv). Fehlt er
+ * (ältere Datei), kommt eine leere Führung zurück — nie ein Fehler.
+ */
+export function parseFuehrungExport(payload: unknown): Fuehrung {
+  return coerceFuehrung(isRecord(payload) ? payload.fuehrung : undefined);
 }
 
 /**
