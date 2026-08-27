@@ -1090,6 +1090,12 @@ Client-CRDT-Writes, kein eigener Endpoint, kein Seeding.
   `Y.Array` `abschnitte`; jede Zeile eine `Y.Map` (Feld-Level-Merge wie ETB-/Kräfte-Zeilen).
   Felder: `typ` (EA/UA), `titel`, `befehlsstelle`, `leiter`, `kommunikation`, `auftrag`,
   `einsatzbeginn` (DUG, bei Anlage vorbelegt), `createdAt`. `id` via `uid()` (Invariante #3).
+- **Abhakbare Listen (#155/#161):** je Abschnitt drei ausklappbare Listen — **Aufträge**,
+  **Rückmeldungen**, **Anforderungen** — als **verschachtelte** `Y.Array<Y.Map>` in der Abschnitts-`Y.Map`
+  (Eintrag `{id, text, erledigt}`). Abhaken = ein Feld-Write → item-level Merge (wie ETB-Zeilen);
+  der Ausklapp-Zustand ist client-lokal (React-State, kein CRDT). Anlage/Import bauen die Listen
+  über `abschnittToYMap` (geteilt). *(ETB-Sync der Rückmeldungen/Anforderungen → #162; Auftrags-Sync
+  mit der Taktischen Übersicht → #163.)*
 - **Führung (#154):** Singleton „eigene Führungsstelle" über den Abschnitten — **eine** `Y.Map`
   unter Key `EA_FUEHRUNG` im selben Dokument (Führer/Befehlsstelle/Kommunikation/Standort). Derselbe
   reservierte Wert `EA_FUEHRUNG` dient als `einsatzabschnittId`, um ein **Führungsmittel** zuzuordnen
