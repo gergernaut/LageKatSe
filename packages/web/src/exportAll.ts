@@ -21,8 +21,10 @@ import {
   AB_RUECKMELD,
   AB_WETTER,
   AB_WETTER_SNAPSHOT,
+  coerceFuehrung,
   EA_ABSCHNITTE,
   EA_EXPORT_FORMAT,
+  EA_FUEHRUNG,
   ETB_ENTRIES,
   ETB_EXPORT_FORMAT,
   KRAFT_EXPORT_FORMAT,
@@ -174,6 +176,7 @@ export async function exportAll(session: Session): Promise<void> {
         version: 1,
         exportedAt: new Date().toISOString(),
         abschnitte: abschnitte.toArray().map((a) => a.toJSON() as Einsatzabschnitt),
+        fuehrung: coerceFuehrung(conn.doc.getMap<unknown>(EA_FUEHRUNG).toJSON()),
       };
       files[`einsatzabschnitte-${code}-${stamp}.json`] = new TextEncoder().encode(
         JSON.stringify(payload, null, 2),

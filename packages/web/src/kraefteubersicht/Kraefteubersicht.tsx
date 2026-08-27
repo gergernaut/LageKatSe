@@ -4,6 +4,7 @@ import {
   canWrite,
   countByTyp,
   EA_ABSCHNITTE,
+  EA_FUEHRUNG,
   formatAbschnittTitel,
   formatStaerke,
   isRecord,
@@ -221,6 +222,7 @@ export function Kraefteubersicht({ session }: { session: Session }) {
   // Anzeigetitel des zugeordneten Abschnitts (oder null, wenn keiner/unbekannt).
   const abschnittLabel = (id: string | undefined): string | null => {
     if (!id) return null;
+    if (id === EA_FUEHRUNG) return "Führung"; // reservierte ID des Führungs-Singletons (#154)
     const a = abschnitte.find((x) => x.id === id);
     return a ? formatAbschnittTitel(a) : null;
   };
