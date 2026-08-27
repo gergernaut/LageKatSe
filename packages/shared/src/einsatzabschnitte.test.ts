@@ -3,9 +3,11 @@ import {
   abschnittKraft,
   asEaTyp,
   coerceEinsatzabschnitt,
+  coerceFuehrung,
   EA_EXPORT_FORMAT,
   formatAbschnittTitel,
   parseEinsatzabschnitteExport,
+  parseFuehrungExport,
   unassignedEinsatzVehicles,
   vehiclesInAbschnitt,
 } from "./einsatzabschnitte";
@@ -160,6 +162,33 @@ describe("Einsatzabschnitte-Modell", () => {
       expect(parseEinsatzabschnitteExport({ format: "fremd", abschnitte: [] }, () => "x")).toBeNull();
       expect(parseEinsatzabschnitteExport({ format: EA_EXPORT_FORMAT }, () => "x")).toBeNull();
       expect(parseEinsatzabschnitteExport(null, () => "x")).toBeNull();
+    });
+  });
+
+  // Führungs-Singleton (#154)
+  describe("coerceFuehrung / parseFuehrungExport", () => {
+    it("übernimmt gültige Felder", () => {
+      expect(
+        coerceFuehrung({ fuehrer: "EL", befehlsstelle: "FüKW", kommunikation: "Florian 10", standort: "RH" }),
+      ).toEqual({ fuehrer: "EL", befehlsstelle: "FüKW", kommunikation: "Florian 10", standort: "RH" });
+    });
+
+    it("defekte/fehlende Felder → leere Strings (nie werfen)", () => {
+      expect(coerceFuehrung({ fuehrer: 42 })).toEqual({ fuehrer: "", befehlsstelle: "", kommunikation: "", standort: "" });
+      expect(coerceFuehrung(null)).toEqual({ fuehrer: "", befehlsstelle: "", kommunikation: "", standort: "" });
+    });
+
+    it("parseFuehrungExport liest das Feld aus dem Envelope, fehlt es → leer", () => {
+      expect(
+        parseFuehrungExport({ format: EA_EXPORT_FORMAT, abschnitte: [], fuehrung: { fuehrer: "EL" } }).fuehrer,
+      ).toBe("EL");
+      // Ältere Datei ohne fuehrung-Feld bleibt gültig → leere Führung.
+      expect(parseFuehrungExport({ format: EA_EXPORT_FORMAT, abschnitte: [] })).toEqual({
+        fuehrer: "",
+        befehlsstelle: "",
+        kommunikation: "",
+        standort: "",
+      });
     });
   });
 });
