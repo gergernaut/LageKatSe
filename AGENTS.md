@@ -22,12 +22,13 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   `appendEtbEntry`/`replaceEtbEntries`/`closeRoom`), `store/` (`memory` | `postgres`;
   `getStaleRooms`/`deleteRoom`, Room mit `createdBy`, **Backend = Single Source of Truth fuer Schema** #106/#107).
 - `packages/web` — `@lagekatse/web`: React/Vite-SPA. `lobby/`, `uebersicht/`, `lagekarte/`
-  (Karte + `Palette.tsx` + DWD-Regenradar/KONRAD3D-Overlays + Pegel-Layer), `etb/`,
+  (Karte + `Palette.tsx` + Regenradar [Bright Sky, proj4-reprojiziert, #166] / KONRAD3D-WMS-Overlay + Pegel-Layer), `etb/`,
   `arbeitsblatt/` (`Arbeitsblatt.tsx`, `Wetter.tsx`), `kraefteubersicht/` (`Kraefteubersicht.tsx`
   — Bereitstellungsraum/Im-Einsatz, DV-100-Stärke, #100), `einsatzabschnitte/`
   (`Einsatzabschnitte.tsx` — EA/UA + Führungs-Singleton `EA_FUEHRUNG` (#154) + Fahrzeug-Zuordnung `einsatzabschnittId`, abgeleitete Stärke, #133),
   `sync/provider.ts` (`connectModule` mit `cache`-Opt-out fuer transiente Verbindungen).
-  Client-Utilities: `wetter.ts` (BrightSky-Abruf), `pegel.ts` (PEGELONLINE/WSV-Pegelstaende,
+  Client-Utilities: `wetter.ts` (BrightSky-Abruf), `brightskyRadar.ts` (Regenradar: RADOLAN-Gitter von
+  Bright Sky, zlib-Decode via fflate + Reprojektion DE1200→Web-Mercator via proj4, #166), `pegel.ts` (PEGELONLINE/WSV-Pegelstaende,
   CORS-offen; reine Coercion + Status->Farbe, unit-getestet), `pdf.ts` (`etbToPdf`/`arbeitsblattToPdf`/`lagekarteToPngPdf`
   via pdf-lib, Schrift `public/fonts/DejaVuSans.ttf`; Lagekarten-PDF rastert via `html-to-image`), `exportAll.ts` (Gesamt-Export) +
   `importAll.ts` (Bundle-Import, beide ZIP via fflate), `*/applyImport.ts` (geteilte, React-freie

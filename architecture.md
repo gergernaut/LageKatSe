@@ -399,10 +399,15 @@ Das Herzstück: eine OpenStreetMap-Karte, auf der der Stab die Lage grafisch fü
 - **OSM-Grundkarte** (Leaflet), frei verschieb-/zoombar. **Kartenansicht-Persistenz:**
   Mitte + Zoom werden **pro Raum** betrachter-lokal (localStorage) gemerkt und überleben
   Modul-Wechsel und Reload (client-lokal, nicht im CRDT — wie E9/§8.3).
-- **DWD-Regenradar (optional):** schaltbares WMS-Overlay des Deutschen Wetterdienstes
-  (`dwd:Niederschlagsradar`, `maps.dwd.de`), **client-lokaler Toggle** (localStorage, nicht im CRDT
-  — wie die Symbolgröße, §8.3/E9; wirkt daher auch für den Nur-Lese-Monitor). Bild-Kacheln kommen
-  direkt vom DWD (kein Server/CORS). Quelle: Deutscher Wetterdienst. Erster Teil von #44 (Wetterdaten).
+- **DWD-Regenradar (optional, via Bright Sky — #166):** schaltbares Overlay des DWD-RADOLAN-RV-
+  Produkts. Statt des DWD-WMS (rendert on-the-fly, 4–39 s, #116) holen wir das **Rohgitter** über die
+  **Bright-Sky-API** (`api.brightsky.dev/radar`, CORS-offen wie das Wetter) in ~0,15–1 s, dekomprimieren
+  es (zlib via fflate) und **reprojizieren es client-seitig von DE1200 (polar-stereografisch) nach
+  Web-Mercator** (proj4) — Leaflet kann Projektionen nicht selbst umrechnen. Ergebnis ist ein
+  `L.imageOverlay` (`brightskyRadar.ts`); **Auto-Refresh alle 5 min** (RV-Takt), neuer Frame wird vor
+  dem Entfernen des alten gelegt (kein Flackern). **Client-lokaler Toggle** (localStorage, nicht im CRDT
+  — §8.3/E9; wirkt auch für den Nur-Lese-Monitor). Quelle bleibt DWD (Attribution „Radar: DWD via
+  Bright Sky"). Erster Teil von #44 (Wetterdaten); WMS-Variante ersetzt.
 - **DWD-KONRAD3D (optional):** schaltbares WMS-Overlay des Deutschen Wetterdienstes
   (`dwd:K3D_EVAL_current_cells` + `cur_track_lines`, `maps.dwd.de`), das automatisch
   erkannte konvektive Zellen (Gewitterzellen) als gefuellllte Polygone (rot/gelb/gruen
