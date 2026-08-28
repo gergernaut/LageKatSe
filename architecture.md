@@ -404,10 +404,16 @@ Das Herzstück: eine OpenStreetMap-Karte, auf der der Stab die Lage grafisch fü
   **Bright-Sky-API** (`api.brightsky.dev/radar`, CORS-offen wie das Wetter) in ~0,15–1 s, dekomprimieren
   es (zlib via fflate) und **reprojizieren es client-seitig von DE1200 (polar-stereografisch) nach
   Web-Mercator** (proj4) — Leaflet kann Projektionen nicht selbst umrechnen. Ergebnis ist ein
-  `L.imageOverlay` (`brightskyRadar.ts`); **Auto-Refresh alle 5 min** (RV-Takt), neuer Frame wird vor
-  dem Entfernen des alten gelegt (kein Flackern). **Client-lokaler Toggle** (localStorage, nicht im CRDT
-  — §8.3/E9; wirkt auch für den Nur-Lese-Monitor). Quelle bleibt DWD (Attribution „Radar: DWD via
-  Bright Sky"). Erster Teil von #44 (Wetterdaten); WMS-Variante ersetzt.
+  `L.imageOverlay` (`brightskyRadar.ts`); **Auto-Refresh alle 5 min** (RV-Takt). **Client-lokaler
+  Toggle** (localStorage, nicht im CRDT — §8.3/E9; wirkt auch für den Nur-Lese-Monitor). Quelle bleibt
+  DWD (Attribution „Radar: DWD via Bright Sky"). Erster Teil von #44 (Wetterdaten); WMS-Variante ersetzt.
+  - **Animations-Loop (optional, #166):** ein Play-Button spielt die letzte Stunde (`fetchRadarFrames`,
+    ~12 Frames à 5 min) als Schleife ab; die Frame-Uhrzeit wird angezeigt, Pause zeigt wieder das
+    Einzelbild. Performance-Trick: Das Reprojektions-Mapping (Zielpixel → Gitterzelle) ist für jeden
+    Frame identisch → wird **einmal** per proj4 berechnet und gecacht (samt Farb-LUT); das Einfärben je
+    Frame ist danach nur noch ein Array-Lookup. Ein **einziges** dauerhaftes `imageOverlay` tauscht im
+    Takt nur seine `src` (vorgerenderte Daten-URLs) → keine Layer-Neuanlage, kein Flackern. Ebenfalls
+    client-lokal (localStorage).
 - **DWD-KONRAD3D (optional):** schaltbares WMS-Overlay des Deutschen Wetterdienstes
   (`dwd:K3D_EVAL_current_cells` + `cur_track_lines`, `maps.dwd.de`), das automatisch
   erkannte konvektive Zellen (Gewitterzellen) als gefuellllte Polygone (rot/gelb/gruen
