@@ -25,7 +25,8 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   (Karte + `Palette.tsx` + Regenradar [Bright Sky, proj4-reprojiziert, #166] / KONRAD3D-WMS-Overlay + Pegel-Layer), `etb/`,
   `arbeitsblatt/` (`Arbeitsblatt.tsx`, `Wetter.tsx`), `kraefteubersicht/` (`Kraefteubersicht.tsx`
   — Bereitstellungsraum/Im-Einsatz, DV-100-Stärke, #100), `einsatzabschnitte/`
-  (`Einsatzabschnitte.tsx` — EA/UA + Führungs-Singleton `EA_FUEHRUNG` (#154) + Fahrzeug-Zuordnung `einsatzabschnittId`, abgeleitete Stärke, #133),
+  (`Einsatzabschnitte.tsx` — EA/UA + Führungs-Singleton `EA_FUEHRUNG` (#154) + Fahrzeug-Zuordnung `einsatzabschnittId`, abgeleitete Stärke, #133;
+  abhakbare Listen Aufträge/Rückmeldungen/Anforderungen mit ETB-Sync, #161/#162),
   `sync/provider.ts` (`connectModule` mit `cache`-Opt-out fuer transiente Verbindungen).
   Client-Utilities: `wetter.ts` (BrightSky-Abruf), `brightskyRadar.ts` (Regenradar: RADOLAN-Gitter von
   Bright Sky, zlib-Decode via fflate + Reprojektion DE1200→Web-Mercator via proj4 [Mapping+Farb-LUT
