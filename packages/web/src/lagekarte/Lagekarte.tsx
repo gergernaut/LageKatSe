@@ -749,6 +749,19 @@ export function Lagekarte({
     const savedView = loadMapView(session.room.id);
     const map = L.map(mapElement).setView(savedView?.center ?? [51.16, 10.45], savedView?.zoom ?? 6);
     mapRef.current = map;
+
+    // Eigene Panes für die Wetter-Overlays, damit die Stapelreihenfolge stimmt
+    // (#166-Folge): Basiskarte (tilePane z200) < Regenradar < KONRAD3D < taktische
+    // Flächen (overlayPane z400) < Symbole (markerPane z600). Ohne das läge das
+    // Radar-imageOverlay (overlayPane) über dem KONRAD3D-WMS (tilePane) und
+    // verdeckte die Gewitterzellen. pointer-events: none → Klicks fallen zur Karte
+    // durch (KONRAD3D-Zell-Info läuft über den map-click-Handler, nicht den Layer).
+    const radarPane = map.createPane("radarPane");
+    radarPane.style.zIndex = "250";
+    radarPane.style.pointerEvents = "none";
+    const konradPane = map.createPane("konradPane");
+    konradPane.style.zIndex = "300";
+    konradPane.style.pointerEvents = "none";
     // Grundkarte: URL/Zoom/Attribution kommen aus der Konfiguration (#96),
     // damit im geschlossenen Netz auf einen lokalen Tile-Server gezeigt werden
     // kann. Default bleibt OSM-Public. Siehe src/config.ts.
@@ -776,6 +789,7 @@ export function Lagekarte({
           const next = L.imageOverlay(canvas.toDataURL("image/png"), bounds, {
             opacity: 1,
             interactive: false,
+            pane: "radarPane", // unter KONRAD3D (s. Pane-Setup)
             attribution: "Radar: DWD via Bright Sky",
           });
           next.addTo(mapRef.current);
@@ -808,6 +822,7 @@ export function Lagekarte({
       transparent: true,
       version: "1.3.0",
       opacity: 0.75,
+      pane: "konradPane", // über dem Regenradar (s. Pane-Setup)
       attribution: "KONRAD3D: Deutscher Wetterdienst",
     });
     konradLayerRef.current = konradLayer;
