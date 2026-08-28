@@ -34,11 +34,12 @@ const MERC_TO_GRID = proj4("EPSG:3857", "DE1200");
 const MERC_TO_WGS = proj4("EPSG:3857", "EPSG:4326");
 const GRID_TO_MERC = proj4("DE1200", "EPSG:3857");
 
-// Ohne Zeitfenster liefert die API ~25 Frames (2h-Historie). Ein enges Fenster
-// (letzte 15 min) liefert 1–3 Frames; wir nehmen den neuesten.
-function radarUrl(): string {
+// Ohne Zeitfenster liefert die API ~25 Frames (2h-Historie, ~68 MB entpackt). Wir
+// grenzen per Fenster ein: das Einzelbild braucht nur den neuesten Frame (15 min →
+// 1–3 Frames), der Animations-Loop die letzte Stunde (~12 Frames à 5 min).
+function radarUrl(windowMinutes: number): string {
   const now = new Date();
-  const from = new Date(now.getTime() - 15 * 60 * 1000);
+  const from = new Date(now.getTime() - windowMinutes * 60 * 1000);
   const params = new URLSearchParams({
     format: "compressed",
     date: from.toISOString(),
@@ -105,11 +106,21 @@ export function radarColor(value: number): [number, number, number, number] {
   return [rgb[0], rgb[1], rgb[2], alpha];
 }
 
-/** Reprojiziert das DE1200-Gitter in ein Web-Mercator-Canvas + liefert dessen WGS84-Bounds. */
-function reprojectToMercator(grid: Uint16Array): {
-  canvas: HTMLCanvasElement;
+// Das Reprojektions-Mapping (Zielpixel → DE1200-Gitterzelle) hängt NUR an der
+// Gittergeometrie, nicht an den Messwerten — es ist für jeden Frame identisch.
+// Deshalb rechnen wir es (samt Mercator-Bounds) genau EINMAL und cachen es; ein
+// Loop mit N Frames kostet danach kein proj4 mehr, nur noch Farb-Lookups.
+interface ProjectionMap {
+  tw: number;
+  th: number;
+  /** Länge tw*th: Zielpixel → Gitterindex (row*GRID_W+col), oder -1 wenn außerhalb. */
+  indexMap: Int32Array;
   bounds: RadarFrame["bounds"];
-} {
+}
+let projectionCache: ProjectionMap | null = null;
+
+function projectionMap(): ProjectionMap {
+  if (projectionCache) return projectionCache;
   // Mercator-Bounding-Rechteck aus den vier DE1200-Eckpunkten.
   const extMaxX = EXT_MIN_X + GRID_W * CELL_M;
   const extMinY = EXT_MAX_Y - GRID_H * CELL_M;
@@ -135,51 +146,110 @@ function reprojectToMercator(grid: Uint16Array): {
   const spanY = mMaxY - mMinY;
   const tw = GRID_W;
   const th = Math.max(1, Math.round((tw * spanY) / spanX));
+  const indexMap = new Int32Array(tw * th);
+  for (let ty = 0; ty < th; ty++) {
+    const mercY = mMaxY - ((ty + 0.5) / th) * spanY; // ty=0 → oben (Nord)
+    for (let tx = 0; tx < tw; tx++) {
+      const mercX = mMinX + ((tx + 0.5) / tw) * spanX;
+      const [gx, gy] = MERC_TO_GRID.forward([mercX, mercY]);
+      const col = Math.floor((gx - EXT_MIN_X) / CELL_M);
+      const row = Math.floor((EXT_MAX_Y - gy) / CELL_M);
+      indexMap[ty * tw + tx] =
+        col >= 0 && col < GRID_W && row >= 0 && row < GRID_H ? row * GRID_W + col : -1;
+    }
+  }
+
+  const [swLon, swLat] = MERC_TO_WGS.forward([mMinX, mMinY]);
+  const [neLon, neLat] = MERC_TO_WGS.forward([mMaxX, mMaxY]);
+  projectionCache = {
+    tw,
+    th,
+    indexMap,
+    bounds: [
+      [swLat, swLon],
+      [neLat, neLon],
+    ],
+  };
+  return projectionCache;
+}
+
+// Farb-Lookup-Tabelle 0..1000 (Wert = 0,01 mm/5 min), einmal aus radarColor
+// abgeleitet. Werte darüber (Nodata-Clutter) bleiben transparent. Damit ist das
+// Einfärben pro Frame ein reiner Array-Lookup statt tausender radarColor-Aufrufe.
+const LUT_MAX = 1000;
+let colorLut: Uint8ClampedArray | null = null;
+function radarColorLut(): Uint8ClampedArray {
+  if (colorLut) return colorLut;
+  const lut = new Uint8ClampedArray((LUT_MAX + 1) * 4);
+  for (let v = 0; v <= LUT_MAX; v++) {
+    const [r, g, b, a] = radarColor(v);
+    const o = v * 4;
+    lut[o] = r;
+    lut[o + 1] = g;
+    lut[o + 2] = b;
+    lut[o + 3] = a;
+  }
+  colorLut = lut;
+  return lut;
+}
+
+/** Färbt ein DE1200-Gitter über das gecachte Mapping in ein Web-Mercator-Canvas. */
+function colorize(grid: Uint16Array): HTMLCanvasElement {
+  const { tw, th, indexMap } = projectionMap();
+  const lut = radarColorLut();
   const canvas = document.createElement("canvas");
   canvas.width = tw;
   canvas.height = th;
   const ctx = canvas.getContext("2d");
   if (ctx) {
     const img = ctx.createImageData(tw, th);
-    for (let ty = 0; ty < th; ty++) {
-      const mercY = mMaxY - ((ty + 0.5) / th) * spanY; // ty=0 → oben (Nord)
-      for (let tx = 0; tx < tw; tx++) {
-        const mercX = mMinX + ((tx + 0.5) / tw) * spanX;
-        const [gx, gy] = MERC_TO_GRID.forward([mercX, mercY]);
-        const col = Math.floor((gx - EXT_MIN_X) / CELL_M);
-        const row = Math.floor((EXT_MAX_Y - gy) / CELL_M);
-        const o = (ty * tw + tx) * 4;
-        if (col >= 0 && col < GRID_W && row >= 0 && row < GRID_H) {
-          const [r, g, b, a] = radarColor(grid[row * GRID_W + col] ?? 0);
-          img.data[o] = r;
-          img.data[o + 1] = g;
-          img.data[o + 2] = b;
-          img.data[o + 3] = a;
-        }
-      }
+    for (let i = 0; i < indexMap.length; i++) {
+      const gi = indexMap[i];
+      if (gi < 0) continue; // außerhalb des Gitters → transparent
+      const value = grid[gi] ?? 0;
+      if (value <= 0 || value > LUT_MAX) continue; // kein Regen / Nodata → transparent
+      const o = i * 4;
+      const lo = value * 4;
+      img.data[o] = lut[lo];
+      img.data[o + 1] = lut[lo + 1];
+      img.data[o + 2] = lut[lo + 2];
+      img.data[o + 3] = lut[lo + 3];
     }
     ctx.putImageData(img, 0, 0);
   }
+  return canvas;
+}
 
-  const [swLon, swLat] = MERC_TO_WGS.forward([mMinX, mMinY]);
-  const [neLon, neLat] = MERC_TO_WGS.forward([mMaxX, mMaxY]);
+function toFrame(entry: RadarApiResponse["radar"][number]): RadarFrame {
   return {
-    canvas,
-    bounds: [
-      [swLat, swLon],
-      [neLat, neLon],
-    ],
+    canvas: colorize(decodeGrid(entry.precipitation_5)),
+    bounds: projectionMap().bounds,
+    timestamp: entry.timestamp,
   };
 }
 
 /** Holt den aktuellsten Radar-Frame und reprojiziert ihn nach Web-Mercator. */
 export async function fetchLatestRadar(signal?: AbortSignal): Promise<RadarFrame> {
-  const res = await fetch(radarUrl(), { signal });
+  const res = await fetch(radarUrl(15), { signal });
   if (!res.ok) throw new Error(`Bright-Sky-Radar HTTP ${res.status}`);
   const data = (await res.json()) as RadarApiResponse;
   const frame = data.radar.at(-1);
   if (!frame) throw new Error("Bright-Sky-Radar: kein aktueller Frame");
-  const grid = decodeGrid(frame.precipitation_5);
-  const { canvas, bounds } = reprojectToMercator(grid);
-  return { canvas, bounds, timestamp: frame.timestamp };
+  return toFrame(frame);
+}
+
+/**
+ * Holt die Frames der letzten `windowMinutes` (RADOLAN-RV liefert alle 5 min einen)
+ * für die Animation, chronologisch alt→neu. Alle teilen dieselbe Reprojektion.
+ */
+export async function fetchRadarFrames(
+  windowMinutes: number,
+  signal?: AbortSignal,
+): Promise<RadarFrame[]> {
+  const res = await fetch(radarUrl(windowMinutes), { signal });
+  if (!res.ok) throw new Error(`Bright-Sky-Radar HTTP ${res.status}`);
+  const data = (await res.json()) as RadarApiResponse;
+  const frames = (data.radar ?? []).map(toFrame);
+  if (frames.length === 0) throw new Error("Bright-Sky-Radar: keine Frames");
+  return frames;
 }
