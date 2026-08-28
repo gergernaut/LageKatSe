@@ -20,6 +20,7 @@ import { api } from "../api";
 import { toPng } from "html-to-image";
 import { tileConfig } from "../config";
 import { fetchPegelStations, pegelStatusColor, pegelStatusText, type PegelStation } from "../pegel";
+import { fetchLatestRadar } from "../brightskyRadar";
 import { Palette, type PaletteSymbol } from "./Palette";
 
 interface SymbolIndex {
@@ -339,7 +340,10 @@ export function Lagekarte({
     }
   });
   const radarVisibleRef = useRef(radarVisible);
-  const radarLayerRef = useRef<L.TileLayer.WMS | null>(null);
+  // Regenradar via Bright Sky (#166): reprojiziertes Bild-Overlay statt WMS.
+  const radarLayerRef = useRef<L.ImageOverlay | null>(null);
+  const loadRadarRef = useRef<(() => void) | null>(null);
+  const [radarLoading, setRadarLoading] = useState(false);
   // DWD-KONRAD3D-Overlay: client-lokale Anzeige-Option (localStorage, Invariante #4) —
   // gilt für alle Rollen inkl. Nur-Lese-Monitor, geht nicht ins CRDT.
   const [konradVisible, setKonradVisible] = useState(() => {
@@ -409,11 +413,12 @@ export function Lagekarte({
     } catch {
       // The preference remains active for this session when storage is unavailable.
     }
-    const map = mapRef.current;
-    const layer = radarLayerRef.current;
-    if (map && layer) {
-      if (radarVisible) layer.addTo(map);
-      else layer.remove();
+    if (!mapRef.current) return;
+    if (radarVisible) {
+      loadRadarRef.current?.(); // holt + reprojiziert den aktuellen Frame
+    } else {
+      radarLayerRef.current?.remove();
+      radarLayerRef.current = null;
     }
   }, [radarVisible]);
 
@@ -744,6 +749,19 @@ export function Lagekarte({
     const savedView = loadMapView(session.room.id);
     const map = L.map(mapElement).setView(savedView?.center ?? [51.16, 10.45], savedView?.zoom ?? 6);
     mapRef.current = map;
+
+    // Eigene Panes für die Wetter-Overlays, damit die Stapelreihenfolge stimmt
+    // (#166-Folge): Basiskarte (tilePane z200) < Regenradar < KONRAD3D < taktische
+    // Flächen (overlayPane z400) < Symbole (markerPane z600). Ohne das läge das
+    // Radar-imageOverlay (overlayPane) über dem KONRAD3D-WMS (tilePane) und
+    // verdeckte die Gewitterzellen. pointer-events: none → Klicks fallen zur Karte
+    // durch (KONRAD3D-Zell-Info läuft über den map-click-Handler, nicht den Layer).
+    const radarPane = map.createPane("radarPane");
+    radarPane.style.zIndex = "250";
+    radarPane.style.pointerEvents = "none";
+    const konradPane = map.createPane("konradPane");
+    konradPane.style.zIndex = "300";
+    konradPane.style.pointerEvents = "none";
     // Grundkarte: URL/Zoom/Attribution kommen aus der Konfiguration (#96),
     // damit im geschlossenen Netz auf einen lokalen Tile-Server gezeigt werden
     // kann. Default bleibt OSM-Public. Siehe src/config.ts.
@@ -752,27 +770,43 @@ export function Lagekarte({
       attribution: tileConfig.attribution,
     }).addTo(map);
 
-    // DWD-Regenradar als optionales WMS-Overlay (Bild-Kacheln → kein CORS, kein Server).
-    // Sichtbarkeit ist client-lokal (radarVisible); Layer wird nur bei Bedarf zugefügt.
-    // DWD rendert das Radar on-the-fly (kein GeoWebCache für diesen Layer,
-    // gemessen 4–39 s, stark schwankend). Das können wir nicht beschleunigen —
-    // aber die ANZAHL der langsamen Requests senken: `maxNativeZoom` deckelt die
-    // native Kachelauflösung (Radar ist ~1 km, oberhalb ~z8 kein Detailgewinn) →
-    // ab Zoom 9+ werden z8-Kacheln hochskaliert statt 4×/16× so viele Kacheln neu
-    // zu rendern. `updateWhenIdle`/`keepBuffer` reduzieren Requests beim Pannen.
-    const radarLayer = L.tileLayer.wms("https://maps.dwd.de/geoserver/ows?", {
-      layers: "dwd:Niederschlagsradar",
-      format: "image/png",
-      transparent: true,
-      version: "1.3.0",
-      opacity: 0.55,
-      maxNativeZoom: 8,
-      updateWhenIdle: true,
-      keepBuffer: 1,
-      attribution: "Regenradar: Deutscher Wetterdienst",
-    });
-    radarLayerRef.current = radarLayer;
-    if (radarVisibleRef.current) radarLayer.addTo(map);
+    // DWD-Regenradar via Bright Sky (#166): Das DWD-WMS rendert on-the-fly (kein
+    // GeoWebCache, 4–39 s, s. #116). Bright Sky liefert dasselbe RADOLAN-RV-Produkt
+    // als Rohgitter in ~0,15–1 s (CORS-offen wie das Wetter); wir reprojizieren es
+    // client-seitig nach Web-Mercator (proj4, s. brightskyRadar.ts) und legen es als
+    // Bild-Overlay. Sichtbarkeit client-lokal (radarVisible, Invariante #4). Der neue
+    // Frame wird VOR dem Entfernen des alten hinzugefügt → kein Flackern beim Refresh.
+    let radarAbort: AbortController | null = null;
+    const loadRadar = () => {
+      if (!radarVisibleRef.current) return;
+      radarAbort?.abort();
+      radarAbort = new AbortController();
+      const signal = radarAbort.signal;
+      setRadarLoading(true);
+      fetchLatestRadar(signal)
+        .then(({ canvas, bounds }) => {
+          if (signal.aborted || !mapRef.current || !radarVisibleRef.current) return;
+          const next = L.imageOverlay(canvas.toDataURL("image/png"), bounds, {
+            opacity: 1,
+            interactive: false,
+            pane: "radarPane", // unter KONRAD3D (s. Pane-Setup)
+            attribution: "Radar: DWD via Bright Sky",
+          });
+          next.addTo(mapRef.current);
+          radarLayerRef.current?.remove();
+          radarLayerRef.current = next;
+        })
+        .catch((error: unknown) => {
+          if (!(error instanceof DOMException && error.name === "AbortError")) {
+            console.debug("Bright-Sky-Radar fehlgeschlagen", error);
+          }
+        })
+        .finally(() => {
+          if (!signal.aborted) setRadarLoading(false);
+        });
+    };
+    loadRadarRef.current = loadRadar;
+    if (radarVisibleRef.current) loadRadar();
 
     // DWD-KONRAD3D (Konvektionserkennung) als optionales WMS-Overlay.
     // current_cells: gefuellllte Zellpolygone (rot/gelb/gruen nach Schweregrad),
@@ -788,6 +822,7 @@ export function Lagekarte({
       transparent: true,
       version: "1.3.0",
       opacity: 0.75,
+      pane: "konradPane", // über dem Regenradar (s. Pane-Setup)
       attribution: "KONRAD3D: Deutscher Wetterdienst",
     });
     konradLayerRef.current = konradLayer;
@@ -880,14 +915,10 @@ export function Lagekarte({
     };
     map.on("click", konradClick);
 
-    // DWD-WMS-Layer (Regenradar + KONRAD3D) periodisch aktualisieren.
-    // Der DWD liefert neue Zeitschritte ca. alle 5 Min. Wir erzwingen ein
-    // Neu-Laden der Kacheln via redraw() — ohne time-Parameter, damit der
-    // DWD automatisch den neuesten verfuegbaren Zeitschritt liefert (ein
-    // expliziter time-Wert wuerde ggf. in der Zukunft liegen und leere
-    // Kacheln zurueckliefern, weil die Daten noch nicht vorhanden sind).
+    // Overlays periodisch aktualisieren (DWD liefert neue Zeitschritte ~alle 5 Min):
+    // Regenradar (Bright Sky) neu holen + reprojizieren, KONRAD3D-WMS via redraw().
     const refreshWmsLayers = () => {
-      radarLayerRef.current?.redraw();
+      if (radarVisibleRef.current) loadRadar();
       konradLayerRef.current?.redraw();
     };
     const wmsRefreshTimer = window.setInterval(refreshWmsLayers, 5 * 60 * 1000);
@@ -1170,6 +1201,8 @@ export function Lagekarte({
       featuresMap.unobserve(refresh);
       if (featuresMapRef.current === featuresMap) featuresMapRef.current = null;
       if (mapRef.current === map) mapRef.current = null;
+      radarAbort?.abort();
+      loadRadarRef.current = null;
       radarLayerRef.current = null;
       konradLayerRef.current = null;
       pegelCancelled = true;
@@ -1219,14 +1252,14 @@ export function Lagekarte({
             />
             <span>Beschriftung</span>
           </label>
-          <label className="lagekarte-radar-toggle">
+          <label className="lagekarte-radar-toggle" title="DWD-Regenradar (RADOLAN via Bright Sky)">
             <input
               type="checkbox"
               checked={radarVisible}
               aria-label="Regenradar anzeigen"
               onChange={(event) => setRadarVisible(event.currentTarget.checked)}
             />
-            <span>Regenradar</span>
+            <span>Regenradar{radarVisible && radarLoading ? " …" : ""}</span>
           </label>
           <label className="lagekarte-radar-toggle">
             <input
