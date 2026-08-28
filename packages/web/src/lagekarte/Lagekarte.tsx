@@ -20,7 +20,7 @@ import { api } from "../api";
 import { toPng } from "html-to-image";
 import { tileConfig } from "../config";
 import { fetchPegelStations, pegelStatusColor, pegelStatusText, type PegelStation } from "../pegel";
-import { fetchLatestRadar } from "../brightskyRadar";
+import { fetchLatestRadar, fetchRadarFrames, type RadarFrame } from "../brightskyRadar";
 import { Palette, type PaletteSymbol } from "./Palette";
 
 interface SymbolIndex {
@@ -48,7 +48,20 @@ const AREA_COLORS = [
 const SYMBOL_SIZE_KEY = "lagekatse.symbolSize";
 const LABELS_VISIBLE_KEY = "lagekatse.labelsVisible";
 const RADAR_VISIBLE_KEY = "lagekatse.radarVisible";
+const RADAR_PLAYING_KEY = "lagekatse.radarPlaying";
 const KONRAD_VISIBLE_KEY = "lagekatse.konradVisible";
+// Radar-Animation (#166): Fenster der Historie und Anzeigetakt pro Frame.
+const RADAR_LOOP_MINUTES = 60; // ~12 Frames à 5 min
+const RADAR_FRAME_MS = 600; // Wiedergabe-Geschwindigkeit
+
+// Kompakte Uhrzeit (HH:MM, lokal) des gerade gezeigten Radar-Frames.
+function formatRadarTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
 const PEGEL_VISIBLE_KEY = "lagekatse.pegelVisible";
 // Quellenvermerk der Pegeldaten (WSV/PEGELONLINE, Behördendaten mit
 // Namensnennung). Analog zu den DWD-Overlays; nur sichtbar wenn das Overlay an
@@ -342,8 +355,26 @@ export function Lagekarte({
   const radarVisibleRef = useRef(radarVisible);
   // Regenradar via Bright Sky (#166): reprojiziertes Bild-Overlay statt WMS.
   const radarLayerRef = useRef<L.ImageOverlay | null>(null);
-  const loadRadarRef = useRef<(() => void) | null>(null);
   const [radarLoading, setRadarLoading] = useState(false);
+  // Radar-Animations-Loop (#166): optional per Play-Button, client-lokal
+  // (localStorage, Invariante #4) wie die Sichtbarkeit selbst.
+  const [radarPlaying, setRadarPlaying] = useState(() => {
+    try {
+      return localStorage.getItem(RADAR_PLAYING_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
+  const radarPlayingRef = useRef(radarPlaying);
+  // Uhrzeit des aktuell gezeigten Frames (nur während der Animation angezeigt).
+  const [radarFrameTime, setRadarFrameTime] = useState<string | null>(null);
+  // Steuerung des Radar-Overlays (Einzelbild vs. Loop); vom Map-Init-Effekt gesetzt.
+  const radarCtlRef = useRef<{
+    refresh: () => void;
+    setPlaying: (playing: boolean) => void;
+    hide: () => void;
+    teardown: () => void;
+  } | null>(null);
   // DWD-KONRAD3D-Overlay: client-lokale Anzeige-Option (localStorage, Invariante #4) —
   // gilt für alle Rollen inkl. Nur-Lese-Monitor, geht nicht ins CRDT.
   const [konradVisible, setKonradVisible] = useState(() => {
@@ -413,14 +444,21 @@ export function Lagekarte({
     } catch {
       // The preference remains active for this session when storage is unavailable.
     }
-    if (!mapRef.current) return;
-    if (radarVisible) {
-      loadRadarRef.current?.(); // holt + reprojiziert den aktuellen Frame
-    } else {
-      radarLayerRef.current?.remove();
-      radarLayerRef.current = null;
-    }
+    if (!radarCtlRef.current) return; // vor Map-Init: der Init-Effekt lädt initial selbst
+    if (radarVisible) radarCtlRef.current.refresh(); // Einzelbild oder Loop je nach Play-Status
+    else radarCtlRef.current.hide();
   }, [radarVisible]);
+
+  useEffect(() => {
+    radarPlayingRef.current = radarPlaying;
+    try {
+      localStorage.setItem(RADAR_PLAYING_KEY, String(radarPlaying));
+    } catch {
+      // The preference remains active for this session when storage is unavailable.
+    }
+    if (!radarCtlRef.current || !radarVisibleRef.current) return;
+    radarCtlRef.current.setPlaying(radarPlaying);
+  }, [radarPlaying]);
 
   useEffect(() => {
     konradVisibleRef.current = konradVisible;
@@ -774,39 +812,126 @@ export function Lagekarte({
     // GeoWebCache, 4–39 s, s. #116). Bright Sky liefert dasselbe RADOLAN-RV-Produkt
     // als Rohgitter in ~0,15–1 s (CORS-offen wie das Wetter); wir reprojizieren es
     // client-seitig nach Web-Mercator (proj4, s. brightskyRadar.ts) und legen es als
-    // Bild-Overlay. Sichtbarkeit client-lokal (radarVisible, Invariante #4). Der neue
-    // Frame wird VOR dem Entfernen des alten hinzugefügt → kein Flackern beim Refresh.
+    // Bild-Overlay. Sichtbarkeit client-lokal (radarVisible, Invariante #4).
+    //
+    // Zwei Modi: Einzelbild (neuester Frame) oder Animations-Loop über die letzte
+    // Stunde. Der Loop hält alle Frames als vorgerenderte Daten-URLs vor und tauscht
+    // im Takt nur die src eines EINZIGEN, dauerhaften imageOverlay (setUrl) → keine
+    // Layer-Neuanlage, kein Flackern. Frames werden bewusst nur bei sichtbarem Radar
+    // geladen (radarVisibleRef-Guards).
     let radarAbort: AbortController | null = null;
-    const loadRadar = () => {
-      if (!radarVisibleRef.current) return;
+    let radarUrls: string[] = [];
+    let radarTimes: string[] = [];
+    let radarBounds: RadarFrame["bounds"] | null = null;
+    let frameIdx = 0;
+    let animTimer: number | null = null;
+
+    const stopAnim = () => {
+      if (animTimer != null) {
+        window.clearInterval(animTimer);
+        animTimer = null;
+      }
+    };
+
+    // Zeigt Frame i: ein persistentes Overlay, nur die src (und Bounds) wechseln.
+    const showFrame = (i: number) => {
+      if (i < 0 || i >= radarUrls.length || !radarBounds || !mapRef.current) return;
+      frameIdx = i;
+      if (radarLayerRef.current) {
+        radarLayerRef.current.setUrl(radarUrls[i]);
+        radarLayerRef.current.setBounds(L.latLngBounds(radarBounds));
+      } else {
+        radarLayerRef.current = L.imageOverlay(radarUrls[i], radarBounds, {
+          opacity: 1,
+          interactive: false,
+          pane: "radarPane", // unter KONRAD3D (s. Pane-Setup)
+          attribution: "Radar: DWD via Bright Sky",
+        }).addTo(mapRef.current);
+      }
+    };
+
+    const ignoreAbort = (error: unknown) => {
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        console.debug("Bright-Sky-Radar fehlgeschlagen", error);
+      }
+    };
+
+    // Einzelbild: neuester Frame, kein Loop.
+    const loadStatic = () => {
       radarAbort?.abort();
       radarAbort = new AbortController();
       const signal = radarAbort.signal;
+      stopAnim();
       setRadarLoading(true);
       fetchLatestRadar(signal)
-        .then(({ canvas, bounds }) => {
-          if (signal.aborted || !mapRef.current || !radarVisibleRef.current) return;
-          const next = L.imageOverlay(canvas.toDataURL("image/png"), bounds, {
-            opacity: 1,
-            interactive: false,
-            pane: "radarPane", // unter KONRAD3D (s. Pane-Setup)
-            attribution: "Radar: DWD via Bright Sky",
-          });
-          next.addTo(mapRef.current);
-          radarLayerRef.current?.remove();
-          radarLayerRef.current = next;
+        .then((frame) => {
+          if (signal.aborted || !radarVisibleRef.current || radarPlayingRef.current) return;
+          radarUrls = [frame.canvas.toDataURL("image/png")];
+          radarTimes = [frame.timestamp];
+          radarBounds = frame.bounds;
+          showFrame(0);
+          setRadarFrameTime(null);
         })
-        .catch((error: unknown) => {
-          if (!(error instanceof DOMException && error.name === "AbortError")) {
-            console.debug("Bright-Sky-Radar fehlgeschlagen", error);
-          }
-        })
+        .catch(ignoreAbort)
         .finally(() => {
           if (!signal.aborted) setRadarLoading(false);
         });
     };
-    loadRadarRef.current = loadRadar;
-    if (radarVisibleRef.current) loadRadar();
+
+    // Loop: Frames der letzten Stunde laden, ab dem neuesten im Takt durchspielen.
+    const loadLoop = () => {
+      radarAbort?.abort();
+      radarAbort = new AbortController();
+      const signal = radarAbort.signal;
+      stopAnim();
+      setRadarLoading(true);
+      fetchRadarFrames(RADAR_LOOP_MINUTES, signal)
+        .then((frames) => {
+          if (signal.aborted || !radarVisibleRef.current || !radarPlayingRef.current) return;
+          radarUrls = frames.map((f) => f.canvas.toDataURL("image/png"));
+          radarTimes = frames.map((f) => f.timestamp);
+          radarBounds = frames[0].bounds;
+          frameIdx = radarUrls.length - 1; // beim Neuesten starten
+          showFrame(frameIdx);
+          setRadarFrameTime(radarTimes[frameIdx]);
+          animTimer = window.setInterval(() => {
+            if (!radarPlayingRef.current || radarUrls.length === 0) return;
+            const next = (frameIdx + 1) % radarUrls.length;
+            showFrame(next);
+            setRadarFrameTime(radarTimes[next]);
+          }, RADAR_FRAME_MS);
+        })
+        .catch(ignoreAbort)
+        .finally(() => {
+          if (!signal.aborted) setRadarLoading(false);
+        });
+    };
+
+    radarCtlRef.current = {
+      refresh: () => {
+        if (!radarVisibleRef.current) return;
+        if (radarPlayingRef.current) loadLoop();
+        else loadStatic();
+      },
+      setPlaying: (playing) => {
+        if (playing) loadLoop();
+        else loadStatic();
+      },
+      hide: () => {
+        radarAbort?.abort();
+        stopAnim();
+        radarLayerRef.current?.remove();
+        radarLayerRef.current = null;
+        radarUrls = [];
+        radarTimes = [];
+        setRadarFrameTime(null);
+      },
+      teardown: () => {
+        radarAbort?.abort();
+        stopAnim();
+      },
+    };
+    if (radarVisibleRef.current) radarCtlRef.current.refresh();
 
     // DWD-KONRAD3D (Konvektionserkennung) als optionales WMS-Overlay.
     // current_cells: gefuellllte Zellpolygone (rot/gelb/gruen nach Schweregrad),
@@ -918,7 +1043,7 @@ export function Lagekarte({
     // Overlays periodisch aktualisieren (DWD liefert neue Zeitschritte ~alle 5 Min):
     // Regenradar (Bright Sky) neu holen + reprojizieren, KONRAD3D-WMS via redraw().
     const refreshWmsLayers = () => {
-      if (radarVisibleRef.current) loadRadar();
+      radarCtlRef.current?.refresh(); // Einzelbild neu holen bzw. Loop-Fenster nachladen
       konradLayerRef.current?.redraw();
     };
     const wmsRefreshTimer = window.setInterval(refreshWmsLayers, 5 * 60 * 1000);
@@ -1201,8 +1326,8 @@ export function Lagekarte({
       featuresMap.unobserve(refresh);
       if (featuresMapRef.current === featuresMap) featuresMapRef.current = null;
       if (mapRef.current === map) mapRef.current = null;
-      radarAbort?.abort();
-      loadRadarRef.current = null;
+      radarCtlRef.current?.teardown();
+      radarCtlRef.current = null;
       radarLayerRef.current = null;
       konradLayerRef.current = null;
       pegelCancelled = true;
@@ -1257,10 +1382,35 @@ export function Lagekarte({
               type="checkbox"
               checked={radarVisible}
               aria-label="Regenradar anzeigen"
-              onChange={(event) => setRadarVisible(event.currentTarget.checked)}
+              onChange={(event) => {
+                const v = event.currentTarget.checked;
+                setRadarVisible(v);
+                if (!v) setRadarPlaying(false); // beim Ausschalten Loop beenden
+              }}
             />
             <span>Regenradar{radarVisible && radarLoading ? " …" : ""}</span>
           </label>
+          {radarVisible && (
+            <button
+              className={`btn btn--ghost lagekarte-info-btn ${radarPlaying ? "is-active" : ""}`}
+              type="button"
+              title={
+                radarPlaying
+                  ? "Radar-Animation stoppen"
+                  : "Radar-Animation abspielen (letzte Stunde)"
+              }
+              aria-pressed={radarPlaying}
+              aria-label="Radar-Animation"
+              onClick={() => setRadarPlaying((v) => !v)}
+            >
+              {radarPlaying ? "⏸" : "▶"}
+            </button>
+          )}
+          {radarVisible && radarPlaying && radarFrameTime && (
+            <span className="lagekarte-radar-time" aria-live="polite">
+              {formatRadarTime(radarFrameTime)}
+            </span>
+          )}
           <label className="lagekarte-radar-toggle">
             <input
               type="checkbox"
