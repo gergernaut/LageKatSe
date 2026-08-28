@@ -62,7 +62,10 @@ durchgesetzt. Läuft im Browser, ohne Installation beim Nutzer — im Internet
   </tr>
   <tr>
     <td width="50%"><img src="docs/screenshots/arbeitsblatt.png" alt="Taktische Übersicht"><br><sub><b>Taktische Übersicht</b> — Felder A–F + Lagebild</sub></td>
-    <td width="50%"><img src="docs/screenshots/kraefteuebersicht.png" alt="Kräfteübersicht"><br><sub><b>Kräfteübersicht</b> — BR/Einsatz, Stärke nach DV 100</sub></td>
+    <td width="50%"><img src="docs/screenshots/kraefteuebersicht.png" alt="Kräfteübersicht"><br><sub><b>Kräfteübersicht</b> — BR/Einsatz, Stärke nach DV 100, EA-Zuordnung</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/einsatzabschnitte.png" alt="Einsatzabschnitte"><br><sub><b>Einsatzabschnitte</b> — EA/UA + Führung, abgeleitete Stärke, abhakbare Listen (Aufträge/Rückmeldungen/Anforderungen) mit ETB-Übernahme</sub></td>
   </tr>
 </table>
 
