@@ -28,7 +28,8 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   (`Einsatzabschnitte.tsx` — EA/UA + Führungs-Singleton `EA_FUEHRUNG` (#154) + Fahrzeug-Zuordnung `einsatzabschnittId`, abgeleitete Stärke, #133),
   `sync/provider.ts` (`connectModule` mit `cache`-Opt-out fuer transiente Verbindungen).
   Client-Utilities: `wetter.ts` (BrightSky-Abruf), `brightskyRadar.ts` (Regenradar: RADOLAN-Gitter von
-  Bright Sky, zlib-Decode via fflate + Reprojektion DE1200→Web-Mercator via proj4, #166), `pegel.ts` (PEGELONLINE/WSV-Pegelstaende,
+  Bright Sky, zlib-Decode via fflate + Reprojektion DE1200→Web-Mercator via proj4 [Mapping+Farb-LUT
+  gecacht] + optionaler Animations-Loop `fetchRadarFrames`, #166), `pegel.ts` (PEGELONLINE/WSV-Pegelstaende,
   CORS-offen; reine Coercion + Status->Farbe, unit-getestet), `pdf.ts` (`etbToPdf`/`arbeitsblattToPdf`/`lagekarteToPngPdf`
   via pdf-lib, Schrift `public/fonts/DejaVuSans.ttf`; Lagekarten-PDF rastert via `html-to-image`), `exportAll.ts` (Gesamt-Export) +
   `importAll.ts` (Bundle-Import, beide ZIP via fflate), `*/applyImport.ts` (geteilte, React-freie
