@@ -2,8 +2,8 @@
 
 **Ein Stab. Ein Lagebild. In Echtzeit.** — LageKatSe ist eine browserbasierte,
 kollaborative Lageverwaltung für den Katastrophenschutz-Führungsstab: Lagekarte,
-Einsatztagebuch, Taktische Übersicht und Kräfteübersicht, live synchron für
-alle Beteiligten.
+Einsatztagebuch, Taktische Übersicht, Kräfteübersicht und Einsatzabschnitte, live
+synchron für alle Beteiligten.
 
 > **Unterstützendes Werkzeug bzw. Übungsmittel** — LageKatSe ist **kein primäres
 > Einsatzmittel** und erzeugt **keine rechtskräftigen Dokumente oder Nachweise**.
@@ -29,7 +29,8 @@ durchgesetzt. Läuft im Browser, ohne Installation beim Nutzer — im Internet
 - **🗺️ Gemeinsame Lagekarte** — Leaflet + OpenStreetMap, die vollständige
   DV-102-Symbolpalette (nach Typ gruppiert, durchsuchbar), Flächen/Bereiche,
   Beschriftungen & Tooltips, Symbol-Ausrichtung. Zuschaltbare Overlays:
-  **DWD-Regenradar**, **KONRAD3D**-Gewitterzellen (Zell-Info per Klick) und
+  **DWD-Regenradar** (mit abspielbarer Animation der letzten Stunde),
+  **KONRAD3D**-Gewitterzellen (Zell-Info per Klick) und
   **Pegelstände** der Bundeswasserstraßen (PEGELONLINE/WSV). JSON-Im-/Export und **PDF-Export**.
 - **📓 Einsatztagebuch (ETB)** — tabellarisch, mit **server-vergebener,
   lückenloser Lfd-Nr.** und Serverzeit, Live-Feld-Bearbeitung, Storno,
@@ -41,9 +42,12 @@ durchgesetzt. Läuft im Browser, ohne Installation beim Nutzer — im Internet
 - **🚒 Kräfteübersicht** — Bereitstellungsraum ↔ Im Einsatz, Stärke nach **DV 100**
   mit automatischer Summierung; Verschieben/Entlassen wird ins ETB protokolliert.
 - **🗂️ Einsatzabschnitte** — Einsatzabschnitte (EA) und Unterabschnitte (UA) mit
-  Befehlsstelle, Leiter, Auftrag und Kommunikation; Fahrzeuge werden aus der
-  Kräfteübersicht zugeordnet, die **Stärke je Abschnitt** ergibt sich automatisch.
-  Fließt in Feld C der Taktischen Übersicht (Bildschirm + PDF) ein. JSON-Im-/Export.
+  Befehlsstelle, Leiter und Kommunikation, dazu eine eigene **Führungsstelle**. Je
+  Abschnitt drei abhakbare Listen — **Aufträge, Rückmeldungen, Anforderungen**;
+  Rückmeldungen und Anforderungen lassen sich per Klick **ins ETB übernehmen**.
+  Fahrzeuge werden aus der Kräfteübersicht zugeordnet, die **Stärke je Abschnitt**
+  ergibt sich automatisch. Fließt in Feld C der Taktischen Übersicht (Bildschirm + PDF)
+  ein. JSON-Im-/Export.
 - **💬 Übersicht, Präsenz & Chat** — wer ist online, Stabsraum-Chat, und
   **Aktivitäts-Hinweise** (Punkt am Rail + Zähler im Browser-Tab; optionale
   Desktop-Benachrichtigungen bei HTTPS/localhost).
@@ -58,7 +62,10 @@ durchgesetzt. Läuft im Browser, ohne Installation beim Nutzer — im Internet
   </tr>
   <tr>
     <td width="50%"><img src="docs/screenshots/arbeitsblatt.png" alt="Taktische Übersicht"><br><sub><b>Taktische Übersicht</b> — Felder A–F + Lagebild</sub></td>
-    <td width="50%"><img src="docs/screenshots/kraefteuebersicht.png" alt="Kräfteübersicht"><br><sub><b>Kräfteübersicht</b> — BR/Einsatz, Stärke nach DV 100</sub></td>
+    <td width="50%"><img src="docs/screenshots/kraefteuebersicht.png" alt="Kräfteübersicht"><br><sub><b>Kräfteübersicht</b> — BR/Einsatz, Stärke nach DV 100, EA-Zuordnung</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/einsatzabschnitte.png" alt="Einsatzabschnitte"><br><sub><b>Einsatzabschnitte</b> — EA/UA + Führung, abgeleitete Stärke, abhakbare Listen (Aufträge/Rückmeldungen/Anforderungen) mit ETB-Übernahme</sub></td>
   </tr>
 </table>
 
