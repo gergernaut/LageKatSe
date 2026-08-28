@@ -1045,6 +1045,9 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
 - ✅ **Test-Framework** (#72): Vitest (`pnpm test`) für reine Logik (Rollen/Rechte, Import-Coercion,
   `format`/`dug`, PDF-Umbruch), in CI eingehängt; `.mjs`-Smoke-Tests bleiben ergänzend.
 - ✅ **DV-102-Rotations-UI** (#69): Ausrichtung pro Symbol im Auswahl-Panel (Slider + Winkel-Eingabe, Live-Vorschau)
+- ✅ **Regenradar via Bright Sky** (#166/#167, §8.1): WMS → RADOLAN-Rohgitter, client-seitig
+  von DE1200 nach Web-Mercator reprojiziert (proj4, schneller als das DWD-WMS), KONRAD3D darüber;
+  **Animations-Loop** der letzten Stunde (#168, optional per Play-Button)
 - ✅ **Pegelstände-Layer** (#84, §8.1): zuschaltbares PEGELONLINE/WSV-Overlay + „In ETB übernehmen"
 - ✅ **Favicon** (#91) aus dem LageKatSe-Logo
 - ❌ **Playwright-UI-E2E** (#81) bewusst verworfen: geringer Nutzen, hoher Admin-/Wartungsaufwand — Happy-Path deckt die `.mjs`-Smoke-Suite ab, reine Logik Vitest.
