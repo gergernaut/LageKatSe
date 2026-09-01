@@ -780,6 +780,23 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .lagekarte-info-btn { padding: 4px 8px !important; font-size: 14px; line-height: 1; }
 .lagekarte-info-btn.is-active { background: var(--signal); color: var(--signal-ink); border-color: var(--signal); }
 .lagekarte-info-cursor { cursor: help; }
+.lagekarte-measure-cursor { cursor: crosshair; }
+/* Mess-Tool (#175): Messlinie + Distanz-Label */
+.lagekarte-measure-result { font-family: var(--mono); }
+.lagekarte-measure-label {
+  background: transparent; border: 0;
+}
+.lagekarte-measure-label span {
+  display: inline-block; transform: translate(-50%, -50%);
+  font: 700 11px var(--mono); color: #fff;
+  background: rgba(11,17,25,.85); padding: 2px 6px; border-radius: 999px;
+  white-space: nowrap; pointer-events: none;
+}
+/* Radius-Anzeige beim Kreis-Ziehen (#175) */
+.lagekarte-radius-tip {
+  background: rgba(11,17,25,.85); color: #fff; border: 0;
+  font: 700 11px var(--mono); border-radius: 999px; padding: 2px 8px;
+}
 .konrad-popup-wrapper .leaflet-popup-content-wrapper {
   background: var(--ground); color: var(--on-dark); border: 1px solid var(--line-dark);
   border-radius: 9px; box-shadow: 0 12px 30px rgba(11,17,25,.3); font-family: var(--sans);
