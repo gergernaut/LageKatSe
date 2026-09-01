@@ -20,6 +20,7 @@ import { api } from "../api";
 import { toPng } from "html-to-image";
 import { tileConfig } from "../config";
 import { fetchPegelStations, pegelStatusColor, pegelStatusText, type PegelStation } from "../pegel";
+import { formatDistance } from "../distance";
 import { fetchLatestRadar, fetchRadarFrames, type RadarFrame } from "../brightskyRadar";
 import { Palette, type PaletteSymbol } from "./Palette";
 
@@ -318,6 +319,12 @@ export function Lagekarte({
   const [drawColor, setDrawColor] = useState("#d5372b");
   const [drawOpacity, setDrawOpacity] = useState(0.3);
   const [drawDash, setDrawDash] = useState("");
+  // Mess-Tool (#175): client-lokal, ephemeral (Invariante #4) — kein CRDT-Write.
+  const [measureActive, setMeasureActive] = useState(false);
+  const [measureResult, setMeasureResult] = useState<string | null>(null);
+  const measureActiveRef = useRef(measureActive);
+  const measureStartRef = useRef<L.LatLng | null>(null);
+  const measureLayerRef = useRef<L.LayerGroup | null>(null);
   const [areaColor, setAreaColor] = useState("#d5372b");
   const [areaOpacity, setAreaOpacity] = useState(0.3);
   const [areaDash, setAreaDash] = useState("");
@@ -505,6 +512,30 @@ export function Lagekarte({
     else container.classList.remove("lagekarte-info-cursor");
   }, [konradInfoActive]);
 
+  // Mess-Tool-Toggle (#175): LayerGroup an/aus, Cursor wechseln, Messung zurücksetzen.
+  useEffect(() => {
+    measureActiveRef.current = measureActive;
+    // Symmetrischer Ausschluss: Messen an => Zeichnen abbrechen + Symbolwahl leeren
+    // (die anderen Richtungen machen enableDrawing/selectPaletteSymbol).
+    if (measureActive) {
+      mapRef.current?.pm.disableDraw();
+      activeDrawRef.current = null;
+      setActiveDraw(null);
+      selectedSymbolRef.current = null;
+      setSelectedSymbol(null);
+    }
+    const map = mapRef.current;
+    const layer = measureLayerRef.current;
+    if (layer) {
+      if (measureActive) layer.addTo(map!);
+      else layer.remove();
+    }
+    measureStartRef.current = null;
+    if (!measureActive) setMeasureResult(null);
+    const container = map?.getContainer();
+    if (container) container.classList.toggle("lagekarte-measure-cursor", measureActive);
+  }, [measureActive]);
+
   useEffect(() => {
     writableRef.current = writable;
     renderForRightsRef.current?.();
@@ -561,6 +592,7 @@ export function Lagekarte({
     mapRef.current?.pm.disableDraw();
     activeDrawRef.current = null;
     setActiveDraw(null);
+    setMeasureActive(false); // Mess-Tool und Symbol-Platzieren schließen sich aus (#175)
     const next = selectedSymbolRef.current?.id === symbol.id ? null : symbol;
     selectedSymbolRef.current = next;
     setSelectedSymbol(next);
@@ -579,6 +611,7 @@ export function Lagekarte({
 
   const enableDrawing = (shape: DrawShape, color = drawColor, opacity = drawOpacity, dash = drawDash) => {
     if (!writableRef.current) return;
+    setMeasureActive(false); // Mess-Tool und Zeichnen schließen sich gegenseitig aus (#175)
     if (activeDrawRef.current?.shape === shape && color === drawColor && opacity === drawOpacity && dash === drawDash) {
       cancelDrawing();
       return;
@@ -1060,6 +1093,13 @@ export function Lagekarte({
       map.attributionControl.addAttribution(PEGEL_ATTRIBUTION);
     }
 
+    // --- Mess-Tool (#175) ---
+    // Messlinien/Labels sammeln sich in einer eigenen LayerGroup; beim Deaktivieren
+    // alles wegwerfen. Ephemeral (Invariante #4) — nichts synchronisiert.
+    const measureLayer = L.layerGroup();
+    measureLayerRef.current = measureLayer;
+    if (measureActiveRef.current) measureLayer.addTo(map);
+
     const buildPegelPopup = (st: PegelStation): HTMLElement => {
       const el = document.createElement("div");
       el.className = "pegel-popup";
@@ -1294,6 +1334,30 @@ export function Lagekarte({
 
     const onMapClick = (event: L.LeafletMouseEvent) => {
       placePendingSymbol(event.latlng);
+      // Mess-Tool (#175): zwei Klicks = eine Entfernung. Client-lokal & ephemeral
+      // (Invariante #4) — Messlinien sind Anzeige, kein synchronisierter Zustand.
+      // Auch für den Monitor (reine Anzeige, kein CRDT-Write).
+      if (measureActiveRef.current) {
+        const start = measureStartRef.current;
+        if (!start) {
+          measureStartRef.current = event.latlng;
+          return;
+        }
+        const meters = map.distance(start, event.latlng);
+        const text = formatDistance(meters);
+        const line = L.polyline([start, event.latlng], {
+          color: "var(--signal)", weight: 2, dashArray: "6,6", interactive: false,
+        }).addTo(measureLayer);
+        const mid = L.latLng((start.lat + event.latlng.lat) / 2, (start.lng + event.latlng.lng) / 2);
+        const labelIcon = L.divIcon({
+          className: "lagekarte-measure-label",
+          html: `<span>${text}</span>`,
+          iconSize: [0, 0],
+        });
+        L.marker(mid, { icon: labelIcon, interactive: false, keyboard: false }).addTo(measureLayer);
+        setMeasureResult(text);
+        measureStartRef.current = null; // nächste zwei Klicks = neue Messung
+      }
     };
     map.on("click", onMapClick);
 
@@ -1307,8 +1371,36 @@ export function Lagekarte({
       map.pm.disableDraw();
       activeDrawRef.current = null;
       setActiveDraw(null);
+      workingCircle = null;
     };
     map.on("pm:create", onCreate);
+
+    // Radius-Anzeige beim Kreis-Ziehen (#175): Geoman feuert beim Ziehen KEIN
+    // dediziertes drawmove-Event (nur pm:drawstart/-end) — daher lauschen wir auf
+    // Leaflets map.mousemove, solange ein Kreis im Zeichnen ist, und zeigen den
+    // aktuellen Radius (Meter, Großkreis) als permanenter Tooltip am workingLayer.
+    // Reine Anzeige, client-lokal (Invariante #4).
+    let workingCircle: L.Circle | null = null;
+    const onDrawStart = (event: { shape?: string; workingLayer?: L.Layer }) => {
+      if (event.shape !== "Circle") return;
+      const layer = event.workingLayer as L.Circle | undefined;
+      if (layer) {
+        workingCircle = layer;
+        layer.bindTooltip("0 m", { permanent: true, direction: "top", className: "lagekarte-radius-tip" });
+      }
+    };
+    const onDrawMove = () => {
+      if (workingCircle) {
+        workingCircle.setTooltipContent(formatDistance(workingCircle.getRadius()));
+      }
+    };
+    map.on("pm:drawstart", onDrawStart);
+    map.on("mousemove", onDrawMove);
+    // Abbruch (Esc/Anderes Werkzeug) → Referenz auf den entfernten workingLayer lösen.
+    const onDrawEnd = () => {
+      workingCircle = null;
+    };
+    map.on("pm:drawend", onDrawEnd);
 
     // Kartenansicht je Raum merken (client-lokal), damit sie den Modulwechsel überlebt.
     const persistView = () => {
@@ -1322,6 +1414,9 @@ export function Lagekarte({
       map.off("click", onMapClick);
       map.off("click", konradClick);
       map.off("pm:create", onCreate);
+      map.off("pm:drawstart", onDrawStart);
+      map.off("pm:drawend", onDrawEnd);
+      map.off("mousemove", onDrawMove);
       map.off("moveend", persistView);
       featuresMap.unobserve(refresh);
       if (featuresMapRef.current === featuresMap) featuresMapRef.current = null;
@@ -1331,6 +1426,7 @@ export function Lagekarte({
       radarLayerRef.current = null;
       konradLayerRef.current = null;
       pegelCancelled = true;
+      measureLayerRef.current = null;
       window.clearInterval(wmsRefreshTimer);
       window.clearInterval(pegelRefreshTimer);
       pegelLayerRef.current = null;
@@ -1444,6 +1540,17 @@ export function Lagekarte({
             />
             <span>Pegel{pegelLoading ? " …" : ""}</span>
           </label>
+          {/* Mess-Tool (#175): reine Anzeige (Invariante #4) — auch für den Monitor. */}
+          <button
+            className={`btn btn--ghost lagekarte-measure-btn ${measureActive ? "is-active" : ""}`}
+            type="button"
+            title={measureActive ? "Messen beenden" : "Entfernung messen: zwei Klicks auf die Karte"}
+            aria-pressed={measureActive}
+            onClick={() => setMeasureActive((v) => !v)}
+          >
+            {measureActive ? "Messen beenden" : "Messen"}
+          </button>
+          {measureResult && <span className="chip lagekarte-measure-result">{measureResult}</span>}
           {writable && (
             <>
               <button
