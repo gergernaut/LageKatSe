@@ -515,6 +515,15 @@ export function Lagekarte({
   // Mess-Tool-Toggle (#175): LayerGroup an/aus, Cursor wechseln, Messung zurücksetzen.
   useEffect(() => {
     measureActiveRef.current = measureActive;
+    // Symmetrischer Ausschluss: Messen an => Zeichnen abbrechen + Symbolwahl leeren
+    // (die anderen Richtungen machen enableDrawing/selectPaletteSymbol).
+    if (measureActive) {
+      mapRef.current?.pm.disableDraw();
+      activeDrawRef.current = null;
+      setActiveDraw(null);
+      selectedSymbolRef.current = null;
+      setSelectedSymbol(null);
+    }
     const map = mapRef.current;
     const layer = measureLayerRef.current;
     if (layer) {
@@ -1327,7 +1336,7 @@ export function Lagekarte({
       placePendingSymbol(event.latlng);
       // Mess-Tool (#175): zwei Klicks = eine Entfernung. Client-lokal & ephemeral
       // (Invariante #4) — Messlinien sind Anzeige, kein synchronisierter Zustand.
-      if (measureActiveRef.current && !writableRef.current) return;
+      // Auch für den Monitor (reine Anzeige, kein CRDT-Write).
       if (measureActiveRef.current) {
         const start = measureStartRef.current;
         if (!start) {
@@ -1387,6 +1396,11 @@ export function Lagekarte({
     };
     map.on("pm:drawstart", onDrawStart);
     map.on("mousemove", onDrawMove);
+    // Abbruch (Esc/Anderes Werkzeug) → Referenz auf den entfernten workingLayer lösen.
+    const onDrawEnd = () => {
+      workingCircle = null;
+    };
+    map.on("pm:drawend", onDrawEnd);
 
     // Kartenansicht je Raum merken (client-lokal), damit sie den Modulwechsel überlebt.
     const persistView = () => {
@@ -1401,6 +1415,7 @@ export function Lagekarte({
       map.off("click", konradClick);
       map.off("pm:create", onCreate);
       map.off("pm:drawstart", onDrawStart);
+      map.off("pm:drawend", onDrawEnd);
       map.off("mousemove", onDrawMove);
       map.off("moveend", persistView);
       featuresMap.unobserve(refresh);
@@ -1525,6 +1540,17 @@ export function Lagekarte({
             />
             <span>Pegel{pegelLoading ? " …" : ""}</span>
           </label>
+          {/* Mess-Tool (#175): reine Anzeige (Invariante #4) — auch für den Monitor. */}
+          <button
+            className={`btn btn--ghost lagekarte-measure-btn ${measureActive ? "is-active" : ""}`}
+            type="button"
+            title={measureActive ? "Messen beenden" : "Entfernung messen: zwei Klicks auf die Karte"}
+            aria-pressed={measureActive}
+            onClick={() => setMeasureActive((v) => !v)}
+          >
+            {measureActive ? "Messen beenden" : "Messen"}
+          </button>
+          {measureResult && <span className="chip lagekarte-measure-result">{measureResult}</span>}
           {writable && (
             <>
               <button
@@ -1557,17 +1583,7 @@ export function Lagekarte({
           ref={mapElementRef}
         />
         {writable && (
-          <div className="lagekarte-draw" role="toolbar" aria-label="Fläche zeichnen und messen">
-            <button
-              className={`btn btn--ghost lagekarte-measure-btn ${measureActive ? "is-active" : ""}`}
-              type="button"
-              title={measureActive ? "Messen beenden" : "Entfernung messen: zwei Klicks auf die Karte"}
-              aria-pressed={measureActive}
-              onClick={() => setMeasureActive((v) => !v)}
-            >
-              {measureActive ? "Messen beenden" : "Messen"}
-            </button>
-            {measureResult && <span className="chip lagekarte-measure-result">{measureResult}</span>}
+          <div className="lagekarte-draw" role="toolbar" aria-label="Fläche zeichnen">
             <div className="lagekarte-draw__shapes">
               {(
                 [
