@@ -93,7 +93,7 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     refresh();
     return () => {
       abschnitte.unobserveDeep(refresh);
-      fuehrungMap.unobserve(refresh);
+      fuehrungMap.unobserveDeep(refresh);
       abschnitteRef.current = null;
       fuehrungRef.current = null;
       conn.destroy();
@@ -190,6 +190,7 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
   };
 
   const deleteFuehrungAuftrag = (itemId: string) => {
+    if (!writable) return;
     const arr = fuehrungListArray();
     if (!arr) return;
     const index = arr.toArray().findIndex((m) => m.get("id") === itemId);
