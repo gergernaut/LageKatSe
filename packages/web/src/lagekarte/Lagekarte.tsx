@@ -1362,35 +1362,31 @@ export function Lagekarte({
       map.pm.disableDraw();
       activeDrawRef.current = null;
       setActiveDraw(null);
+      workingCircle = null;
     };
     map.on("pm:create", onCreate);
 
-    // Radius-Anzeige beim Kreis-Ziehen (#175): Geoman feuert pm:drawmove während
-    // des Ziehens — der aktuelle Radius (Meter, Großkreis) erscheint als Tooltip
-    // an der Kreismitte. Reine Anzeige, client-lokal (Invariante #4).
-    // Geoman-Typen exportieren die Draw-Events nicht sauber → hier pragmatisch
-    // strukturiert (shape/workingLayer/layer), wie sie zur Laufzeit ankommen.
-    type PmDrawEvent = { shape?: string; layer?: L.Layer; workingLayer?: L.Layer };
-    const drawCircleOf = (event: unknown): L.Circle | null => {
-      const e = event as PmDrawEvent;
-      const layer = (e.workingLayer ?? e.layer) as L.Circle | undefined;
-      return layer && typeof (layer as L.Circle).getRadius === "function" ? layer : null;
-    };
-    const onDrawStart = (event: unknown) => {
-      if ((event as PmDrawEvent).shape !== "Circle") return;
-      const layer = drawCircleOf(event);
+    // Radius-Anzeige beim Kreis-Ziehen (#175): Geoman feuert beim Ziehen KEIN
+    // dediziertes drawmove-Event (nur pm:drawstart/-end) — daher lauschen wir auf
+    // Leaflets map.mousemove, solange ein Kreis im Zeichnen ist, und zeigen den
+    // aktuellen Radius (Meter, Großkreis) als permanenter Tooltip am workingLayer.
+    // Reine Anzeige, client-lokal (Invariante #4).
+    let workingCircle: L.Circle | null = null;
+    const onDrawStart = (event: { shape?: string; workingLayer?: L.Layer }) => {
+      if (event.shape !== "Circle") return;
+      const layer = event.workingLayer as L.Circle | undefined;
       if (layer) {
+        workingCircle = layer;
         layer.bindTooltip("0 m", { permanent: true, direction: "top", className: "lagekarte-radius-tip" });
       }
     };
-    const onDrawMove = (event: unknown) => {
-      const layer = drawCircleOf(event);
-      if (layer) {
-        layer.setTooltipContent(formatDistance(layer.getRadius()));
+    const onDrawMove = () => {
+      if (workingCircle) {
+        workingCircle.setTooltipContent(formatDistance(workingCircle.getRadius()));
       }
     };
     map.on("pm:drawstart", onDrawStart);
-    map.on("pm:drawmove", onDrawMove);
+    map.on("mousemove", onDrawMove);
 
     // Kartenansicht je Raum merken (client-lokal), damit sie den Modulwechsel überlebt.
     const persistView = () => {
@@ -1405,7 +1401,7 @@ export function Lagekarte({
       map.off("click", konradClick);
       map.off("pm:create", onCreate);
       map.off("pm:drawstart", onDrawStart);
-      map.off("pm:drawmove", onDrawMove);
+      map.off("mousemove", onDrawMove);
       map.off("moveend", persistView);
       featuresMap.unobserve(refresh);
       if (featuresMapRef.current === featuresMap) featuresMapRef.current = null;
