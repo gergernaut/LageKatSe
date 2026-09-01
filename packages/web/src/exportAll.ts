@@ -11,6 +11,7 @@
  */
 import * as Y from "yjs";
 import { zipSync } from "fflate";
+import { uid } from "./uid";
 import {
   AB_AUFTRAEGE,
   AB_EXPORT_FORMAT,
@@ -21,10 +22,12 @@ import {
   AB_RUECKMELD,
   AB_WETTER,
   AB_WETTER_SNAPSHOT,
+  coerceEaListItems,
   coerceFuehrung,
   EA_ABSCHNITTE,
   EA_EXPORT_FORMAT,
   EA_FUEHRUNG,
+  EA_FUEHRUNG_AUFTRAEGE,
   ETB_ENTRIES,
   ETB_EXPORT_FORMAT,
   KRAFT_EXPORT_FORMAT,
@@ -177,6 +180,10 @@ export async function exportAll(session: Session): Promise<void> {
         exportedAt: new Date().toISOString(),
         abschnitte: abschnitte.toArray().map((a) => a.toJSON() as Einsatzabschnitt),
         fuehrung: coerceFuehrung(conn.doc.getMap<unknown>(EA_FUEHRUNG).toJSON()),
+        fuehrungAuftraege: coerceEaListItems(
+          conn.doc.getMap<unknown>(EA_FUEHRUNG).get(EA_FUEHRUNG_AUFTRAEGE),
+          uid,
+        ),
       };
       files[`einsatzabschnitte-${code}-${stamp}.json`] = new TextEncoder().encode(
         JSON.stringify(payload, null, 2),
