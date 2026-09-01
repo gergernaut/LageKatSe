@@ -528,7 +528,12 @@ export function Lagekarte({
     const layer = measureLayerRef.current;
     if (layer) {
       if (measureActive) layer.addTo(map!);
-      else layer.remove();
+      // Messmodus verlassen: Linien/Labels verwerfen (nicht nur ausblenden) —
+      // sonst tauchen alle alten Messungen beim erneuten Aktivieren wieder auf (#175).
+      else {
+        layer.clearLayers();
+        layer.remove();
+      }
     }
     measureStartRef.current = null;
     if (!measureActive) setMeasureResult(null);
