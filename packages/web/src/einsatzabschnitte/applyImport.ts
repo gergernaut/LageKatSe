@@ -9,6 +9,7 @@
 import * as Y from "yjs";
 import {
   EA_FUEHRUNG,
+  EA_FUEHRUNG_AUFTRAEGE,
   EA_LISTS,
   type EaListItem,
   type Einsatzabschnitt,
@@ -43,15 +44,15 @@ export function abschnittToYMap(a: Einsatzabschnitt): Y.Map<unknown> {
 }
 
 /**
- * Spielt Abschnitte (und optional den Führungs-Singleton, #154) als **eine**
- * Transaktion ein. `replace` leert die Liste zuvor (Bundle-Restore / Einzeldatei-
- * Ersetzen); ohne `replace` werden sie angehängt. Die Führung wird — wenn
- * übergeben — immer ersetzt (es gibt genau eine).
+ * Spielt Abschnitte (und optional den Führungs-Singleton samt Auftrags-Liste,
+ * #154/#177) als **eine** Transaktion ein. `replace` leert die Liste zuvor
+ * (Bundle-Restore / Einzeldatei-Ersetzen); ohne `replace` werden sie angehängt.
+ * Die Führung wird — wenn übergeben — immer ersetzt (es gibt genau eine).
  */
 export function applyEinsatzabschnitteImport(
   abschnitte: Y.Array<Y.Map<unknown>>,
   rows: Einsatzabschnitt[],
-  opts: { replace: boolean; fuehrung?: Fuehrung },
+  opts: { replace: boolean; fuehrung?: Fuehrung; fuehrungAuftraege?: EaListItem[] },
 ): void {
   const apply = () => {
     if (opts.replace && abschnitte.length > 0) abschnitte.delete(0, abschnitte.length);
@@ -61,6 +62,20 @@ export function applyEinsatzabschnitteImport(
     if (opts.fuehrung && doc) {
       const fuehrung = doc.getMap<unknown>(EA_FUEHRUNG);
       for (const [key, value] of Object.entries(opts.fuehrung)) fuehrung.set(key, value);
+    }
+    // Auftrags-Liste der Führung (#177) als verschachtelte Y.Array ersetzen —
+    // nur wenn übergeben (ältere Importe ohne bleiben unangetastet).
+    if (opts.fuehrungAuftraege && doc) {
+      const fuehrung = doc.getMap<unknown>(EA_FUEHRUNG);
+      const arr = new Y.Array<Y.Map<unknown>>();
+      for (const item of opts.fuehrungAuftraege) {
+        const im = new Y.Map<unknown>();
+        im.set("id", item.id);
+        im.set("text", item.text);
+        im.set("erledigt", item.erledigt);
+        arr.push([im]);
+      }
+      fuehrung.set(EA_FUEHRUNG_AUFTRAEGE, arr);
     }
   };
   const doc = abschnitte.doc;

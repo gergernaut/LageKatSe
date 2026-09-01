@@ -10,6 +10,7 @@ import {
   EA_EXPORT_FORMAT,
   formatAbschnittTitel,
   parseEinsatzabschnitteExport,
+  parseFuehrungAuftraegeExport,
   parseFuehrungExport,
   unassignedEinsatzVehicles,
   vehiclesInAbschnitt,
@@ -250,6 +251,38 @@ describe("Einsatzabschnitte-Modell", () => {
         kommunikation: "",
         standort: "",
       });
+    });
+  });
+
+  // Auftrags-Liste der Führung (#177)
+  describe("parseFuehrungAuftraegeExport", () => {
+    it("liest die Liste verlustfrei aus dem Envelope (IDs erhalten)", () => {
+      const items = [
+        { id: "a1", text: "Lagefeststellung 12:00", erledigt: false },
+        { id: "a2", text: "Nachforderungen bündeln", erledigt: true },
+      ];
+      expect(parseFuehrungAuftraegeExport({ format: EA_EXPORT_FORMAT, fuehrungAuftraege: items }, () => "gen")).toEqual(
+        items,
+      );
+    });
+
+    it("fehlt das Feld (ältere Datei) → leere Liste (nie werfen)", () => {
+      expect(parseFuehrungAuftraegeExport({ format: EA_EXPORT_FORMAT, abschnitte: [] }, () => "gen")).toEqual([]);
+      expect(parseFuehrungAuftraegeExport(null, () => "gen")).toEqual([]);
+    });
+
+    it("defekte Zeilen werden coerct (nie geworfen); Nicht-Array → []", () => {
+      const out = parseFuehrungAuftraegeExport(
+        { fuehrungAuftraege: [{ text: "x" }, "müll", { text: "y", erledigt: "ja" }] },
+        () => "gen",
+      );
+      // "müll" wird zu einer Zeile mit leerem Text coerct (nicht übersprungen).
+      expect(out.map((i) => ({ text: i.text, erledigt: i.erledigt }))).toEqual([
+        { text: "x", erledigt: false },
+        { text: "", erledigt: false },
+        { text: "y", erledigt: false },
+      ]);
+      expect(parseFuehrungAuftraegeExport({ fuehrungAuftraege: "kein Array" }, () => "gen")).toEqual([]);
     });
   });
 });

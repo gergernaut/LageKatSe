@@ -10,6 +10,7 @@ import {
   EA_ABSCHNITTE,
   EA_EXPORT_FORMAT,
   EA_FUEHRUNG,
+  EA_FUEHRUNG_AUFTRAEGE,
   EA_LIST_LABELS,
   EA_LISTS,
   EA_TYPEN,
@@ -20,6 +21,7 @@ import {
   isRecord,
   KRAFT_VEHICLES,
   parseEinsatzabschnitteExport,
+  parseFuehrungAuftraegeExport,
   parseFuehrungExport,
   sumStaerke,
   unassignedEinsatzVehicles,
@@ -60,6 +62,8 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
   const etbSyncTimerRef = useRef<number | null>(null);
   const abschnitteRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const fuehrungRef = useRef<Y.Map<unknown> | null>(null);
+  // Auftrags-Liste der Führung (#177) — {id, text, erledigt} wie EaItemList.
+  const [fuehrungAuftraege, setFuehrungAuftraege] = useState<EaListItem[]>([]);
   const vehiclesRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const writable = canWrite(session.roles, "einsatzabschnitte", {
@@ -78,13 +82,18 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
       // (#161) bekommen so sichere Defaults (leere Listen).
       setAbschnitte(abschnitte.toArray().map((m) => coerceEinsatzabschnitt(m.toJSON(), () => "")));
       setFuehrung(coerceFuehrung(fuehrungMap.toJSON()));
+      // Auftrags-Liste der Führung (#177): verschachtelte Y.Array — fehlend → [].
+      const fuList = fuehrungMap.get(EA_FUEHRUNG_AUFTRAEGE);
+      setFuehrungAuftraege(
+        fuList instanceof Y.Array ? (fuList.toJSON() as EaListItem[]) : [],
+      );
     };
     abschnitte.observeDeep(refresh);
-    fuehrungMap.observe(refresh);
+    fuehrungMap.observeDeep(refresh);
     refresh();
     return () => {
       abschnitte.unobserveDeep(refresh);
-      fuehrungMap.unobserve(refresh);
+      fuehrungMap.unobserveDeep(refresh);
       abschnitteRef.current = null;
       fuehrungRef.current = null;
       conn.destroy();
@@ -141,6 +150,51 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
   const setFuehrungField = (field: FuehrungField, value: string) => {
     if (!writable) return;
     fuehrungRef.current?.set(field, value);
+  };
+
+  // Auftrags-Liste der Führung (#177): verschachtelte Y.Array unter
+  // EA_FUEHRUNG_AUFTRAEGE an der Fuehrung-Y.Map (item-level Merge, wie #161).
+  const fuehrungListArray = (): Y.Array<Y.Map<unknown>> | null => {
+    const map = fuehrungRef.current;
+    if (!map) return null;
+    const existing = map.get(EA_FUEHRUNG_AUFTRAEGE);
+    if (existing instanceof Y.Array) return existing as Y.Array<Y.Map<unknown>>;
+    const arr = new Y.Array<Y.Map<unknown>>();
+    map.set(EA_FUEHRUNG_AUFTRAEGE, arr);
+    return arr;
+  };
+
+  const addFuehrungAuftrag = (text: string) => {
+    if (!writable) return;
+    const t = text.trim();
+    if (!t) return;
+    const arr = fuehrungListArray();
+    if (!arr) return;
+    const item = new Y.Map<unknown>();
+    item.set("id", uid());
+    item.set("text", t);
+    item.set("erledigt", false);
+    arr.push([item]);
+  };
+
+  const toggleFuehrungAuftrag = (itemId: string) => {
+    if (!writable) return;
+    const item = fuehrungListArray()?.toArray().find((m) => m.get("id") === itemId);
+    if (item) item.set("erledigt", item.get("erledigt") !== true);
+  };
+
+  const setFuehrungAuftragText = (itemId: string, text: string) => {
+    if (!writable) return;
+    const item = fuehrungListArray()?.toArray().find((m) => m.get("id") === itemId);
+    item?.set("text", text);
+  };
+
+  const deleteFuehrungAuftrag = (itemId: string) => {
+    if (!writable) return;
+    const arr = fuehrungListArray();
+    if (!arr) return;
+    const index = arr.toArray().findIndex((m) => m.get("id") === itemId);
+    if (index >= 0) arr.delete(index, 1);
   };
 
   const addAbschnitt = () => {
@@ -303,6 +357,7 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
       exportedAt: new Date().toISOString(),
       abschnitte,
       fuehrung,
+      fuehrungAuftraege,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -344,7 +399,15 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
       ) {
         return;
       }
-      applyEinsatzabschnitteImport(list, rows, { replace: true, fuehrung: parseFuehrungExport(parsed) });
+      applyEinsatzabschnitteImport(
+        list,
+        rows,
+        {
+          replace: true,
+          fuehrung: parseFuehrungExport(parsed),
+          fuehrungAuftraege: parseFuehrungAuftraegeExport(parsed, uid),
+        },
+      );
       setImportMessage(`${rows.length} Einsatzabschnitt${rows.length === 1 ? "" : "e"} importiert.`);
     } catch (err) {
       console.debug("Einsatzabschnitte-Import fehlgeschlagen", err);
@@ -481,6 +544,17 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
                 </div>
               )}
             </div>
+            {/* Aufträge der Führung (#177): abhakbar, wie die Listen je Abschnitt.
+                Kein ETB-Sync — Aufträge werden nicht ins ETB übernommen (#162-Muster). */}
+            <EaItemList
+              label="Aufträge"
+              items={fuehrungAuftraege}
+              writable={writable}
+              onAdd={addFuehrungAuftrag}
+              onToggle={toggleFuehrungAuftrag}
+              onSetText={setFuehrungAuftragText}
+              onDelete={deleteFuehrungAuftrag}
+            />
           </section>
         );
       })()}
