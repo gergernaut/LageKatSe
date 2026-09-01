@@ -55,6 +55,9 @@ export const EMPTY_FUEHRUNG: Fuehrung = {
   standort: "",
 };
 
+/** Abhakbare Auftrags-Liste der Führung (#177) — als verschachtelte Y.Array gespeichert. */
+export const EA_FUEHRUNG_AUFTRAEGE = "auftraege" as const;
+
 /** Defensive Coercion des Führungs-Singletons (fehlende/defekte Felder → ""). */
 export function coerceFuehrung(value: unknown): Fuehrung {
   const r: Record<string, unknown> = isRecord(value) ? value : {};
@@ -227,6 +230,8 @@ export interface EinsatzabschnitteExport {
   exportedAt: string; // ISO-8601
   abschnitte: Einsatzabschnitt[];
   fuehrung?: Fuehrung; // #154 — optional (ältere Exporte ohne bleiben gültig)
+  /** Abhakbare Auftrags-Liste der Führung (#177) — optional, ältere Exporte ohne bleiben gültig. */
+  fuehrungAuftraege?: EaListItem[];
 }
 
 /**
@@ -235,6 +240,12 @@ export interface EinsatzabschnitteExport {
  */
 export function parseFuehrungExport(payload: unknown): Fuehrung {
   return coerceFuehrung(isRecord(payload) ? payload.fuehrung : undefined);
+}
+
+/** Liest die Auftrags-Liste der Führung (#177) defensiv aus einem Export. */
+export function parseFuehrungAuftraegeExport(payload: unknown, fallbackId: () => string): EaListItem[] {
+  const raw = isRecord(payload) ? payload.fuehrungAuftraege : undefined;
+  return coerceEaListItems(raw, fallbackId);
 }
 
 /**
