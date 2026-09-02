@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
-  AB_AUFTRAEGE,
   AB_EXPORT_FORMAT,
   AB_EXPORT_VERSION,
   AB_KANAELE,
@@ -10,27 +9,33 @@ import {
   AB_KOPF,
   AB_KOPF_FIELDS,
   AB_KOPF_LABELS,
+  AB_MASSNAHMEN,
   AB_ORGANISATION,
   AB_RUECKMELD,
   AB_WETTER,
   AB_WETTER_SNAPSHOT,
   canWrite,
+  coerceAbMassnahme,
   EA_ABSCHNITTE,
+  EA_FUEHRUNG,
+  EA_FUEHRUNG_AUFTRAEGE,
   formatAbschnittTitel,
   vehiclesInAbschnitt,
   formatStaerke,
   isRecord,
   KRAFT_VEHICLES,
   sumStaerke,
-  type AbAuftrag,
+  type AbAuftragZeile,
   type AbKanal,
   type AbKanalField,
   type AbKanalTyp,
   type AbKopfField,
+  type AbMassnahme,
   type AbNotiz,
   type AbWetterSnapshot,
   type Arbeitsblatt as ArbeitsblattState,
   type ArbeitsblattExport,
+  type EaListItem,
   type Einsatzabschnitt,
   type KraftVehicle,
   type Staerke,
@@ -53,7 +58,7 @@ const EMPTY_SHEET: ArbeitsblattState = {
     objektnr: "",
     datumUhrzeitgruppe: "",
   },
-  auftraege: [],
+  massnahmen: {},
   rueckmeldungen: [],
   organisation: {
     tmoGruppe: "",
@@ -86,11 +91,14 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   // Feld C wird komplett aus diesen beiden read-only Cross-Reads abgeleitet:
   const [vehicles, setVehicles] = useState<KraftVehicle[]>([]);
   const [abschnitte, setAbschnitte] = useState<Einsatzabschnitt[]>([]);
+  // Feld D (#163): Aufträge read-only aus dem Führungs-Bereich des EA-Moduls.
+  const [fuehrungAuftraege, setFuehrungAuftraege] = useState<EaListItem[]>([]);
   const [importMessage, setImportMessage] = useState("");
   const [pdfBusy, setPdfBusy] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
   const kopfRef = useRef<Y.Map<unknown> | null>(null);
-  const auftraegeRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
+  // Feld D (#163): Maßnahmen je Führungs-Auftrags-id (Y.Map<Y.Map>, Feld-Merge).
+  const massnahmenRef = useRef<Y.Map<unknown> | null>(null);
   const rueckmeldRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const organisationRef = useRef<Y.Map<unknown> | null>(null);
   const kanaeleRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
@@ -115,14 +123,14 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     const conn = connectModule(session.room.id, "arbeitsblatt", session.token);
     const { doc } = conn;
     const kopf = doc.getMap<unknown>(AB_KOPF);
-    const auftraege = doc.getArray<Y.Map<unknown>>(AB_AUFTRAEGE);
+    const massnahmen = doc.getMap<unknown>(AB_MASSNAHMEN);
     const rueckmeld = doc.getArray<Y.Map<unknown>>(AB_RUECKMELD);
     const organisation = doc.getMap<unknown>(AB_ORGANISATION);
     const kanaele = doc.getArray<Y.Map<unknown>>(AB_KANAELE);
     const wetter = doc.getMap<unknown>(AB_WETTER);
 
     kopfRef.current = kopf;
-    auftraegeRef.current = auftraege;
+    massnahmenRef.current = massnahmen;
     rueckmeldRef.current = rueckmeld;
     organisationRef.current = organisation;
     kanaeleRef.current = kanaele;
@@ -136,7 +144,12 @@ export function Arbeitsblatt({ session }: { session: Session }) {
         objektnr: stringValue(kopf, "objektnr"),
         datumUhrzeitgruppe: stringValue(kopf, "datumUhrzeitgruppe"),
       },
-      auftraege: auftraege.toArray().map((row) => row.toJSON() as AbAuftrag),
+      massnahmen: Object.fromEntries(
+        Object.entries(massnahmen.toJSON() as Record<string, unknown>).map(([id, v]) => [
+          id,
+          coerceAbMassnahme(v),
+        ]),
+      ),
       rueckmeldungen: rueckmeld.toArray().map((note) => note.toJSON() as AbNotiz),
       organisation: {
         tmoGruppe: stringValue(organisation, "tmoGruppe"),
@@ -168,7 +181,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
       doc.off("update", refresh);
       conn.provider.off("sync", prefillDug);
       kopfRef.current = null;
-      auftraegeRef.current = null;
+      massnahmenRef.current = null;
       rueckmeldRef.current = null;
       organisationRef.current = null;
       kanaeleRef.current = null;
@@ -197,11 +210,19 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   useEffect(() => {
     const conn = connectModule(session.room.id, "einsatzabschnitte", session.token);
     const list = conn.doc.getArray<Y.Map<unknown>>(EA_ABSCHNITTE);
-    const refresh = () => setAbschnitte(list.toArray().map((m) => m.toJSON() as Einsatzabschnitt));
+    // Feld D (#163): die „Aufträge" der Führung read-only mitlesen (Auftrags-Sync).
+    const fuehrungMap = conn.doc.getMap<unknown>(EA_FUEHRUNG);
+    const refresh = () => {
+      setAbschnitte(list.toArray().map((m) => m.toJSON() as Einsatzabschnitt));
+      const fuList = fuehrungMap.get(EA_FUEHRUNG_AUFTRAEGE);
+      setFuehrungAuftraege(fuList instanceof Y.Array ? (fuList.toJSON() as EaListItem[]) : []);
+    };
     list.observeDeep(refresh);
+    fuehrungMap.observeDeep(refresh);
     refresh();
     return () => {
       list.unobserveDeep(refresh);
+      fuehrungMap.unobserveDeep(refresh);
       conn.destroy();
     };
   }, [session.room.id, session.token]);
@@ -228,38 +249,22 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     });
   };
 
-  const setAuftragField = (
-    id: string,
-    field: keyof Omit<AbAuftrag, "id">,
-    value: unknown,
-  ) => {
+  // Feld D (#163): die Maßnahmen (+ „laufender Vorgang") je Führungs-Auftrag pflegen.
+  // Der Eintrag wird bei Bedarf angelegt (Y.Map je Auftrags-id → Feld-Merge). Die
+  // Aufträge selbst sind read-only aus der Führung — hier kein Anlegen/Löschen.
+  const setMassnahme = (auftragId: string, field: keyof AbMassnahme, value: string | boolean) => {
     if (!writable) return;
-    const row = auftraegeRef.current?.toArray().find((item) => item.get("id") === id);
-    row?.set(field, value);
-  };
-
-  const addAuftrag = () => {
-    if (!writable) return;
-    const rows = auftraegeRef.current;
-    if (!rows) return;
-    const value: AbAuftrag = {
-      id: uid(),
-      auftrag: "",
-      massnahmen: "",
-      laufenderVorgang: false,
-      erledigt: false,
-    };
-    const row = new Y.Map<unknown>();
-    Object.entries(value).forEach(([field, fieldValue]) => row.set(field, fieldValue));
-    rows.push([row]);
-  };
-
-  const deleteAuftrag = (id: string) => {
-    if (!writable) return;
-    const rows = auftraegeRef.current;
-    if (!rows) return;
-    const index = rows.toArray().findIndex((row) => row.get("id") === id);
-    if (index >= 0) rows.delete(index, 1);
+    const map = massnahmenRef.current;
+    if (!map) return;
+    const existing = map.get(auftragId);
+    let entry: Y.Map<unknown>;
+    if (existing instanceof Y.Map) {
+      entry = existing;
+    } else {
+      entry = new Y.Map<unknown>();
+      map.set(auftragId, entry);
+    }
+    entry.set(field, value);
   };
 
   const setRueckmeldungField = (
@@ -350,7 +355,17 @@ export function Arbeitsblatt({ session }: { session: Session }) {
         const k = abschnittKraft(a.id);
         return { titel: formatAbschnittTitel(a), auftrag: a.auftrag, staerke: k.staerke, count: k.count };
       });
-      const bytes = await arbeitsblattToPdf(sheet, kraft, abschnittZeilen, {
+      // Feld D · read-only Aufträge aus der Führung + gepflegte Maßnahmen (#163).
+      const auftragZeilen: AbAuftragZeile[] = fuehrungAuftraege.map((a) => {
+        const m = sheet.massnahmen[a.id];
+        return {
+          auftrag: a.text,
+          erledigt: a.erledigt,
+          massnahmen: m?.massnahmen ?? "",
+          laufenderVorgang: m?.laufenderVorgang ?? false,
+        };
+      });
+      const bytes = await arbeitsblattToPdf(sheet, kraft, abschnittZeilen, auftragZeilen, {
         roomName: session.room.name,
         joinCode: session.room.joinCode,
         stamp: dug(),
@@ -557,6 +572,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
             <span className="arbeitsblatt-panel__letter">D</span>
             <span aria-hidden="true">·</span> Aufträge &amp; Maßnahmen
           </h3>
+          <p>Aufträge (read-only) aus dem Modul Abschnitte · Führung — hier Maßnahmen ergänzen.</p>
         </div>
         <div className="table-scroll">
           <table className="arbeitsblatt-table">
@@ -565,81 +581,45 @@ export function Arbeitsblatt({ session }: { session: Session }) {
                 <th>Auftrag</th>
                 <th>Maßnahmen</th>
                 <th>Laufender Vorgang</th>
-                <th>Erledigt</th>
-                {writable && <th>Aktion</th>}
               </tr>
             </thead>
             <tbody>
-              {sheet.auftraege.map((row) => (
-                <tr key={row.id} className={row.erledigt ? "arbeitsblatt-row--done" : undefined}>
-                  <td>
-                    <textarea
-                      className="arbeitsblatt-table__input arbeitsblatt-table__textarea"
-                      rows={2}
-                      value={row.auftrag}
-                      readOnly={!writable}
-                      onChange={(event) => setAuftragField(row.id, "auftrag", event.currentTarget.value)}
-                    />
-                  </td>
-                  <td>
-                    <textarea
-                      className="arbeitsblatt-table__input arbeitsblatt-table__textarea"
-                      rows={2}
-                      value={row.massnahmen}
-                      readOnly={!writable}
-                      onChange={(event) =>
-                        setAuftragField(row.id, "massnahmen", event.currentTarget.value)
-                      }
-                    />
-                  </td>
-                  <td className="arbeitsblatt-table__check">
-                    <input
-                      type="checkbox"
-                      checked={row.laufenderVorgang}
-                      disabled={!writable}
-                      aria-label="Laufender Vorgang"
-                      onChange={(event) =>
-                        setAuftragField(row.id, "laufenderVorgang", event.currentTarget.checked)
-                      }
-                    />
-                  </td>
-                  <td className="arbeitsblatt-table__check">
-                    <input
-                      type="checkbox"
-                      checked={row.erledigt}
-                      disabled={!writable}
-                      aria-label="Auftrag erledigt"
-                      onChange={(event) =>
-                        setAuftragField(row.id, "erledigt", event.currentTarget.checked)
-                      }
-                    />
-                  </td>
-                  {writable && (
+              {fuehrungAuftraege.map((auftrag) => {
+                const m = sheet.massnahmen[auftrag.id];
+                return (
+                  <tr key={auftrag.id} className={auftrag.erledigt ? "arbeitsblatt-row--done" : undefined}>
                     <td>
-                      <button
-                        className="arbeitsblatt-delete"
-                        type="button"
-                        onClick={() => deleteAuftrag(row.id)}
-                      >
-                        Löschen
-                      </button>
+                      {/* read-only Spiegel des Führungs-Auftrags (#163); Erledigt via Durchstreichen. */}
+                      <span className="arbeitsblatt-auftrag-ro">{auftrag.text}</span>
                     </td>
-                  )}
-                </tr>
-              ))}
-              {sheet.auftraege.length === 0 && !writable && (
+                    <td>
+                      <textarea
+                        className="arbeitsblatt-table__input arbeitsblatt-table__textarea"
+                        rows={2}
+                        value={m?.massnahmen ?? ""}
+                        readOnly={!writable}
+                        aria-label={`Maßnahmen zu: ${auftrag.text}`}
+                        onChange={(event) => setMassnahme(auftrag.id, "massnahmen", event.currentTarget.value)}
+                      />
+                    </td>
+                    <td className="arbeitsblatt-table__check">
+                      <input
+                        type="checkbox"
+                        checked={m?.laufenderVorgang ?? false}
+                        disabled={!writable}
+                        aria-label="Laufender Vorgang"
+                        onChange={(event) =>
+                          setMassnahme(auftrag.id, "laufenderVorgang", event.currentTarget.checked)
+                        }
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+              {fuehrungAuftraege.length === 0 && (
                 <tr>
-                  <td className="arbeitsblatt-table__empty" colSpan={4}>
-                    Noch keine Zeilen
-                  </td>
-                </tr>
-              )}
-              {writable && (
-                <tr className="arbeitsblatt-table__new-row">
-                  <td colSpan={5}>
-                    <button className="etb-add" type="button" onClick={addAuftrag}>
-                      Neue Zeile
-                    </button>
+                  <td className="arbeitsblatt-table__empty" colSpan={3}>
+                    Noch keine Aufträge — im Modul Abschnitte · Führung anlegen.
                   </td>
                 </tr>
               )}

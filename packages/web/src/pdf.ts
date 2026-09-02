@@ -16,6 +16,7 @@ import {
   AB_KOPF_FIELDS,
   AB_KOPF_LABELS,
   formatStaerke,
+  type AbAuftragZeile,
   type Arbeitsblatt,
   type LogEntry,
   type Staerke,
@@ -279,6 +280,7 @@ export async function arbeitsblattToPdf(
   sheet: Arbeitsblatt,
   kraft: AbKraftKennzahlen,
   abschnitte: AbAbschnittZeile[],
+  auftraege: AbAuftragZeile[],
   meta: PdfMeta,
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
@@ -435,7 +437,7 @@ export async function arbeitsblattToPdf(
   }
   gap();
 
-  // D · Aufträge & Maßnahmen
+  // D · Aufträge & Maßnahmen — Aufträge read-only aus der Führung (#163)
   heading("D", "Aufträge & Maßnahmen");
   table(
     [
@@ -444,13 +446,13 @@ export async function arbeitsblattToPdf(
       { label: "Laufd.", width: 40 },
       { label: "Erl.", width: 32 },
     ],
-    sheet.auftraege.map((r) => [
+    auftraege.map((r) => [
       r.auftrag,
       r.massnahmen,
       r.laufenderVorgang ? "ja" : "—",
       r.erledigt ? "ja" : "—",
     ]),
-    "Keine Einträge.",
+    "Keine Aufträge (im Modul Abschnitte · Führung anlegen).",
   );
   gap();
 

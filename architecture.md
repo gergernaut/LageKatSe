@@ -650,7 +650,7 @@ Die Übersicht ist in feste Felder gegliedert:
 | **A** | Kopfzeile | Einsatzstichwort, Einsatzort, Meldender, Objektnr., Datum-Uhrzeitgruppe (DUG **automatisch** aus der Raum-Öffnungszeit vorbelegt, bearbeitbar) |
 | **B** | **Lagebild** | **Eingebettete, live-synchrone Lagekarte** (Modul 1), **read-only, vollbreit** |
 | **C** | Einheiten / Kräfteübersicht | **Abgeleitete** Kennzahlen (read-only): Gesamtstärke im Einsatz (DV 100) + Anzahl Fahrzeuge im BR, aus Modul `kraefteubersicht` |
-| **D** | Aufträge & Maßnahmen | Tabelle: Auftrag · Maßnahmen · laufender Vorgang · erledigt (erledigt = durchgestrichen, Eintrag bleibt) |
+| **D** | Aufträge & Maßnahmen | Tabelle: **Auftrag (read-only, Sync aus Modul Abschnitte · Führung, #163)** · Maßnahmen (editierbar) · laufender Vorgang (editierbar). Erledigt wird read-only aus der Führung gespiegelt (durchgestrichen) |
 | **E** | Notizen | Freie Notiz-/Checkliste |
 | **F** | Kommunikation | Feste Funkkanäle (TMO-/DMO-Gruppe, Führung, Gebäude) **plus frei anlegbare Kanäle** (Typ TMO/DMO · Gruppe · Verwendungszweck) |
 
@@ -679,7 +679,7 @@ ETB, §9.3). Definiert in `packages/shared/src/arbeitsblatt.ts`.
 | Top-level Typ (Key) | Feld | Inhalt |
 |---|:--:|---|
 | `kopf` (`Y.Map`) | A | Kopf-Skalare (einsatzstichwort, einsatzort, meldender, objektnr, datumUhrzeitgruppe) |
-| `auftraege` (`Y.Array<Y.Map>`) | D | Zeilen „Aufträge & Maßnahmen" |
+| `massnahmen` (`Y.Map<Y.Map>`) | D | Maßnahmen + laufender Vorgang **je Führungs-Auftrags-id** (#163); die Aufträge selbst kommen read-only aus dem EA-Modul (`EA_FUEHRUNG_AUFTRAEGE`) |
 | `rueckmeldungen` (`Y.Array<Y.Map>`) | E | Notiz-/Checklisten-Einträge |
 | `organisation` (`Y.Map`) | F | Feste Funkkanäle-Skalare (TMO/Führung/DMO/Gebäude) |
 | `kanaele` (`Y.Array<Y.Map>`) | F | Frei angelegte Kanäle (typ TMO/DMO, gruppe, verwendungszweck) |

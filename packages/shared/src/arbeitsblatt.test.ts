@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asBool, asString, isRecord } from "./arbeitsblatt";
+import { asBool, asString, coerceAbMassnahme, isRecord } from "./arbeitsblatt";
 
 // Diese Coercions härten den JSON-Import gegen beliebige Fremddateien ab
 // (§10.4, später Bundle-Import #71). Der Vertrag: nie werfen, immer auf einen
@@ -40,6 +40,21 @@ describe("Import-Coercion", () => {
 
     it("ist auch für Arrays wahr (typeof-Quirk) — Aufrufer prüfen Arrays separat via Array.isArray", () => {
       expect(isRecord([])).toBe(true);
+    });
+  });
+
+  // Feld D (#163): Maßnahmen je Führungs-Auftrag
+  describe("coerceAbMassnahme", () => {
+    it("übernimmt massnahmen + laufenderVorgang, defekt → sichere Defaults", () => {
+      expect(coerceAbMassnahme({ massnahmen: "Riegel legen", laufenderVorgang: true })).toEqual({
+        massnahmen: "Riegel legen",
+        laufenderVorgang: true,
+      });
+      expect(coerceAbMassnahme({ massnahmen: 42, laufenderVorgang: "ja" })).toEqual({
+        massnahmen: "",
+        laufenderVorgang: false,
+      });
+      expect(coerceAbMassnahme(null)).toEqual({ massnahmen: "", laufenderVorgang: false });
     });
   });
 });
