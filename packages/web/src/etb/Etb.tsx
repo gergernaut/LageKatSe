@@ -265,15 +265,15 @@ export function Etb({ session }: { session: Session }) {
 
       <div className="etb-wrap">
         <div className="table-scroll">
-          <table className="etb">
+          <table className="etb etb-log">
             <thead>
               <tr>
                 <th style={{ width: 52 }}>Lfd.</th>
-                <th style={{ width: 70 }}>Zeit</th>
-                <th style={{ width: 64 }}>E/A</th>
-                <th style={{ width: 110 }}>Von</th>
-                <th style={{ width: 110 }}>An</th>
-                <th style={{ width: 110 }}>Weg</th>
+                <th style={{ width: 104 }}>Zeit</th>
+                <th style={{ width: 50 }}>E/A</th>
+                <th style={{ width: 150 }}>Von</th>
+                <th style={{ width: 150 }}>An</th>
+                <th style={{ width: 128 }}>Weg</th>
                 <th>Inhalt</th>
                 <th>Veranlassung</th>
                 <th style={{ width: 60 }}>Erl.</th>
@@ -299,7 +299,7 @@ export function Etb({ session }: { session: Session }) {
                       <span className="etb-value">{formatTime(entry.zeit)}</span>
                     )}
                   </td>
-                  <td>
+                  <td className="rt-cell">
                     {writable ? (
                       <select
                         className={`etb-input etb-select rt ${
