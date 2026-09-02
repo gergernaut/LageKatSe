@@ -8,9 +8,11 @@
  */
 import * as Y from "yjs";
 import {
+  EA_BEREITSTELLUNG,
   EA_FUEHRUNG,
   EA_FUEHRUNG_AUFTRAEGE,
   EA_LISTS,
+  type Bereitstellung,
   type EaListItem,
   type Einsatzabschnitt,
   type Fuehrung,
@@ -58,7 +60,12 @@ export function abschnittToYMap(a: Einsatzabschnitt): Y.Map<unknown> {
 export function applyEinsatzabschnitteImport(
   abschnitte: Y.Array<Y.Map<unknown>>,
   rows: Einsatzabschnitt[],
-  opts: { replace: boolean; fuehrung?: Fuehrung; fuehrungAuftraege?: EaListItem[] },
+  opts: {
+    replace: boolean;
+    fuehrung?: Fuehrung;
+    fuehrungAuftraege?: EaListItem[];
+    bereitstellung?: Bereitstellung;
+  },
 ): void {
   const apply = () => {
     if (opts.replace && abschnitte.length > 0) abschnitte.delete(0, abschnitte.length);
@@ -76,6 +83,21 @@ export function applyEinsatzabschnitteImport(
       const arr = new Y.Array<Y.Map<unknown>>();
       for (const item of opts.fuehrungAuftraege) arr.push([listItemToYMap(item)]);
       fuehrung.set(EA_FUEHRUNG_AUFTRAEGE, arr);
+    }
+    // Bereitstellungsraum-Singleton (#180): Felder + drei verschachtelte Listen
+    // ersetzen — nur wenn übergeben (ältere Importe ohne bleiben unangetastet).
+    if (opts.bereitstellung && doc) {
+      const br = doc.getMap<unknown>(EA_BEREITSTELLUNG);
+      const listKeys = EA_LISTS as readonly string[];
+      for (const [key, value] of Object.entries(opts.bereitstellung)) {
+        if (listKeys.includes(key)) {
+          const arr = new Y.Array<Y.Map<unknown>>();
+          for (const item of value as EaListItem[]) arr.push([listItemToYMap(item)]);
+          br.set(key, arr);
+        } else {
+          br.set(key, value);
+        }
+      }
     }
   };
   const doc = abschnitte.doc;

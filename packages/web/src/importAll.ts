@@ -17,6 +17,7 @@ import {
   LAGEKARTE_FEATURES,
   hasStabRole,
   isRecord,
+  parseBereitstellungExport,
   parseEinsatzabschnitteExport,
   parseFuehrungAuftraegeExport,
   parseFuehrungExport,
@@ -162,11 +163,17 @@ export async function importBundle(session: Session, file: File): Promise<Bundle
     } else {
       const fuehrung = parseFuehrungExport(payload);
       const fuehrungAuftraege = parseFuehrungAuftraegeExport(payload, uid);
+      const bereitstellung = parseBereitstellungExport(payload, uid);
       const conn = connectModule(session.room.id, "einsatzabschnitte", session.token, { cache: false });
       try {
         await waitForSync(conn);
         const abschnitte = conn.doc.getArray<Y.Map<unknown>>(EA_ABSCHNITTE);
-        applyEinsatzabschnitteImport(abschnitte, rows, { replace: true, fuehrung, fuehrungAuftraege });
+        applyEinsatzabschnitteImport(abschnitte, rows, {
+          replace: true,
+          fuehrung,
+          fuehrungAuftraege,
+          bereitstellung,
+        });
       } finally {
         conn.destroy();
       }

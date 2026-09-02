@@ -5,21 +5,28 @@ import {
   AB_ORGANISATION,
   buildEaEtbEntry,
   canWrite,
+  coerceBereitstellung,
   coerceEinsatzabschnitt,
   coerceFuehrung,
+  countByTyp,
+  BEREITSTELLUNG_FIELDS,
+  BEREITSTELLUNG_LABELS,
   EA_ABSCHNITTE,
+  EA_BEREITSTELLUNG,
   EA_EXPORT_FORMAT,
   EA_FUEHRUNG,
   EA_FUEHRUNG_AUFTRAEGE,
   EA_LIST_LABELS,
   EA_LISTS,
   EA_TYPEN,
+  EMPTY_BEREITSTELLUNG,
   EMPTY_FUEHRUNG,
   formatStaerke,
   FUEHRUNG_FIELDS,
   FUEHRUNG_LABELS,
   isRecord,
   KRAFT_VEHICLES,
+  parseBereitstellungExport,
   parseEinsatzabschnitteExport,
   parseFuehrungAuftraegeExport,
   parseFuehrungExport,
@@ -27,6 +34,8 @@ import {
   unassignedEinsatzVehicles,
   vehiclesInAbschnitt,
   type AbKanal,
+  type Bereitstellung,
+  type BereitstellungField,
   type EaListItem,
   type EaListKey,
   type EaTyp,
@@ -49,6 +58,15 @@ function stringValue(map: Y.Map<unknown>, field: string): string {
   return typeof value === "string" ? value : "";
 }
 
+/** Typ-Aufschlüsselung als Tooltip (wie im Kräfte-Modul) — für „Fahrzeuge im BR" (#180). */
+function typBreakdown(vehicles: KraftVehicle[]): string {
+  const counts = countByTyp(vehicles);
+  const lines = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([typ, n]) => `${typ}: ${n}`);
+  return lines.length ? lines.join("\n") : "Keine Fahrzeuge";
+}
+
 export function Einsatzabschnitte({ session }: { session: Session }) {
   const [abschnitte, setAbschnitte] = useState<Einsatzabschnitt[]>([]);
   const [fuehrung, setFuehrung] = useState<Fuehrung>(EMPTY_FUEHRUNG);
@@ -64,6 +82,9 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
   const fuehrungRef = useRef<Y.Map<unknown> | null>(null);
   // Auftrags-Liste der Führung (#177) — {id, text, erledigt} wie EaItemList.
   const [fuehrungAuftraege, setFuehrungAuftraege] = useState<EaListItem[]>([]);
+  // Bereitstellungsraum-Singleton (#180) — fixer Bereich unter der Führung.
+  const [bereitstellung, setBereitstellung] = useState<Bereitstellung>(EMPTY_BEREITSTELLUNG);
+  const brRef = useRef<Y.Map<unknown> | null>(null);
   const vehiclesRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const writable = canWrite(session.roles, "einsatzabschnitte", {
@@ -75,8 +96,10 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     const conn = connectModule(session.room.id, "einsatzabschnitte", session.token);
     const abschnitte = conn.doc.getArray<Y.Map<unknown>>(EA_ABSCHNITTE);
     const fuehrungMap = conn.doc.getMap<unknown>(EA_FUEHRUNG);
+    const brMap = conn.doc.getMap<unknown>(EA_BEREITSTELLUNG);
     abschnitteRef.current = abschnitte;
     fuehrungRef.current = fuehrungMap;
+    brRef.current = brMap;
     const refresh = () => {
       // coerce statt roher toJSON-Cast: ältere Abschnitte ohne die Listen-Felder
       // (#161) bekommen so sichere Defaults (leere Listen).
@@ -87,15 +110,20 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
       setFuehrungAuftraege(
         fuList instanceof Y.Array ? (fuList.toJSON() as EaListItem[]) : [],
       );
+      // Bereitstellungsraum-Singleton (#180): Felder + drei Listen in einem Objekt.
+      setBereitstellung(coerceBereitstellung(brMap.toJSON(), () => ""));
     };
     abschnitte.observeDeep(refresh);
     fuehrungMap.observeDeep(refresh);
+    brMap.observeDeep(refresh);
     refresh();
     return () => {
       abschnitte.unobserveDeep(refresh);
       fuehrungMap.unobserveDeep(refresh);
+      brMap.unobserveDeep(refresh);
       abschnitteRef.current = null;
       fuehrungRef.current = null;
+      brRef.current = null;
       conn.destroy();
     };
   }, [session.room.id, session.token]);
@@ -187,6 +215,64 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
   const toggleFuehrungAuftragUebermittelt = (itemId: string) => {
     if (!writable) return;
     const item = fuehrungListArray()?.toArray().find((m) => m.get("id") === itemId);
+    if (item) item.set("uebermittelt", item.get("uebermittelt") !== true);
+  };
+
+  // --- Bereitstellungsraum-Singleton (#180) — Felder + drei Listen an der brMap. ---
+  const setBrField = (field: BereitstellungField | "einsatzbeginn", value: string) => {
+    if (!writable) return;
+    brRef.current?.set(field, value);
+  };
+
+  const brListArray = (key: EaListKey): Y.Array<Y.Map<unknown>> | null => {
+    const map = brRef.current;
+    if (!map) return null;
+    const existing = map.get(key);
+    if (existing instanceof Y.Array) return existing as Y.Array<Y.Map<unknown>>;
+    const arr = new Y.Array<Y.Map<unknown>>();
+    map.set(key, arr);
+    return arr;
+  };
+
+  const addBrItem = (key: EaListKey, text: string) => {
+    if (!writable) return;
+    const t = text.trim();
+    if (!t) return;
+    const arr = brListArray(key);
+    if (!arr) return;
+    const item = new Y.Map<unknown>();
+    item.set("id", uid());
+    item.set("text", t);
+    item.set("erledigt", false);
+    item.set("createdAt", new Date().toISOString());
+    arr.push([item]);
+  };
+
+  const brItem = (key: EaListKey, itemId: string): Y.Map<unknown> | undefined =>
+    brListArray(key)?.toArray().find((m) => m.get("id") === itemId);
+
+  const toggleBrItem = (key: EaListKey, itemId: string) => {
+    if (!writable) return;
+    const item = brItem(key, itemId);
+    if (item) item.set("erledigt", item.get("erledigt") !== true);
+  };
+
+  const setBrItemText = (key: EaListKey, itemId: string, text: string) => {
+    if (!writable) return;
+    brItem(key, itemId)?.set("text", text);
+  };
+
+  const deleteBrItem = (key: EaListKey, itemId: string) => {
+    if (!writable) return;
+    const arr = brListArray(key);
+    if (!arr) return;
+    const index = arr.toArray().findIndex((m) => m.get("id") === itemId);
+    if (index >= 0) arr.delete(index, 1);
+  };
+
+  const toggleBrItemUebermittelt = (key: EaListKey, itemId: string) => {
+    if (!writable) return;
+    const item = brItem(key, itemId);
     if (item) item.set("uebermittelt", item.get("uebermittelt") !== true);
   };
 
@@ -317,7 +403,11 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     etbSyncTimerRef.current = window.setTimeout(() => setEtbSyncMsg(""), 4000);
   };
 
-  const syncItemToEtb = async (a: Einsatzabschnitt, key: EaListKey, item: EaListItem) => {
+  const syncItemToEtb = async (
+    a: Pick<Einsatzabschnitt, "typ" | "titel">,
+    key: EaListKey,
+    item: EaListItem,
+  ) => {
     if (!writable) return;
     const text = item.text.trim();
     if (!text) return;
@@ -373,6 +463,7 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
       abschnitte,
       fuehrung,
       fuehrungAuftraege,
+      bereitstellung,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -421,6 +512,7 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
           replace: true,
           fuehrung: parseFuehrungExport(parsed),
           fuehrungAuftraege: parseFuehrungAuftraegeExport(parsed, uid),
+          bereitstellung: parseBereitstellungExport(parsed, uid),
         },
       );
       setImportMessage(`${rows.length} Einsatzabschnitt${rows.length === 1 ? "" : "e"} importiert.`);
@@ -572,6 +664,140 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
               showUebermittelt
               onToggleUebermittelt={toggleFuehrungAuftragUebermittelt}
             />
+          </section>
+        );
+      })()}
+
+      {/* Bereitstellungsraum (#180): fixer Bereich direkt unter der Führung.
+          Wie eine EA-Karte, aber: gelbes „BR"-Badge (kein EA/UA-Dropdown),
+          „Fahrzeuge" = Anzahl Status-„br" (Tooltip: Typ-Aufschlüsselung), und statt
+          „zugeordnete Einheiten" ein Führungsmittel-Selektor (wie die Führung). */}
+      {(() => {
+        const brVehicles = vehicles.filter((v) => v.status === "br");
+        const brFm = assignedVehicles(EA_BEREITSTELLUNG);
+        return (
+          <section className="ea-card ea-card--br" aria-label="Bereitstellungsraum">
+            <div className="ea-card__head">
+              <div className="ea-card__badge ea-card__badge--br">
+                <div className="ea-card__brlabel">BR</div>
+                <div className="ea-card__legend">Bereitstellungs&shy;raum</div>
+              </div>
+              <div className="ea-card__fields">
+                {BEREITSTELLUNG_FIELDS.map((f) => (
+                  <label className="ea-field" key={f}>
+                    <span>{BEREITSTELLUNG_LABELS[f]}</span>
+                    <input
+                      {...(f === "kommunikation" ? { list: "ea-funkkanaele" } : {})}
+                      value={bereitstellung[f]}
+                      readOnly={!writable}
+                      onChange={(e) => setBrField(f, e.currentTarget.value)}
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="ea-card__meta">
+                <div>
+                  <div className="ea-meta-label">Einsatzbeginn</div>
+                  <input
+                    className="ea-dug mono"
+                    value={bereitstellung.einsatzbeginn}
+                    readOnly={!writable}
+                    aria-label="Einsatzbeginn (DUG)"
+                    onChange={(e) => setBrField("einsatzbeginn", e.currentTarget.value)}
+                  />
+                </div>
+                <div className="ea-kraefte">
+                  <h5>Kräfteübersicht</h5>
+                  <div className="row">
+                    <span className="k">Mannschaft</span>
+                    <span className="v">{formatStaerke(sumStaerke(brVehicles))}</span>
+                  </div>
+                  <div className="row">
+                    <span className="k">Fahrzeuge</span>
+                    <span className="v" title={typBreakdown(brVehicles)}>{brVehicles.length}</span>
+                  </div>
+                  <div className="ea-auto">aus Fahrzeugen im Bereitstellungsraum</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="ea-card__body">
+              <div className="ea-body-head">
+                <span>Führungsmittel</span>
+                <span>Stärke (F/U/H//Ges.)</span>
+              </div>
+              {brFm.length === 0 ? (
+                <p className="ea-empty">Noch kein Führungsmittel zugeordnet</p>
+              ) : (
+                <div className="ea-units">
+                  {brFm.map((v) => (
+                    <div className="ea-units__row" key={v.id}>
+                      <span className="fz">{v.funkrufname || "(ohne Funkrufname)"}</span>
+                      <span className="st">{formatStaerke(sumStaerke([v]))}</span>
+                      {writable && (
+                        <button
+                          className="ea-units__rm"
+                          type="button"
+                          title="Zuordnung entfernen"
+                          aria-label={`${v.funkrufname || "Fahrzeug"} aus dem Bereitstellungsraum entfernen`}
+                          onClick={() => unassignVehicle(v.id)}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {writable && (
+                <div className="ea-assign">
+                  <select
+                    aria-label="Führungsmittel zuordnen"
+                    value={assignSel[EA_BEREITSTELLUNG] ?? ""}
+                    onChange={(e) => {
+                      const vehicleId = e.currentTarget.value;
+                      setAssignSel((prev) => ({ ...prev, [EA_BEREITSTELLUNG]: vehicleId }));
+                    }}
+                  >
+                    <option value="">Fahrzeug wählen … (im Einsatz, noch nicht zugeordnet)</option>
+                    {unassignedVehicles().map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {(v.funkrufname || "(ohne Funkrufname)") + " · " + formatStaerke(sumStaerke([v]))}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!assignSel[EA_BEREITSTELLUNG]}
+                    onClick={() => assignVehicle(EA_BEREITSTELLUNG)}
+                  >
+                    Fzg. zuordnen
+                  </button>
+                </div>
+              )}
+              <div className="ea-lists">
+                {EA_LISTS.map((key) => (
+                  <EaItemList
+                    key={key}
+                    label={EA_LIST_LABELS[key]}
+                    items={bereitstellung[key]}
+                    writable={writable}
+                    onAdd={(text) => addBrItem(key, text)}
+                    onToggle={(itemId) => toggleBrItem(key, itemId)}
+                    onSetText={(itemId, text) => setBrItemText(key, itemId, text)}
+                    onDelete={(itemId) => deleteBrItem(key, itemId)}
+                    onSyncEtb={
+                      key === "auftraege"
+                        ? undefined
+                        : (item) =>
+                            void syncItemToEtb({ typ: "" as EaTyp, titel: "Bereitstellungsraum" }, key, item)
+                    }
+                    showUebermittelt={key === "auftraege"}
+                    onToggleUebermittelt={(itemId) => toggleBrItemUebermittelt(key, itemId)}
+                  />
+                ))}
+              </div>
+            </div>
           </section>
         );
       })()}
