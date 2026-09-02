@@ -3,12 +3,14 @@ import {
   abschnittKraft,
   asEaTyp,
   buildEaEtbEntry,
+  coerceBereitstellung,
   coerceEaListItem,
   coerceEaListItems,
   coerceEinsatzabschnitt,
   coerceFuehrung,
   EA_EXPORT_FORMAT,
   formatAbschnittTitel,
+  parseBereitstellungExport,
   parseEinsatzabschnitteExport,
   parseFuehrungAuftraegeExport,
   parseFuehrungExport,
@@ -301,6 +303,54 @@ describe("Einsatzabschnitte-Modell", () => {
         { text: "y", erledigt: false },
       ]);
       expect(parseFuehrungAuftraegeExport({ fuehrungAuftraege: "kein Array" }, () => "gen")).toEqual([]);
+    });
+  });
+
+  // Bereitstellungsraum-Singleton (#180)
+  describe("coerceBereitstellung / parseBereitstellungExport", () => {
+    it("übernimmt Felder + drei Listen; fehlend → leere Defaults", () => {
+      const br = coerceBereitstellung(
+        {
+          befehlsstelle: "ELW 1",
+          leiter: "ZF Meier",
+          kommunikation: "Kanal 4",
+          auftrag: "Kräfte sammeln",
+          einsatzbeginn: "021200Sep26",
+          auftraege: [{ id: "a1", text: "Verpflegung", erledigt: false }],
+        },
+        () => "gen",
+      );
+      expect(br).toEqual({
+        befehlsstelle: "ELW 1",
+        leiter: "ZF Meier",
+        kommunikation: "Kanal 4",
+        auftrag: "Kräfte sammeln",
+        einsatzbeginn: "021200Sep26",
+        auftraege: [{ id: "a1", text: "Verpflegung", erledigt: false }],
+        rueckmeldungen: [],
+        anforderungen: [],
+      });
+    });
+
+    it("nicht-Objekt → leerer Bereitstellungsraum (nie werfen)", () => {
+      expect(coerceBereitstellung(null, () => "x")).toEqual({
+        befehlsstelle: "",
+        leiter: "",
+        kommunikation: "",
+        auftrag: "",
+        einsatzbeginn: "",
+        auftraege: [],
+        rueckmeldungen: [],
+        anforderungen: [],
+      });
+    });
+
+    it("parseBereitstellungExport: liest payload.bereitstellung; fehlt → leer", () => {
+      expect(
+        parseBereitstellungExport({ format: EA_EXPORT_FORMAT, bereitstellung: { leiter: "X" } }, () => "gen").leiter,
+      ).toBe("X");
+      expect(parseBereitstellungExport({ format: EA_EXPORT_FORMAT }, () => "gen").leiter).toBe("");
+      expect(parseBereitstellungExport(null, () => "gen").auftraege).toEqual([]);
     });
   });
 });

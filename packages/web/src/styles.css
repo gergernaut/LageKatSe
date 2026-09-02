@@ -922,6 +922,10 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .ea-card__title input::placeholder { color: rgba(255,255,255,.5); }
 .ea-card__title input:read-only { cursor: default; }
 .ea-card__legend { font: 8px var(--sans); line-height: 1.25; color: rgba(255,255,255,.9); }
+/* Bereitstellungsraum (#180): gelbes „BR"-Badge (schwarze Schrift) statt rotem EA/UA-Badge. */
+.ea-card__badge--br { background: var(--signal); color: var(--signal-ink); align-items: center; justify-content: center; text-align: center; }
+.ea-card__brlabel { font: 800 22px var(--sans); letter-spacing: .06em; }
+.ea-card__badge--br .ea-card__legend { color: rgba(0,0,0,.68); }
 
 .ea-card__fields { padding: 9px 12px; background: var(--surface-2); display: flex; flex-direction: column; gap: 6px; justify-content: center; }
 .ea-field { display: grid; grid-template-columns: 82px minmax(0, 1fr); align-items: center; gap: 8px; }

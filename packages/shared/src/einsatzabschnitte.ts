@@ -229,6 +229,59 @@ export function coerceEinsatzabschnitt(value: unknown, fallbackId: () => string)
   };
 }
 
+/* ---- Bereitstellungsraum (#180): fixer Bereich unter der Führung ----
+ * Einsatztaktisch der Führung beigeordnet (kein eigener EA). Wie eine EA-Karte
+ * (Felder + drei abhakbare Listen), aber ein Singleton (eigene Y.Map am Doc-Root,
+ * Key `EA_BEREITSTELLUNG`). „Fahrzeuge"/Stärke werden read-only aus dem
+ * kraefteubersicht-Doc abgeleitet (Fahrzeuge mit Status „br"), nicht hier gespeichert. */
+export const EA_BEREITSTELLUNG = "bereitstellung" as const;
+
+export const BEREITSTELLUNG_FIELDS = ["befehlsstelle", "leiter", "kommunikation", "auftrag"] as const;
+export type BereitstellungField = (typeof BEREITSTELLUNG_FIELDS)[number];
+export const BEREITSTELLUNG_LABELS: Record<BereitstellungField, string> = {
+  befehlsstelle: "Befehlsstelle",
+  leiter: "Leiter",
+  kommunikation: "Kommunikation",
+  auftrag: "Auftrag",
+};
+
+export interface Bereitstellung {
+  befehlsstelle: string;
+  leiter: string;
+  kommunikation: string;
+  auftrag: string;
+  einsatzbeginn: string;
+  auftraege: EaListItem[];
+  rueckmeldungen: EaListItem[];
+  anforderungen: EaListItem[];
+}
+
+export const EMPTY_BEREITSTELLUNG: Bereitstellung = {
+  befehlsstelle: "",
+  leiter: "",
+  kommunikation: "",
+  auftrag: "",
+  einsatzbeginn: "",
+  auftraege: [],
+  rueckmeldungen: [],
+  anforderungen: [],
+};
+
+/** Defensive Coercion des Bereitstellungsraum-Singletons (Felder + drei Listen). */
+export function coerceBereitstellung(value: unknown, fallbackId: () => string): Bereitstellung {
+  const r: Record<string, unknown> = isRecord(value) ? value : {};
+  return {
+    befehlsstelle: asString(r.befehlsstelle),
+    leiter: asString(r.leiter),
+    kommunikation: asString(r.kommunikation),
+    auftrag: asString(r.auftrag),
+    einsatzbeginn: asString(r.einsatzbeginn),
+    auftraege: coerceEaListItems(r.auftraege, fallbackId),
+    rueckmeldungen: coerceEaListItems(r.rueckmeldungen, fallbackId),
+    anforderungen: coerceEaListItems(r.anforderungen, fallbackId),
+  };
+}
+
 /* ---- Export/Import-Envelope (Teil des Stabsraum-Bundles, #139) ---- */
 export const EA_EXPORT_FORMAT = "lagekatse.einsatzabschnitte" as const;
 
@@ -240,6 +293,8 @@ export interface EinsatzabschnitteExport {
   fuehrung?: Fuehrung; // #154 — optional (ältere Exporte ohne bleiben gültig)
   /** Abhakbare Auftrags-Liste der Führung (#177) — optional, ältere Exporte ohne bleiben gültig. */
   fuehrungAuftraege?: EaListItem[];
+  /** Bereitstellungsraum-Singleton (#180) — optional, ältere Exporte ohne bleiben gültig. */
+  bereitstellung?: Bereitstellung;
 }
 
 /**
@@ -254,6 +309,11 @@ export function parseFuehrungExport(payload: unknown): Fuehrung {
 export function parseFuehrungAuftraegeExport(payload: unknown, fallbackId: () => string): EaListItem[] {
   const raw = isRecord(payload) ? payload.fuehrungAuftraege : undefined;
   return coerceEaListItems(raw, fallbackId);
+}
+
+/** Liest den Bereitstellungsraum (#180) defensiv aus einem Export (fehlt → leer). */
+export function parseBereitstellungExport(payload: unknown, fallbackId: () => string): Bereitstellung {
+  return coerceBereitstellung(isRecord(payload) ? payload.bereitstellung : undefined, fallbackId);
 }
 
 /**
