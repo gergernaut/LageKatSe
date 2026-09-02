@@ -82,6 +82,10 @@ export interface EaListItem {
   id: string;
   text: string;
   erledigt: boolean;
+  /** ISO-Zeitstempel der Anlage (#180) — bei neuen Einträgen gesetzt, Anzeige HH:MM. Alt: fehlt. */
+  createdAt?: string;
+  /** Nur für Aufträge (#180): an den Abschnitt gesendet (unabhängig von `erledigt`). */
+  uebermittelt?: boolean;
 }
 
 /** Die drei abhakbaren Listen je Abschnitt (Reihenfolge = Anzeige-Reihenfolge). */
@@ -126,6 +130,10 @@ export function coerceEaListItem(value: unknown, fallbackId: () => string): EaLi
     id: asString(r.id) || fallbackId(),
     text: asString(r.text),
     erledigt: r.erledigt === true,
+    // createdAt nur übernehmen, wenn vorhanden — beim Import NICHT künstlich stempeln
+    // (alte Einträge ohne Zeitstempel bleiben ohne, statt fälschlich „jetzt").
+    ...(asString(r.createdAt) ? { createdAt: asString(r.createdAt) } : {}),
+    ...(r.uebermittelt === true ? { uebermittelt: true } : {}),
   };
 }
 

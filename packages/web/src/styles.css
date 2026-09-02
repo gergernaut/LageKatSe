@@ -996,14 +996,25 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .ea-list__count { margin-left: auto; font: 10px var(--mono); letter-spacing: .04em; color: var(--ink-3); }
 .ea-list__body { padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; }
 .ea-list__items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.ea-list__item { display: flex; align-items: center; gap: 8px; }
-.ea-list__item input[type="checkbox"] { flex: none; accent-color: var(--ok); width: 15px; height: 15px; }
+.ea-list__item { display: flex; align-items: flex-start; gap: 8px; }
+/* Nur die erledigt-Checkbox (Direktkind) — NICHT die verschachtelte „übermittelt". */
+.ea-list__item > input[type="checkbox"] { flex: none; accent-color: var(--ok); width: 15px; height: 15px; margin-top: 3px; }
+.ea-list__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .ea-list__text {
-  flex: 1; min-width: 0; border: 0; border-bottom: 1px solid transparent; background: transparent;
-  color: var(--ink); font-size: 13px; padding: 3px 2px;
+  width: 100%; box-sizing: border-box; border: 0; border-bottom: 1px solid transparent; background: transparent;
+  color: var(--ink); font: 13px/1.4 var(--sans); padding: 3px 2px;
+  /* Umbruch statt seitlichem Abschneiden (#180); Textarea wächst per JS mit. */
+  resize: none; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere;
 }
+.ea-list__text--ro { display: block; }
 .ea-list__text:focus { outline: none; border-bottom-color: var(--forces); }
 .ea-list__item--done .ea-list__text { color: var(--ink-3); text-decoration: line-through; }
+/* Meta-Zeile je Eintrag: Zeitstempel (#180) + „übermittelt"-Haken (nur Aufträge). */
+.ea-list__meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ea-list__time { font: 10px var(--mono); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.ea-list__sent { display: inline-flex; align-items: center; gap: 4px; font: 10px var(--mono); letter-spacing: .03em; color: var(--ink-3); cursor: pointer; user-select: none; }
+.ea-list__sent input[type="checkbox"] { width: 13px; height: 13px; accent-color: var(--forces); margin: 0; }
+.ea-list__sent.is-on { color: var(--forces); font-weight: 700; }
 .ea-list__etb {
   flex: none; border: 1px solid var(--line); background: var(--surface-2); color: var(--forces);
   border-radius: 6px; padding: 3px 8px; font: 600 10px var(--mono); letter-spacing: .04em; white-space: nowrap;
