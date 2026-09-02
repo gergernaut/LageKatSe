@@ -9,7 +9,7 @@
  */
 import * as Y from "yjs";
 import {
-  AB_AUFTRAEGE,
+  AB_MASSNAHMEN,
   AB_KANAELE,
   AB_KANAL_FIELDS,
   AB_KOPF,
@@ -40,12 +40,12 @@ export function applyArbeitsblattImport(doc: Y.Doc, sheet: unknown, newId: () =>
   const s = isRecord(sheet) ? sheet : {};
   const kopfObj = isRecord(s.kopf) ? s.kopf : {};
   const organisationObj = isRecord(s.organisation) ? s.organisation : {};
-  const auftraegeArr = Array.isArray(s.auftraege) ? s.auftraege : [];
+  const massnahmenObj = isRecord(s.massnahmen) ? s.massnahmen : {};
   const rueckArr = Array.isArray(s.rueckmeldungen) ? s.rueckmeldungen : [];
   const kanaeleArr = Array.isArray(s.kanaele) ? s.kanaele : [];
 
   const kopf = doc.getMap<unknown>(AB_KOPF);
-  const auftraege = doc.getArray<Y.Map<unknown>>(AB_AUFTRAEGE);
+  const massnahmen = doc.getMap<unknown>(AB_MASSNAHMEN);
   const rueck = doc.getArray<Y.Map<unknown>>(AB_RUECKMELD);
   const organisation = doc.getMap<unknown>(AB_ORGANISATION);
   const kanaele = doc.getArray<Y.Map<unknown>>(AB_KANAELE);
@@ -55,19 +55,15 @@ export function applyArbeitsblattImport(doc: Y.Doc, sheet: unknown, newId: () =>
     // Feld A: Kopf-Skalare überschreiben
     AB_KOPF_FIELDS.forEach((f) => kopf.set(f, asString(kopfObj[f])));
 
-    // Feld D: Aufträge & Maßnahmen (Array ersetzen)
-    auftraege.delete(0, auftraege.length);
-    for (const r of auftraegeArr) {
-      if (!isRecord(r)) continue;
-      auftraege.push([
-        rowMap({
-          id: asString(r.id) || newId(),
-          auftrag: asString(r.auftrag),
-          massnahmen: asString(r.massnahmen),
-          laufenderVorgang: asBool(r.laufenderVorgang),
-          erledigt: asBool(r.erledigt),
-        }),
-      ]);
+    // Feld D (#163): Maßnahmen je Führungs-Auftrags-id (Map ersetzen). Die Aufträge
+    // selbst kommen read-only aus dem EA-Modul und sind nicht Teil dieses Exports.
+    for (const key of [...massnahmen.keys()]) massnahmen.delete(key);
+    for (const [auftragId, v] of Object.entries(massnahmenObj)) {
+      if (!isRecord(v)) continue;
+      massnahmen.set(
+        auftragId,
+        rowMap({ massnahmen: asString(v.massnahmen), laufenderVorgang: asBool(v.laufenderVorgang) }),
+      );
     }
 
     // Feld E: Notizen (Array ersetzen)

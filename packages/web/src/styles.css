@@ -539,6 +539,9 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .arbeitsblatt-checklist input[type="checkbox"]:disabled { cursor: default; }
 .arbeitsblatt-row--done td { color: var(--ink-3); }
 .arbeitsblatt-row--done .arbeitsblatt-table__input { text-decoration: line-through; }
+/* Feld D (#163): read-only Auftrag aus der Führung; erledigt → durchgestrichen. */
+.arbeitsblatt-auftrag-ro { display: block; white-space: pre-wrap; overflow-wrap: anywhere; padding: 4px 2px; color: var(--ink); }
+.arbeitsblatt-row--done .arbeitsblatt-auftrag-ro { text-decoration: line-through; color: var(--ink-3); }
 .arbeitsblatt-table__new-row td { padding: 12px; }
 .arbeitsblatt-table__empty {
   padding: 28px !important; color: var(--ink-3); text-align: center;

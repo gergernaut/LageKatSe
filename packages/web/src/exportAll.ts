@@ -13,7 +13,7 @@ import * as Y from "yjs";
 import { zipSync } from "fflate";
 import { uid } from "./uid";
 import {
-  AB_AUFTRAEGE,
+  AB_MASSNAHMEN,
   AB_EXPORT_FORMAT,
   AB_EXPORT_VERSION,
   AB_KANAELE,
@@ -56,7 +56,7 @@ function stringValue(map: Y.Map<unknown>, field: string): string {
 
 function extractArbeitsblatt(doc: Y.Doc) {
   const kopf = doc.getMap<unknown>(AB_KOPF);
-  const auftraege = doc.getArray<Y.Map<unknown>>(AB_AUFTRAEGE);
+  const massnahmen = doc.getMap<unknown>(AB_MASSNAHMEN);
   const rueckmeld = doc.getArray<Y.Map<unknown>>(AB_RUECKMELD);
   const organisation = doc.getMap<unknown>(AB_ORGANISATION);
   const kanaele = doc.getArray<Y.Map<unknown>>(AB_KANAELE);
@@ -74,7 +74,7 @@ function extractArbeitsblatt(doc: Y.Doc) {
         objektnr: stringValue(kopf, "objektnr"),
         datumUhrzeitgruppe: stringValue(kopf, "datumUhrzeitgruppe"),
       },
-      auftraege: auftraege.toJSON(),
+      massnahmen: massnahmen.toJSON(),
       rueckmeldungen: rueckmeld.toJSON(),
       organisation: {
         tmoGruppe: stringValue(organisation, "tmoGruppe"),
