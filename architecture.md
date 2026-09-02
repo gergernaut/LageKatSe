@@ -1120,6 +1120,13 @@ Client-CRDT-Writes, kein eigener Endpoint, kein Seeding.
   unter Key `EA_FUEHRUNG` im selben Dokument (Führer/Befehlsstelle/Kommunikation/Standort). Derselbe
   reservierte Wert `EA_FUEHRUNG` dient als `einsatzabschnittId`, um ein **Führungsmittel** zuzuordnen
   (uid() erzeugt ihn nie → keine Kollision). Die Kräfteübersicht löst ihn zum Badge „→ Führung" auf.
+- **Bereitstellungsraum (#180):** zweites Singleton (`Y.Map` unter Key `EA_BEREITSTELLUNG`), fix **direkt
+  unter der Führung** — der BR wird einsatztaktisch der Führung beigeordnet, statt als eigener EA angelegt.
+  Wie eine EA-Karte (Felder + drei abhakbare Listen), aber: gelbes „BR"-Badge (kein EA/UA-Typ), **„Fahrzeuge"
+  = Anzahl der Fahrzeuge mit Status „br"** (read-only aus `kraefteubersicht`, Tooltip mit Typ-Aufschlüsselung
+  via `countByTyp`) samt abgeleiteter Stärke, und statt „zugeordnete Einheiten" ein **Führungsmittel**-Selektor
+  wie bei der Führung (reservierter `einsatzabschnittId = EA_BEREITSTELLUNG`). ETB-Sync der Rückmeldungen/
+  Anforderungen läuft mit Von = „Bereitstellungsraum".
 - **Zuordnung von Fahrzeugen (Option A):** ein Fahrzeug ↔ höchstens ein Abschnitt (oder die Führung),
   gespeichert als `einsatzabschnittId` **am Fahrzeug im `kraefteubersicht`-Dokument** — ein merge-sicherer
   Feld-Write, kein Cross-Doc-Transfer. Beim Zurückschieben Einsatz→BR und beim Entlassen wird die

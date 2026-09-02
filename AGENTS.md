@@ -26,7 +26,7 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   `arbeitsblatt/` (`Arbeitsblatt.tsx`, `Wetter.tsx`), `kraefteubersicht/` (`Kraefteubersicht.tsx`
   — Bereitstellungsraum/Im-Einsatz, DV-100-Stärke, #100), `einsatzabschnitte/`
   (`Einsatzabschnitte.tsx` — EA/UA + Führungs-Singleton `EA_FUEHRUNG` (#154) + Fahrzeug-Zuordnung `einsatzabschnittId`, abgeleitete Stärke, #133;
-  abhakbare Listen Aufträge/Rückmeldungen/Anforderungen mit ETB-Sync #161/#162, je Eintrag Umbruch + Zeitstempel + „übermittelt"-Haken bei Aufträgen #180),
+  abhakbare Listen Aufträge/Rückmeldungen/Anforderungen mit ETB-Sync #161/#162, je Eintrag Umbruch + Zeitstempel + „übermittelt"-Haken bei Aufträgen #180; Bereitstellungsraum-Singleton `EA_BEREITSTELLUNG` fix unter der Führung, „Fahrzeuge" = Status-„br"-Zahl aus Kräfte, #180),
   `sync/provider.ts` (`connectModule` mit `cache`-Opt-out fuer transiente Verbindungen).
   Client-Utilities: `wetter.ts` (BrightSky-Abruf), `brightskyRadar.ts` (Regenradar: RADOLAN-Gitter von
   Bright Sky, zlib-Decode via fflate + Reprojektion DE1200→Web-Mercator via proj4 [Mapping+Farb-LUT

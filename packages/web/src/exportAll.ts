@@ -22,9 +22,11 @@ import {
   AB_RUECKMELD,
   AB_WETTER,
   AB_WETTER_SNAPSHOT,
+  coerceBereitstellung,
   coerceEaListItems,
   coerceFuehrung,
   EA_ABSCHNITTE,
+  EA_BEREITSTELLUNG,
   EA_EXPORT_FORMAT,
   EA_FUEHRUNG,
   EA_FUEHRUNG_AUFTRAEGE,
@@ -184,6 +186,7 @@ export async function exportAll(session: Session): Promise<void> {
           conn.doc.getMap<unknown>(EA_FUEHRUNG).get(EA_FUEHRUNG_AUFTRAEGE),
           uid,
         ),
+        bereitstellung: coerceBereitstellung(conn.doc.getMap<unknown>(EA_BEREITSTELLUNG).toJSON(), uid),
       };
       files[`einsatzabschnitte-${code}-${stamp}.json`] = new TextEncoder().encode(
         JSON.stringify(payload, null, 2),
