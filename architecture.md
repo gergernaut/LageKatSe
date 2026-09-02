@@ -1106,7 +1106,10 @@ Client-CRDT-Writes, kein eigener Endpoint, kein Seeding.
   `einsatzbeginn` (DUG, bei Anlage vorbelegt), `createdAt`. `id` via `uid()` (Invariante #3).
 - **Abhakbare Listen (#155/#161):** je Abschnitt drei ausklappbare Listen — **Aufträge**,
   **Rückmeldungen**, **Anforderungen** — als **verschachtelte** `Y.Array<Y.Map>` in der Abschnitts-`Y.Map`
-  (Eintrag `{id, text, erledigt}`). Abhaken = ein Feld-Write → item-level Merge (wie ETB-Zeilen);
+  (Eintrag `{id, text, erledigt, createdAt?, uebermittelt?}`). Abhaken = ein Feld-Write → item-level Merge (wie ETB-Zeilen);
+  der Eintragstext ist ein mitwachsendes Textarea (Umbruch, #180). **Je Eintrag** ein Anlage-Zeitstempel
+  (`createdAt`, Anzeige HH:MM) und **nur bei Aufträgen** ein zusätzlicher Haken `uebermittelt` („an den
+  Abschnitt gesendet", unabhängig von `erledigt`) — beide optional, ältere Einträge/Exporte ohne bleiben gültig (#180);
   der Ausklapp-Zustand ist client-lokal (React-State, kein CRDT). Anlage/Import bauen die Listen
   über `abschnittToYMap` (geteilt). **ETB-Sync (#162):** Rückmeldungen/Anforderungen haben je Eintrag
   einen „→ ETB"-Button, der einen **server-autoritativen** ETB-Eintrag erzeugt (Richtung „E", Von =

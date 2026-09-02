@@ -190,6 +190,24 @@ describe("Einsatzabschnitte-Modell", () => {
       });
     });
 
+    it("createdAt + uebermittelt (#180): übernommen wenn gültig, sonst weggelassen", () => {
+      expect(
+        coerceEaListItem(
+          { id: "i2", text: "x", erledigt: false, createdAt: "2026-09-02T10:00:00.000Z", uebermittelt: true },
+          () => "gen",
+        ),
+      ).toEqual({ id: "i2", text: "x", erledigt: false, createdAt: "2026-09-02T10:00:00.000Z", uebermittelt: true });
+      // Alte Zeile ohne die neuen Felder → sie fehlen (kein künstlicher Zeitstempel).
+      const old = coerceEaListItem({ id: "i3", text: "y", erledigt: false }, () => "gen");
+      expect(old).toEqual({ id: "i3", text: "y", erledigt: false });
+      expect("createdAt" in old).toBe(false);
+      expect("uebermittelt" in old).toBe(false);
+      // Defekte Werte werden verworfen (uebermittelt nur bei echtem true, createdAt nur String).
+      expect(
+        coerceEaListItem({ id: "i4", text: "z", erledigt: false, uebermittelt: "ja", createdAt: 42 }, () => "gen"),
+      ).toEqual({ id: "i4", text: "z", erledigt: false });
+    });
+
     it("coerceEaListItems: Nicht-Array → [], sonst zeilenweise coerct", () => {
       expect(coerceEaListItems(undefined, () => "x")).toEqual([]);
       expect(coerceEaListItems([{ text: "a" }, "müll"], () => "gen").map((i) => i.text)).toEqual(["a", ""]);
