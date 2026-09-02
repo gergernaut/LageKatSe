@@ -174,6 +174,7 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     item.set("id", uid());
     item.set("text", t);
     item.set("erledigt", false);
+    item.set("createdAt", new Date().toISOString()); // Zeitstempel bei Anlage (#180)
     arr.push([item]);
   };
 
@@ -181,6 +182,12 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     if (!writable) return;
     const item = fuehrungListArray()?.toArray().find((m) => m.get("id") === itemId);
     if (item) item.set("erledigt", item.get("erledigt") !== true);
+  };
+
+  const toggleFuehrungAuftragUebermittelt = (itemId: string) => {
+    if (!writable) return;
+    const item = fuehrungListArray()?.toArray().find((m) => m.get("id") === itemId);
+    if (item) item.set("uebermittelt", item.get("uebermittelt") !== true);
   };
 
   const setFuehrungAuftragText = (itemId: string, text: string) => {
@@ -269,6 +276,7 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     item.set("id", uid());
     item.set("text", t);
     item.set("erledigt", false);
+    item.set("createdAt", new Date().toISOString()); // Zeitstempel bei Anlage (#180)
     arr.push([item]);
   };
 
@@ -276,6 +284,13 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     if (!writable) return;
     const item = listArray(abschnittId, key)?.toArray().find((m) => m.get("id") === itemId);
     if (item) item.set("erledigt", item.get("erledigt") !== true);
+  };
+
+  // „Übermittelt"-Haken (#180) — nur für Aufträge; unabhängig von „erledigt".
+  const toggleItemUebermittelt = (abschnittId: string, key: EaListKey, itemId: string) => {
+    if (!writable) return;
+    const item = listArray(abschnittId, key)?.toArray().find((m) => m.get("id") === itemId);
+    if (item) item.set("uebermittelt", item.get("uebermittelt") !== true);
   };
 
   const setItemText = (abschnittId: string, key: EaListKey, itemId: string, text: string) => {
@@ -554,6 +569,8 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
               onToggle={toggleFuehrungAuftrag}
               onSetText={setFuehrungAuftragText}
               onDelete={deleteFuehrungAuftrag}
+              showUebermittelt
+              onToggleUebermittelt={toggleFuehrungAuftragUebermittelt}
             />
           </section>
         );
@@ -735,6 +752,9 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
                             ? undefined
                             : (item) => void syncItemToEtb(a, key, item)
                         }
+                        // „Übermittelt"-Haken nur für Aufträge (#180).
+                        showUebermittelt={key === "auftraege"}
+                        onToggleUebermittelt={(itemId) => toggleItemUebermittelt(a.id, key, itemId)}
                       />
                     ))}
                   </div>
@@ -765,6 +785,53 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
  * client-lokal (React-State, kein CRDT) — der Zustand überlebt CRDT-Updates, weil
  * React die Instanz per key (Listen-Key) reconcilet.
  */
+/** Uhrzeit (HH:MM, lokal) des Anlage-Zeitstempels einer Listen-Zeile (#180). */
+function formatItemTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
+
+/** Mehrzeiliges, automatisch mitwachsendes Eingabefeld — damit lange Einträge
+ *  umbrechen und vollständig sichtbar bleiben (#180) statt seitlich abzuschneiden. */
+function AutoTextarea({
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  ariaLabel: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const resize = () => {
+    const el = ref.current;
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  };
+  // Höhe an den Inhalt anpassen — bei Textänderung UND bei Breitenänderung
+  // (Fensterresize / Layoutwechsel), sonst bliebe eine umgebrochene Zeile verdeckt.
+  useEffect(resize, [value]);
+  useEffect(() => {
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
+  return (
+    <textarea
+      ref={ref}
+      className="ea-list__text"
+      rows={1}
+      value={value}
+      aria-label={ariaLabel}
+      onChange={(e) => onChange(e.currentTarget.value)}
+    />
+  );
+}
+
 function EaItemList({
   label,
   items,
@@ -774,6 +841,8 @@ function EaItemList({
   onSetText,
   onDelete,
   onSyncEtb,
+  showUebermittelt = false,
+  onToggleUebermittelt,
 }: {
   label: string;
   items: EaListItem[];
@@ -784,6 +853,9 @@ function EaItemList({
   onDelete: (id: string) => void;
   // Optional: „→ ETB"-Button je Eintrag (nur Rückmeldungen/Anforderungen, #162).
   onSyncEtb?: (item: EaListItem) => void;
+  // „Übermittelt"-Haken (#180) — nur bei Aufträgen; kennzeichnet „an den Abschnitt gesendet".
+  showUebermittelt?: boolean;
+  onToggleUebermittelt?: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState("");
@@ -823,16 +895,41 @@ function EaItemList({
                     aria-label="erledigt"
                     onChange={() => onToggle(item.id)}
                   />
-                  {writable ? (
-                    <input
-                      className="ea-list__text"
-                      value={item.text}
-                      aria-label="Eintragstext"
-                      onChange={(e) => onSetText(item.id, e.currentTarget.value)}
-                    />
-                  ) : (
-                    <span className="ea-list__text">{item.text}</span>
-                  )}
+                  <div className="ea-list__main">
+                    {writable ? (
+                      <AutoTextarea
+                        value={item.text}
+                        ariaLabel="Eintragstext"
+                        onChange={(value) => onSetText(item.id, value)}
+                      />
+                    ) : (
+                      <span className="ea-list__text ea-list__text--ro">{item.text}</span>
+                    )}
+                    {(item.createdAt || showUebermittelt) && (
+                      <div className="ea-list__meta">
+                        {item.createdAt && (
+                          <time className="ea-list__time" dateTime={item.createdAt}>
+                            {formatItemTime(item.createdAt)}
+                          </time>
+                        )}
+                        {showUebermittelt && onToggleUebermittelt && (
+                          <label
+                            className={`ea-list__sent ${item.uebermittelt ? "is-on" : ""}`}
+                            title="An den Abschnitt übermittelt (unabhängig vom Erledigt-Haken)"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={item.uebermittelt === true}
+                              disabled={!writable}
+                              aria-label="übermittelt"
+                              onChange={() => onToggleUebermittelt(item.id)}
+                            />
+                            <span>übermittelt</span>
+                          </label>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   {writable && onSyncEtb && (
                     <button
                       type="button"

@@ -22,19 +22,25 @@ import {
  * Abhaken/Editieren item-level mergen (nicht Whole-Value-LWW). Geteilt von der
  * Anlage (Einsatzabschnitte.tsx) und dem Import.
  */
+/** Eine Listen-Zeile als Y.Map — inkl. optionalem Zeitstempel/„übermittelt" (#180),
+ *  originalgetreu erhalten (fehlende Felder bleiben weg). */
+function listItemToYMap(item: EaListItem): Y.Map<unknown> {
+  const im = new Y.Map<unknown>();
+  im.set("id", item.id);
+  im.set("text", item.text);
+  im.set("erledigt", item.erledigt);
+  if (item.createdAt) im.set("createdAt", item.createdAt);
+  if (item.uebermittelt) im.set("uebermittelt", true);
+  return im;
+}
+
 export function abschnittToYMap(a: Einsatzabschnitt): Y.Map<unknown> {
   const map = new Y.Map<unknown>();
   const listKeys = EA_LISTS as readonly string[];
   for (const [key, value] of Object.entries(a)) {
     if (listKeys.includes(key)) {
       const arr = new Y.Array<Y.Map<unknown>>();
-      for (const item of value as EaListItem[]) {
-        const im = new Y.Map<unknown>();
-        im.set("id", item.id);
-        im.set("text", item.text);
-        im.set("erledigt", item.erledigt);
-        arr.push([im]);
-      }
+      for (const item of value as EaListItem[]) arr.push([listItemToYMap(item)]);
       map.set(key, arr);
     } else {
       map.set(key, value);
@@ -68,13 +74,7 @@ export function applyEinsatzabschnitteImport(
     if (opts.fuehrungAuftraege && doc) {
       const fuehrung = doc.getMap<unknown>(EA_FUEHRUNG);
       const arr = new Y.Array<Y.Map<unknown>>();
-      for (const item of opts.fuehrungAuftraege) {
-        const im = new Y.Map<unknown>();
-        im.set("id", item.id);
-        im.set("text", item.text);
-        im.set("erledigt", item.erledigt);
-        arr.push([im]);
-      }
+      for (const item of opts.fuehrungAuftraege) arr.push([listItemToYMap(item)]);
       fuehrung.set(EA_FUEHRUNG_AUFTRAEGE, arr);
     }
   };
