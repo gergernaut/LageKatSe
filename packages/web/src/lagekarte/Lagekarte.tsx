@@ -1789,10 +1789,10 @@ export function Lagekarte({
                       <input
                         type="number"
                         min="1"
-                        step="10"
+                        step="1"
                         value={areaRadius}
                         aria-label="Radius in Metern"
-                        onChange={(event) => setAreaRadius(Math.max(0, Number(event.target.value)))}
+                        onChange={(event) => setAreaRadius(Math.max(0, Math.round(Number(event.target.value))))}
                       />
                     </label>
                   )}
