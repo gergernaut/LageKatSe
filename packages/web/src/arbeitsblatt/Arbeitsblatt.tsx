@@ -116,6 +116,8 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   };
   // BR-Zeile (#189): Führungsmittel, die der fixen BR-Karte im EA-Modul zugeordnet sind.
   const brVehicles = vehicles.filter((v) => v.status === "br" && v.einsatzabschnittId === EA_BEREITSTELLUNG);
+  // Auftrag der BR-Karte (read-only aus dem Bereitstellungsraum-Singleton) für die BR-Zeile.
+  const [brAuftrag, setBrAuftrag] = useState("");
   // Stärke + Fahrzeug-Anzahl je Abschnitt (geteiltes, getestetes Primitiv, #141).
   const abschnittKraft = (id: string) => {
     const assigned = vehiclesInAbschnitt(vehicles, id);
@@ -215,17 +217,22 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     const list = conn.doc.getArray<Y.Map<unknown>>(EA_ABSCHNITTE);
     // Feld D (#163): die „Aufträge" der Führung read-only mitlesen (Auftrags-Sync).
     const fuehrungMap = conn.doc.getMap<unknown>(EA_FUEHRUNG);
+    // BR (#189): der Auftrag des Bereitstellungsraum-Singletons für die BR-Zeile.
+    const brMap = conn.doc.getMap<unknown>(EA_BEREITSTELLUNG);
     const refresh = () => {
       setAbschnitte(list.toArray().map((m) => m.toJSON() as Einsatzabschnitt));
       const fuList = fuehrungMap.get(EA_FUEHRUNG_AUFTRAEGE);
       setFuehrungAuftraege(fuList instanceof Y.Array ? (fuList.toJSON() as EaListItem[]) : []);
+      setBrAuftrag(stringValue(brMap, "auftrag"));
     };
     list.observeDeep(refresh);
     fuehrungMap.observeDeep(refresh);
+    brMap.observe(refresh);
     refresh();
     return () => {
       list.unobserveDeep(refresh);
       fuehrungMap.unobserveDeep(refresh);
+      brMap.unobserve(refresh);
       conn.destroy();
     };
   }, [session.room.id, session.token]);
@@ -360,7 +367,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
         count: brVehicles.length,
       };
       const abschnittZeilen = [
-        { titel: "BR", auftrag: "Bereitstellungsraum", staerke: brK.staerke, count: brK.count },
+        { titel: "BR", auftrag: brAuftrag, staerke: brK.staerke, count: brK.count },
         ...abschnitte.map((a) => {
           const k = abschnittKraft(a.id);
           return { titel: formatAbschnittTitel(a), auftrag: a.auftrag, staerke: k.staerke, count: k.count };
@@ -565,7 +572,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
                 (Status „br", zugeordnet der fixen BR-Karte im EA-Modul). */}
             <div className="arbeitsblatt-ea-row">
               <span className="arbeitsblatt-ea-row__tag">BR</span>
-              <span className="arbeitsblatt-ea-row__auftrag">Bereitstellungsraum</span>
+              {brAuftrag && <span className="arbeitsblatt-ea-row__auftrag">{brAuftrag}</span>}
               <span className="arbeitsblatt-ea-row__staerke">
                 {formatStaerke(sumStaerke(brVehicles))} · {brVehicles.length} Fz.
               </span>
