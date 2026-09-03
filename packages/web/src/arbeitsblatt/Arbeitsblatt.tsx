@@ -74,7 +74,7 @@ const EMPTY_SHEET: ArbeitsblattState = {
 /** Abgeleitete Kräfte-Kennzahlen (Feld C) — read-only aus dem kraefteubersicht-Modul. */
 interface KraftKennzahlen {
   einsatz: Staerke; // Gesamtstärke der im Einsatz befindlichen Einheiten (DV 100)
-  brCount: number; // Anzahl Fahrzeuge im Bereitstellungsraum
+  einsatzCount: number; // Anzahl Fahrzeuge im Einsatz (BR-Einheiten: Liste unten)
 }
 
 function stringValue(map: Y.Map<unknown>, field: string): string {
@@ -112,7 +112,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   const einsatzVehicles = vehicles.filter((v) => v.status === "einsatz");
   const kraft: KraftKennzahlen = {
     einsatz: sumStaerke(einsatzVehicles),
-    brCount: vehicles.filter((v) => v.status === "br").length,
+    einsatzCount: einsatzVehicles.length,
   };
   // BR-Zeile (#189): Führungsmittel, die der fixen BR-Karte im EA-Modul zugeordnet sind.
   const brVehicles = vehicles.filter((v) => v.status === "br" && v.einsatzabschnittId === EA_BEREITSTELLUNG);
@@ -560,16 +560,18 @@ export function Arbeitsblatt({ session }: { session: Session }) {
             </span>
           </div>
           <div className="arbeitsblatt-kraft-stat">
-            <span className="arbeitsblatt-kraft-stat__label">Fahrzeuge im Bereitstellungsraum</span>
-            <span className="arbeitsblatt-kraft-stat__value">{kraft.brCount}</span>
-            <span className="arbeitsblatt-kraft-stat__hint">Anzahl Fahrzeuge im BR</span>
+            <span className="arbeitsblatt-kraft-stat__label">Fahrzeuge im Einsatz</span>
+            <span className="arbeitsblatt-kraft-stat__value">{kraft.einsatzCount}</span>
+            <span className="arbeitsblatt-kraft-stat__hint">
+              Anzahl — die BR-Einheiten stehen in der Liste unten
+            </span>
           </div>
         </div>
         {abschnitte.length > 0 && (
           <div className="arbeitsblatt-ea-list">
             <span className="arbeitsblatt-ea-list__label">Einsatzabschnitte</span>
-            {/* BR als eigene Zeile (#189): Führungsmittel im Bereitstellungsraum
-                (Status „br", zugeordnet der fixen BR-Karte im EA-Modul). */}
+            {/* BR als eigene Zeile (#189): Führungsmittel, die der fixen BR-Karte
+                im EA-Modul zugeordnet sind (Status „br", einsatzabschnittId=BR). */}
             <div className="arbeitsblatt-ea-row">
               <span className="arbeitsblatt-ea-row__tag">BR</span>
               {brAuftrag && <span className="arbeitsblatt-ea-row__auftrag">{brAuftrag}</span>}

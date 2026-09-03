@@ -34,7 +34,7 @@ export type EtbPdfMeta = PdfMeta;
 /** Abgeleitete Kräfte-Kennzahlen für Feld C (aus dem kraefteubersicht-Modul). */
 export interface AbKraftKennzahlen {
   einsatz: Staerke; // Gesamtstärke der im Einsatz befindlichen Einheiten
-  brCount: number; // Anzahl Fahrzeuge im Bereitstellungsraum
+  einsatzCount: number; // Anzahl Fahrzeuge im Einsatz (BR-Einheiten: Abschnitte-Liste)
 }
 
 /** Eine Einsatzabschnitts-Zeile für Feld C (#140) — bereits vom Aufrufer abgeleitet. */
@@ -419,7 +419,7 @@ export async function arbeitsblattToPdf(
   // C · Einheiten / Kräfteübersicht (abgeleitet aus dem Modul Kräfteübersicht)
   heading("C", "Einheiten / Kräfteübersicht");
   labelValue("Gesamtstärke im Einsatz", formatStaerke(kraft.einsatz));
-  labelValue("Fahrzeuge im Bereitstellungsraum", String(kraft.brCount));
+  labelValue("Fahrzeuge im Einsatz", String(kraft.einsatzCount));
   if (abschnitte.length > 0) {
     gap(2);
     need(LH);
