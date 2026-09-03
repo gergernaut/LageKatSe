@@ -16,7 +16,7 @@
  * Lagekarte (§8.3):
  *
  *   doc.getMap(AB_KOPF)           Feld A — Kopf-Skalare (AbKopf)
- *   doc.getArray(AB_AUFTRAEGE)    Feld D — Aufträge & Maßnahmen (Y.Map je AbAuftrag)
+ *   doc.getMap(AB_MASSNAHMEN)     Feld D — Maßnahmen je Führungs-Auftrag (read-only Auftrags-Sync, #163)
  *   doc.getArray(AB_RUECKMELD)    Feld E — Notizen (Y.Map je AbNotiz)
  *   doc.getMap(AB_ORGANISATION)   Feld F — feste Funkkanäle (AbOrganisation)
  *   doc.getArray(AB_KANAELE)      Feld F — frei angelegte Funkkanäle (Y.Map je AbKanal)
@@ -30,7 +30,7 @@
 
 // ---- top-level shared-type keys inside the "arbeitsblatt" document ----
 export const AB_KOPF = "kopf" as const;
-export const AB_AUFTRAEGE = "auftraege" as const;
+export const AB_MASSNAHMEN = "massnahmen" as const;
 export const AB_RUECKMELD = "rueckmeldungen" as const;
 export const AB_ORGANISATION = "organisation" as const;
 export const AB_KANAELE = "kanaele" as const;
@@ -63,20 +63,34 @@ export const AB_KOPF_LABELS: Record<AbKopfField, string> = {
   datumUhrzeitgruppe: "Datum-Uhrzeit-Gruppe",
 };
 
-// ---- Feld D: Aufträge & Maßnahmen ----
+// ---- Feld D: Aufträge & Maßnahmen (#163) ----
 /**
- * Eine Zeile der Aufträge-Tabelle (Feld D, ersetzt den früheren „Führungsvorgang").
- * Als Y.Map innerhalb AB_AUFTRAEGE gespeichert, damit konkurrierende Edits an
- * *verschiedenen* Zellen derselben Zeile mergen (wie ETB-Zeilen). `id` ist
- * client-vergeben via uid() — keine monotone Anforderung. `laufenderVorgang`
- * markiert einen offenen Vorgang, `erledigt` streicht die Zeile durch (Eintrag bleibt).
+ * Feld D synct die **Aufträge read-only** aus dem Führungs-Bereich des EA-Moduls
+ * (`EA_FUEHRUNG_AUFTRAEGE`) — Anlegen/Ändern/Abhaken passiert dort. In der Taktischen
+ * Übersicht werden nur die **Maßnahmen** (+ „laufender Vorgang") gepflegt, gespeichert
+ * je Führungs-Auftrags-id in `AB_MASSNAHMEN` (Y.Map<Y.Map>, Feld-Merge). Der
+ * Erledigt-Status wird read-only aus der Führung gespiegelt (eine Quelle).
  */
-export interface AbAuftrag {
-  id: string;
-  auftrag: string;
+export interface AbMassnahme {
   massnahmen: string;
   laufenderVorgang: boolean;
+}
+
+/** Defensive Coercion eines Maßnahmen-Eintrags (fehlend/defekt → sichere Defaults). */
+export function coerceAbMassnahme(value: unknown): AbMassnahme {
+  const r: Record<string, unknown> = isRecord(value) ? value : {};
+  return { massnahmen: asString(r.massnahmen), laufenderVorgang: r.laufenderVorgang === true };
+}
+
+/**
+ * Eine Feld-D-Zeile für den PDF-Export (#163): read-only Auftrag + Erledigt aus der
+ * Führung, dazu die in der Übersicht gepflegten Maßnahmen + laufender Vorgang.
+ */
+export interface AbAuftragZeile {
+  auftrag: string;
   erledigt: boolean;
+  massnahmen: string;
+  laufenderVorgang: boolean;
 }
 
 // ---- Feld E: Notizen ----
@@ -197,7 +211,8 @@ export interface AbWetterSnapshot {
  */
 export interface Arbeitsblatt {
   kopf: AbKopf;
-  auftraege: AbAuftrag[];
+  /** Feld D (#163): Maßnahmen je Führungs-Auftrags-id (die Aufträge selbst kommen read-only aus dem EA-Modul). */
+  massnahmen: Record<string, AbMassnahme>;
   rueckmeldungen: AbNotiz[];
   organisation: AbOrganisation;
   kanaele: AbKanal[]; // Feld F — frei angelegte Funkkanäle
