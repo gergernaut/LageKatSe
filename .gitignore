@@ -11,3 +11,6 @@ build/
 .pnpm-store/
 coverage/
 *.tsbuildinfo
+
+# Claude Code lokale Tooling-/Session-Konfiguration (nicht teilen)
+.claude/
