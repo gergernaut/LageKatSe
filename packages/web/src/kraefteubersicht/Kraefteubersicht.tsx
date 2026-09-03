@@ -4,6 +4,7 @@ import {
   canWrite,
   countByTyp,
   EA_ABSCHNITTE,
+  EA_BEREITSTELLUNG,
   EA_FUEHRUNG,
   formatAbschnittTitel,
   formatStaerke,
@@ -223,6 +224,7 @@ export function Kraefteubersicht({ session }: { session: Session }) {
   const abschnittLabel = (id: string | undefined): string | null => {
     if (!id) return null;
     if (id === EA_FUEHRUNG) return "Führung"; // reservierte ID des Führungs-Singletons (#154)
+    if (id === EA_BEREITSTELLUNG) return "BR"; // reservierte ID des BR-Singletons (#180/#185)
     const a = abschnitte.find((x) => x.id === id);
     return a ? formatAbschnittTitel(a) : null;
   };
