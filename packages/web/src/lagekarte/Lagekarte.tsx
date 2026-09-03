@@ -253,29 +253,53 @@ function createLayer(
       });
     }
 
-    const label = feature.label?.trim();
-    if (!labelsVisible || !label) return shape;
+    // Zusatz-Layer (Mittelpunkt-Punkt, Beschriftung) — dem Kreis/der Fläche
+    // beigelegt, ohne sie selbst zu mutieren (Invariante #1: reiner Render-Pfad).
+    const extras: L.Layer[] = [];
 
-    const labelElement = document.createElement("div");
-    labelElement.className = "lagekarte-area-label__text";
-    labelElement.textContent = label;
-    labelElement.style.backgroundColor = `color-mix(in srgb, ${feature.color} 14%, transparent)`;
-    labelElement.style.color = `color-mix(in srgb, ${feature.color} 72%, black)`;
-    labelElement.style.borderColor = feature.color;
-    const center =
-      feature.shape === "circle" ? feature.geometry[0] : shape.getBounds().getCenter();
-    if (!center) return shape;
-    const labelMarker = L.marker(center, {
-      icon: L.divIcon({
-        className: "lagekarte-area-label",
-        html: labelElement,
-        iconAnchor: [0, 0],
-        iconSize: [0, 0],
-      }),
-      interactive: false,
-      keyboard: false,
-    });
-    return L.featureGroup([shape, labelMarker]);
+    // Mittelpunkt bei Kreisen (#186): kleiner, gleichfarbiger, nicht-interaktiver
+    // Punkt am Zentrum — macht das exakte Zentrum sichtbar (radius in Pixeln).
+    if (feature.shape === "circle" && feature.geometry[0]) {
+      extras.push(
+        L.circleMarker(feature.geometry[0], {
+          radius: 3,
+          color: feature.color,
+          fillColor: feature.color,
+          fillOpacity: 1,
+          weight: 1,
+          interactive: false,
+        }),
+      );
+    }
+
+    const label = feature.label?.trim();
+    if (labelsVisible && label) {
+      const labelElement = document.createElement("div");
+      labelElement.className = "lagekarte-area-label__text";
+      labelElement.textContent = label;
+      labelElement.style.backgroundColor = `color-mix(in srgb, ${feature.color} 14%, transparent)`;
+      labelElement.style.color = `color-mix(in srgb, ${feature.color} 72%, black)`;
+      labelElement.style.borderColor = feature.color;
+      const center =
+        feature.shape === "circle" ? feature.geometry[0] : shape.getBounds().getCenter();
+      if (center) {
+        extras.push(
+          L.marker(center, {
+            icon: L.divIcon({
+              className: "lagekarte-area-label",
+              html: labelElement,
+              iconAnchor: [0, 0],
+              iconSize: [0, 0],
+            }),
+            interactive: false,
+            keyboard: false,
+          }),
+        );
+      }
+    }
+
+    if (extras.length === 0) return shape;
+    return L.featureGroup([shape, ...extras]);
   }
 
   const tip = buildTooltip(feature);
@@ -332,6 +356,8 @@ export function Lagekarte({
   const [areaColor, setAreaColor] = useState("#d5372b");
   const [areaOpacity, setAreaOpacity] = useState(0.3);
   const [areaDash, setAreaDash] = useState("");
+  // Radius des ausgewählten Kreises in Metern, im Editor bearbeitbar (#186).
+  const [areaRadius, setAreaRadius] = useState(0);
   const [label, setLabel] = useState("");
   const [description, setDescription] = useState("");
   // Ausrichtung des ausgewählten Symbols (0–359°, 0 = Norden). Pro Symbol, nicht global
@@ -568,6 +594,7 @@ export function Lagekarte({
       setAreaColor(selectedFeature.color);
       setAreaOpacity(selectedFeature.opacity);
       setAreaDash(selectedFeature.dashArray ?? "");
+      setAreaRadius(Math.round(selectedFeature.radiusM ?? 0));
     } else {
       setRotation(selectedFeature.rotation ?? 0);
     }
@@ -673,6 +700,9 @@ export function Lagekarte({
         color: areaColor,
         opacity: areaOpacity,
         dashArray: areaDash || "",
+        // Radius nur bei Kreisen mitschreiben (#186); >0 erzwingen, damit ein
+        // versehentlich geleertes Feld den Kreis nicht kollabieren lässt.
+        ...(current.shape === "circle" ? { radiusM: Math.max(1, areaRadius) } : {}),
         label,
         description,
         updatedAt,
@@ -1753,6 +1783,19 @@ export function Lagekarte({
                     <button type="button" title="Gestrichelt" aria-pressed={areaDash === "5,5"} onClick={() => setAreaDash("5,5")}>╌</button>
                     <button type="button" title="Gepunktet" aria-pressed={areaDash === "2,4"} onClick={() => setAreaDash("2,4")}>┄</button>
                   </fieldset>
+                  {selectedFeature.shape === "circle" && (
+                    <label className="lagekarte-field">
+                      <span>Radius {formatDistance(Math.max(1, areaRadius))}</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="10"
+                        value={areaRadius}
+                        aria-label="Radius in Metern"
+                        onChange={(event) => setAreaRadius(Math.max(0, Number(event.target.value)))}
+                      />
+                    </label>
+                  )}
                 </>
               )}
               {selectedFeature.kind === "symbol" && (
