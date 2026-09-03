@@ -325,6 +325,10 @@ export function Lagekarte({
   const measureActiveRef = useRef(measureActive);
   const measureStartRef = useRef<L.LatLng | null>(null);
   const measureLayerRef = useRef<L.LayerGroup | null>(null);
+  // Live-Vorschau der Messlinie ab dem Startpunkt (#187): folgt dem Cursor bis
+  // zum zweiten Klick. Liegt im measureLayer, wird also beim Moduswechsel
+  // mit-geleert; die Ref hier nur, um sie zwischen den Effekten zu nullen.
+  const measurePreviewRef = useRef<{ line: L.Polyline; label: L.Marker } | null>(null);
   const [areaColor, setAreaColor] = useState("#d5372b");
   const [areaOpacity, setAreaOpacity] = useState(0.3);
   const [areaDash, setAreaDash] = useState("");
@@ -536,6 +540,7 @@ export function Lagekarte({
       }
     }
     measureStartRef.current = null;
+    measurePreviewRef.current = null; // Vorschau wurde mit clearLayers() entfernt (#187)
     if (!measureActive) setMeasureResult(null);
     const container = map?.getContainer();
     if (container) container.classList.toggle("lagekarte-measure-cursor", measureActive);
@@ -1337,6 +1342,11 @@ export function Lagekarte({
       return true;
     };
 
+    const measureLabelIcon = (text: string) =>
+      L.divIcon({ className: "lagekarte-measure-label", html: `<span>${text}</span>`, iconSize: [0, 0] });
+    const midpoint = (a: L.LatLng, b: L.LatLng) =>
+      L.latLng((a.lat + b.lat) / 2, (a.lng + b.lng) / 2);
+
     const onMapClick = (event: L.LeafletMouseEvent) => {
       placePendingSymbol(event.latlng);
       // Mess-Tool (#175): zwei Klicks = eine Entfernung. Client-lokal & ephemeral
@@ -1350,21 +1360,48 @@ export function Lagekarte({
         }
         const meters = map.distance(start, event.latlng);
         const text = formatDistance(meters);
-        const line = L.polyline([start, event.latlng], {
+        L.polyline([start, event.latlng], {
           color: "var(--signal)", weight: 2, dashArray: "6,6", interactive: false,
         }).addTo(measureLayer);
-        const mid = L.latLng((start.lat + event.latlng.lat) / 2, (start.lng + event.latlng.lng) / 2);
-        const labelIcon = L.divIcon({
-          className: "lagekarte-measure-label",
-          html: `<span>${text}</span>`,
-          iconSize: [0, 0],
-        });
-        L.marker(mid, { icon: labelIcon, interactive: false, keyboard: false }).addTo(measureLayer);
+        L.marker(midpoint(start, event.latlng), {
+          icon: measureLabelIcon(text), interactive: false, keyboard: false,
+        }).addTo(measureLayer);
         setMeasureResult(text);
+        // Vorschau in die feste Linie überführt → entfernen (#187).
+        if (measurePreviewRef.current) {
+          measureLayer.removeLayer(measurePreviewRef.current.line);
+          measureLayer.removeLayer(measurePreviewRef.current.label);
+          measurePreviewRef.current = null;
+        }
         measureStartRef.current = null; // nächste zwei Klicks = neue Messung
       }
     };
     map.on("click", onMapClick);
+
+    // Live-Vorschau (#187): ab dem ersten Klick eine gestrichelte Linie + Distanz
+    // am Cursor zeigen (analog zum Kreis-Radius-Tooltip), bis der zweite Klick sie
+    // fixiert. Rein ephemeral im measureLayer (Invariante #4).
+    const onMeasureMove = (event: L.LeafletMouseEvent) => {
+      const start = measureActiveRef.current ? measureStartRef.current : null;
+      if (!start) return;
+      const text = formatDistance(map.distance(start, event.latlng));
+      const mid = midpoint(start, event.latlng);
+      const preview = measurePreviewRef.current;
+      if (!preview) {
+        const line = L.polyline([start, event.latlng], {
+          color: "var(--signal)", weight: 2, dashArray: "6,6", opacity: 0.6, interactive: false,
+        }).addTo(measureLayer);
+        const label = L.marker(mid, {
+          icon: measureLabelIcon(text), interactive: false, keyboard: false,
+        }).addTo(measureLayer);
+        measurePreviewRef.current = { line, label };
+      } else {
+        preview.line.setLatLngs([start, event.latlng]);
+        preview.label.setLatLng(mid);
+        preview.label.setIcon(measureLabelIcon(text));
+      }
+    };
+    map.on("mousemove", onMeasureMove);
 
     const onCreate = (event: L.LeafletEvent) => {
       const { layer } = event as L.LeafletEvent & { shape: string; layer: L.Layer };
@@ -1422,6 +1459,7 @@ export function Lagekarte({
       map.off("pm:drawstart", onDrawStart);
       map.off("pm:drawend", onDrawEnd);
       map.off("mousemove", onDrawMove);
+      map.off("mousemove", onMeasureMove);
       map.off("moveend", persistView);
       featuresMap.unobserve(refresh);
       if (featuresMapRef.current === featuresMap) featuresMapRef.current = null;
