@@ -569,11 +569,11 @@ export function Arbeitsblatt({ session }: { session: Session }) {
             </span>
           </div>
         </div>
-        {abschnitte.length > 0 && (
+        {(abschnitte.length > 0 || brVehicles.length > 0) && (
           <div className="arbeitsblatt-ea-list">
             <span className="arbeitsblatt-ea-list__label">Einsatzabschnitte</span>
-            {/* BR als eigene Zeile (#189): Führungsmittel, die der fixen BR-Karte
-                im EA-Modul zugeordnet sind (Status „br", einsatzabschnittId=BR). */}
+            {/* BR als eigene Zeile (#189): alle Fahrzeuge im Bereitstellungsraum
+                (Status „br", ohne Zuordnungs-Filter — s. Definition brVehicles). */}
             <div className="arbeitsblatt-ea-row">
               <span className="arbeitsblatt-ea-row__tag">BR</span>
               {brAuftrag && <span className="arbeitsblatt-ea-row__auftrag">{brAuftrag}</span>}
