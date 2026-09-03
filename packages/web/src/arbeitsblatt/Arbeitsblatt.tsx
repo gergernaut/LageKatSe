@@ -114,8 +114,10 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     einsatz: sumStaerke(einsatzVehicles),
     einsatzCount: einsatzVehicles.length,
   };
-  // BR-Zeile (#189): Führungsmittel, die der fixen BR-Karte im EA-Modul zugeordnet sind.
-  const brVehicles = vehicles.filter((v) => v.status === "br" && v.einsatzabschnittId === EA_BEREITSTELLUNG);
+  // BR-Zeile (#189): alle Fahrzeuge im Bereitstellungsraum (Status „br").
+  // Kein einsatzabschnittId-Filter — beim "→ BR"-Schieben in der Kräfteübersicht
+  // wird die Zuordnung bewusst geleert (#137); ein Status-"br"-Fahrzeug IST im BR.
+  const brVehicles = vehicles.filter((v) => v.status === "br");
   // Auftrag der BR-Karte (read-only aus dem Bereitstellungsraum-Singleton) für die BR-Zeile.
   const [brAuftrag, setBrAuftrag] = useState("");
   // Stärke + Fahrzeug-Anzahl je Abschnitt (geteiltes, getestetes Primitiv, #141).
