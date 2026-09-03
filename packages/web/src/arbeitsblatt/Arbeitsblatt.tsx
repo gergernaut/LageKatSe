@@ -17,6 +17,7 @@ import {
   canWrite,
   coerceAbMassnahme,
   EA_ABSCHNITTE,
+  EA_BEREITSTELLUNG,
   EA_FUEHRUNG,
   EA_FUEHRUNG_AUFTRAEGE,
   formatAbschnittTitel,
@@ -113,6 +114,8 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     einsatz: sumStaerke(einsatzVehicles),
     brCount: vehicles.filter((v) => v.status === "br").length,
   };
+  // BR-Zeile (#189): Führungsmittel, die der fixen BR-Karte im EA-Modul zugeordnet sind.
+  const brVehicles = vehicles.filter((v) => v.status === "br" && v.einsatzabschnittId === EA_BEREITSTELLUNG);
   // Stärke + Fahrzeug-Anzahl je Abschnitt (geteiltes, getestetes Primitiv, #141).
   const abschnittKraft = (id: string) => {
     const assigned = vehiclesInAbschnitt(vehicles, id);
@@ -350,11 +353,19 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     setImportMessage("");
     try {
       const { arbeitsblattToPdf } = await import("../pdf");
-      // Feld C · Einsatzabschnitte identisch zur Bildschirm-Liste ableiten (#140).
-      const abschnittZeilen = abschnitte.map((a) => {
-        const k = abschnittKraft(a.id);
-        return { titel: formatAbschnittTitel(a), auftrag: a.auftrag, staerke: k.staerke, count: k.count };
-      });
+      // Feld C · Einsatzabschnitte identisch zur Bildschirm-Liste ableiten (#140),
+      // BR-Zeile vorangestellt (#189).
+      const brK = {
+        staerke: sumStaerke(brVehicles),
+        count: brVehicles.length,
+      };
+      const abschnittZeilen = [
+        { titel: "BR", auftrag: "Bereitstellungsraum", staerke: brK.staerke, count: brK.count },
+        ...abschnitte.map((a) => {
+          const k = abschnittKraft(a.id);
+          return { titel: formatAbschnittTitel(a), auftrag: a.auftrag, staerke: k.staerke, count: k.count };
+        }),
+      ];
       // Feld D · read-only Aufträge aus der Führung + gepflegte Maßnahmen (#163).
       const auftragZeilen: AbAuftragZeile[] = fuehrungAuftraege.map((a) => {
         const m = sheet.massnahmen[a.id];
@@ -550,6 +561,15 @@ export function Arbeitsblatt({ session }: { session: Session }) {
         {abschnitte.length > 0 && (
           <div className="arbeitsblatt-ea-list">
             <span className="arbeitsblatt-ea-list__label">Einsatzabschnitte</span>
+            {/* BR als eigene Zeile (#189): Führungsmittel im Bereitstellungsraum
+                (Status „br", zugeordnet der fixen BR-Karte im EA-Modul). */}
+            <div className="arbeitsblatt-ea-row">
+              <span className="arbeitsblatt-ea-row__tag">BR</span>
+              <span className="arbeitsblatt-ea-row__auftrag">Bereitstellungsraum</span>
+              <span className="arbeitsblatt-ea-row__staerke">
+                {formatStaerke(sumStaerke(brVehicles))} · {brVehicles.length} Fz.
+              </span>
+            </div>
             {abschnitte.map((a) => {
               const k = abschnittKraft(a.id);
               return (
