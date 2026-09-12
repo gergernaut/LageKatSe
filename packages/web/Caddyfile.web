@@ -11,6 +11,28 @@
 }
 :80 {
 	root * /srv
+	encode gzip zstd
+
+	# Cache-Strategie:
+	# - Gehashte Build-Assets (Vite legt sie unter /assets/ mit Content-Hash ab):
+	#   ändern bei Änderung den Dateinamen → unbegrenzt cachebar (immutable).
+	# - Taktische-Zeichen-Grafiken: stabile Namen, ändern sich praktisch nie
+	#   → lange cachen (spart Traffic für die ~1000 SVGs), aber nicht "immutable",
+	#   damit ein evtl. ersetztes Bild unter gleichem Namen nach der Frist ankommt.
+	# - Alles andere (HTML-Shell, taktische-zeichen/index.json, config.js, favicon …):
+	#   immer revalidieren. Das 304 via ETag ist billig, aber neue Builds/Symbole
+	#   erscheinen sofort — ohne dass Nutzer hart neu laden müssen.
+	@immutable path /assets/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	@symbols path /taktische-zeichen/svg/*
+	header @symbols Cache-Control "public, max-age=604800"
+
+	@revalidate {
+		not path /assets/* /taktische-zeichen/svg/*
+	}
+	header @revalidate Cache-Control "no-cache"
+
 	try_files {path} /index.html
 	file_server
 }
