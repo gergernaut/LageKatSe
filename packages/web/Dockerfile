@@ -28,3 +28,6 @@ FROM caddy:2-alpine
 
 COPY --from=build /app/packages/web/dist /srv
 COPY packages/web/Caddyfile.web /etc/caddy/Caddyfile
+
+# Config-Syntax beim Build prüfen (fail-fast statt erst beim Container-Start).
+RUN caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
