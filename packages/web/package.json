@@ -17,7 +17,7 @@
     "html-to-image": "^1.11.13",
     "leaflet": "^1.9.4",
     "pdf-lib": "^1.17.1",
-    "proj4": "^2.21.0",
+    "proj4": "^2.22.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "y-indexeddb": "^9.0.12",
