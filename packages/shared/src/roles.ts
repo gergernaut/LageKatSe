@@ -12,6 +12,8 @@ export const ROLES = [
   "S5",
   "S6",
   "LDS",
+  "EL",
+  "FUEASS",
   "ETB",
   "LAGEKARTE",
   "MONITOR",
@@ -25,15 +27,16 @@ export function isRole(value: unknown): value is Role {
 }
 
 /**
- * Die Stabsfunktionen (S1–S6) plus LdS/Einsatzleiter (LDS). Eine Stabsrolle steht
- * für die eigentliche Führungsverantwortung — im Gegensatz zu den reinen Modul-/
- * Anzeigerollen (LAGEKARTE/ETB/BR_LEITER/MONITOR). Wird für destruktive
- * Gesamt-Aktionen genutzt, die strenger als eine einzelne Modul-Schreibberechtigung
- * gated sein sollen.
+ * Die Stabsfunktionen (S1–S6) plus die Führungsrollen LdS, EL (Einsatzleiter)
+ * und FüAss (Führungsassistent) — letztere drei gleichwertig (#195). Eine
+ * Stabsrolle steht für die eigentliche Führungsverantwortung — im Gegensatz zu
+ * den reinen Modul-/Anzeigerollen (LAGEKARTE/ETB/BR_LEITER/MONITOR). Wird für
+ * destruktive Gesamt-Aktionen genutzt, die strenger als eine einzelne
+ * Modul-Schreibberechtigung gated sein sollen.
  */
-export const STAB_ROLES: Role[] = ["S1", "S2", "S3", "S4", "S5", "S6", "LDS"];
+export const STAB_ROLES: Role[] = ["S1", "S2", "S3", "S4", "S5", "S6", "LDS", "EL", "FUEASS"];
 
-/** Hält die Rollenkombination mindestens eine Stabsrolle (S1–S6 oder LdS)? */
+/** Hält die Rollenkombination mindestens eine Stabsrolle (S1–S6, LdS, EL, FüAss)? */
 export function hasStabRole(roles: readonly Role[]): boolean {
   return roles.some((r) => (STAB_ROLES as readonly Role[]).includes(r));
 }
@@ -45,7 +48,9 @@ export const ROLE_LABELS: Record<Role, string> = {
   S4: "S4 · Versorgung / Logistik",
   S5: "S5 · Presse- und Medienarbeit",
   S6: "S6 · Information und Kommunikation",
-  LDS: "LdS / Einsatzleiter",
+  LDS: "LdS · Leiter des Stabes",
+  EL: "EL · Einsatzleiter",
+  FUEASS: "FüAss · Führungsassistent",
   LAGEKARTE: "Lagekartenführer",
   ETB: "Einsatztagebuchführer",
   MONITOR: "Monitor",
@@ -64,8 +69,11 @@ export const WRITE_SCOPES: Record<Role, Module[]> = {
   S4: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "einsatzabschnitte", "chat"],
   S5: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "einsatzabschnitte", "chat"],
   S6: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "einsatzabschnitte", "chat"],
-  // LdS / Einsatzleiter — volle Schreibrechte wie Stabsrollen (#102).
+  // LdS, EL (Einsatzleiter), FüAss (Führungsassistent) — volle Schreibrechte wie
+  // Stabsrollen; EL/FüAss gleichwertig mit LdS (#102, #195).
   LDS: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "einsatzabschnitte", "chat"],
+  EL: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "einsatzabschnitte", "chat"],
+  FUEASS: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "einsatzabschnitte", "chat"],
   // Lagekarten- und ETB-Führer dürfen die Kräfteübersicht mitpflegen (#100), aber
   // NICHT die Einsatzabschnitte — die sind Stabssache (S-Rollen + LdS, #135).
   LAGEKARTE: ["lagekarte", "kraefteubersicht", "chat"],

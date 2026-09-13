@@ -26,6 +26,17 @@ describe("effectiveWriteScopes / canWrite", () => {
     expect(hasStabRole(["MONITOR", "LDS"])).toBe(true);
   });
 
+  it("EL und FüAss sind gleichwertig mit LdS: volle Schreibrechte + Stabsrolle (#195)", () => {
+    for (const r of ["EL", "FUEASS"] as Role[]) {
+      expect([...effectiveWriteScopes([r], CHAT_ON)].sort()).toEqual([...MODULES].sort());
+      expect(hasStabRole([r])).toBe(true);
+    }
+    // insbesondere die Stabssache Einsatzabschnitte + die destruktiven Gates
+    expect(canWrite(["EL"], "einsatzabschnitte", CHAT_ON)).toBe(true);
+    expect(canWrite(["FUEASS"], "einsatzabschnitte", CHAT_ON)).toBe(true);
+    expect(hasStabRole(["MONITOR", "FUEASS"])).toBe(true);
+  });
+
   it("Leiter BR darf nur Kräfteübersicht + Chat, Rest read-only (#102)", () => {
     const scopes = effectiveWriteScopes(["BR_LEITER"], CHAT_ON);
     expect([...scopes].sort()).toEqual(["chat", "kraefteubersicht"]);

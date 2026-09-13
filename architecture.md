@@ -298,7 +298,10 @@ const WRITE_SCOPES: Record<Role, Module[]> = {
   S4: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
   S5: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
   S6: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
+  // LdS, EL (Einsatzleiter), FüAss (Führungsassistent) sind gleichwertig (#195).
   LDS: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
+  EL: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
+  FUEASS: ["lagekarte", "etb", "arbeitsblatt", "kraefteubersicht", "chat"],
   LAGEKARTE: ["lagekarte", "kraefteubersicht", "chat"],
   ETB: ["etb", "kraefteubersicht", "chat"],
   MONITOR: [],
@@ -1136,9 +1139,9 @@ Client-CRDT-Writes, kein eigener Endpoint, kein Seeding.
 - **Cross-Modul (read-only):** Feld C der Taktischen Übersicht listet die Abschnitte samt
   abgeleiteter Stärke (#138) und übernimmt sie in den PDF-Export (#140); die Kräfteübersicht zeigt
   je zugeordnetem Fahrzeug ein „→ EA/UA"-Badge. Alle drei nutzen dieselben Helfer → identische Zahlen.
-- **Rechte:** Schreiben dürfen **nur** S1–S6 und LdS (Stabssache, #135); LAGEKARTE/ETB/BR_LEITER
+- **Rechte:** Schreiben dürfen **nur** S1–S6, LdS, EL und FüAss (Stabssache, #135/#195); LAGEKARTE/ETB/BR_LEITER
   **nicht**. Monitor read-only. (Die Fahrzeug-Zuordnung schreibt ins `kraefteubersicht`-Doc, für das
-  die S-Rollen/LdS ebenfalls Schreibrecht haben → keine Rechtelücke.)
+  die S-Rollen/LdS/EL/FüAss ebenfalls Schreibrecht haben → keine Rechtelücke.)
 - **Export/Import:** verlustfreies JSON (`lagekatse.einsatzabschnitte`, IDs bleiben erhalten, damit
   die Fahrzeug-Zuordnung den Import übersteht; **inkl. Führungs-Singleton** `fuehrung`, optional →
   ältere Dateien bleiben gültig), Teil des Bundles (§12); Apply client-CRDT über

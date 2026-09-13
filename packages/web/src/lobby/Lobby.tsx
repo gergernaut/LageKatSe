@@ -5,8 +5,15 @@ import type { Session } from "../session";
 
 type Mode = "join" | "create";
 
-const S_ROLES: Role[] = ["S1", "S2", "S3", "S4", "S5", "S6", "LDS"];
-const OTHER_ROLES: Role[] = ["LAGEKARTE", "ETB", "MONITOR", "BR_LEITER"];
+// Reihenfolge = 2-Spalten-Layout der Rollenauswahl (#195): paarweise von links
+// nach rechts, Monitor am Ende über die volle Breite. S1–S6 zeigen nur den Code,
+// die übrigen ihr ausführliches Label (ROLE_LABELS).
+const S_ROLES: Role[] = ["S1", "S2", "S3", "S4", "S5", "S6"];
+const ROLE_ORDER: Role[] = [
+  "S1", "S2", "S3", "S4", "S5", "S6",
+  "LDS", "EL", "FUEASS", "BR_LEITER", "ETB", "LAGEKARTE",
+  "MONITOR",
+];
 
 export function Lobby({ onEnter }: { onEnter: (session: Session) => void }) {
   const [mode, setMode] = useState<Mode>("join");
@@ -77,16 +84,14 @@ export function Lobby({ onEnter }: { onEnter: (session: Session) => void }) {
     <div className="field">
       <span className="lab">Rollen (Mehrfachauswahl)</span>
       <div className="roles">
-        {S_ROLES.map((r) => (
-          <label key={r} className="role">
+        {ROLE_ORDER.map((r) => (
+          <label
+            key={r}
+            className={`role${r === "MONITOR" ? " role--wide" : ""}`}
+            title={ROLE_LABELS[r]}
+          >
             <input type="checkbox" checked={roles.has(r)} onChange={() => toggleRole(r)} />
-            {r}
-          </label>
-        ))}
-        {OTHER_ROLES.map((r) => (
-          <label key={r} className="role role--wide">
-            <input type="checkbox" checked={roles.has(r)} onChange={() => toggleRole(r)} />
-            {ROLE_LABELS[r]}
+            {S_ROLES.includes(r) ? r : ROLE_LABELS[r]}
           </label>
         ))}
       </div>

@@ -11,8 +11,8 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
 
 ## Monorepo (pnpm workspaces)
 - `packages/shared` — `@lagekatse/shared`: Rollen/Rechte (`roles.ts`: `canWrite`,
-  `effectiveWriteScopes`, `WRITE_SCOPES`, `hasStabRole`; Rollen S1–S6, **LdS, LAGEKARTE, ETB,
-  MONITOR, BR_LEITER**), Module (`modules.ts`), Protokoll, Datenmodelle (`lagekarte.ts`,
+  `effectiveWriteScopes`, `WRITE_SCOPES`, `hasStabRole`; Rollen S1–S6, **LdS, EL, FüAss** (die drei
+  Führungsrollen gleichwertig, #195), **LAGEKARTE, ETB, MONITOR, BR_LEITER**), Module (`modules.ts`), Protokoll, Datenmodelle (`lagekarte.ts`,
   `arbeitsblatt.ts`, `etb.ts`, `kraefteubersicht.ts`, `einsatzabschnitte.ts`, `close.ts`). Von Client **und** Server
   genutzt — die gemeinsame Quelle der Wahrheit.
 - `packages/server` — `@lagekatse/server`: Fastify HTTP-API + WebSocket-Sync-Gateway.
