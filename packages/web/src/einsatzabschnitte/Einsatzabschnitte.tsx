@@ -21,6 +21,7 @@ import {
   EA_TYPEN,
   EMPTY_BEREITSTELLUNG,
   EMPTY_FUEHRUNG,
+  formatAbschnittTitel,
   formatStaerke,
   FUEHRUNG_FIELDS,
   FUEHRUNG_LABELS,
@@ -77,6 +78,7 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
   const [assignSel, setAssignSel] = useState<Record<string, string>>({});
   const [importMessage, setImportMessage] = useState("");
   const [etbSyncMsg, setEtbSyncMsg] = useState("");
+  const [pdfBusy, setPdfBusy] = useState(false);
   const etbSyncTimerRef = useRef<number | null>(null);
   const abschnitteRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const fuehrungRef = useRef<Y.Map<unknown> | null>(null);
@@ -476,6 +478,74 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     URL.revokeObjectURL(url);
   };
 
+  // PDF-Export (#202): Führung + Bereitstellungsraum + je EA/UA mit Kopfdaten,
+  // abgeleiteter Stärke und den drei Listen. Ableitung hier (wo Daten/Helfer
+  // liegen), pdf.ts rendert nur — analog zum Arbeitsblatt-PDF.
+  const exportPdf = async () => {
+    if (pdfBusy) return;
+    setPdfBusy(true);
+    try {
+      const { einsatzabschnitteToPdf } = await import("../pdf");
+      const toList = (list: EaListItem[], label: string, showUebermittelt = false) => ({
+        label,
+        showUebermittelt,
+        items: list.map((it) => ({
+          text: it.text,
+          erledigt: it.erledigt,
+          uebermittelt: it.uebermittelt,
+          time: it.createdAt ? formatItemTime(it.createdAt) : "",
+        })),
+      });
+      const strengthLine = (fz: KraftVehicle[]) => `${formatStaerke(sumStaerke(fz))} · ${fz.length} Fz.`;
+
+      const sections = [
+        {
+          title: "Führung",
+          fields: FUEHRUNG_FIELDS.map((f) => ({ label: FUEHRUNG_LABELS[f], value: fuehrung[f] })),
+          strengthLine: strengthLine(assignedVehicles(EA_FUEHRUNG)),
+          lists: [toList(fuehrungAuftraege, EA_LIST_LABELS.auftraege, true)],
+        },
+        {
+          title: "Bereitstellungsraum",
+          fields: BEREITSTELLUNG_FIELDS.map((f) => ({ label: BEREITSTELLUNG_LABELS[f], value: bereitstellung[f] })),
+          strengthLine: strengthLine(vehicles.filter((v) => v.status === "br")),
+          lists: EA_LISTS.map((k) => toList(bereitstellung[k], EA_LIST_LABELS[k], k === "auftraege")),
+        },
+        ...abschnitte.map((a) => ({
+          title: formatAbschnittTitel(a),
+          fields: [
+            { label: "Leiter", value: a.leiter },
+            { label: "Befehlsstelle", value: a.befehlsstelle },
+            { label: "Kommunikation", value: a.kommunikation },
+            { label: "Auftrag", value: a.auftrag },
+            { label: "Einsatzbeginn", value: a.einsatzbeginn },
+          ],
+          strengthLine: strengthLine(assignedVehicles(a.id)),
+          lists: EA_LISTS.map((k) => toList(a[k], EA_LIST_LABELS[k], k === "auftraege")),
+        })),
+      ];
+
+      const bytes = await einsatzabschnitteToPdf(sections, {
+        roomName: session.room.name,
+        joinCode: session.room.joinCode,
+        stamp: dug(),
+      });
+      const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `einsatzabschnitte-${session.room.joinCode}-${dug()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (cause) {
+      console.debug("Einsatzabschnitte-PDF-Export fehlgeschlagen", cause);
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   // Einzeldatei-Import (Gegenstück): validiert gegen das Envelope-Schema und ersetzt
   // die (geteilten!) Abschnitte in EINER Transaktion. Nur Schreibberechtigte, mit Bestätigung.
   const importJson = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -563,6 +633,12 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
             <path d="M12 15V3M7 8l5-5 5 5M5 21h14" />
           </svg>
           Export JSON
+        </button>
+        <button className="tool" type="button" onClick={exportPdf} disabled={pdfBusy}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M6 2h9l5 5v15H6zM14 2v6h6" />
+          </svg>
+          {pdfBusy ? "Erzeuge…" : "Export PDF"}
         </button>
         {writable && (
           <button className="btn btn--primary" type="button" onClick={addAbschnitt}>

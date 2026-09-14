@@ -44,6 +44,7 @@ export function Kraefteubersicht({ session }: { session: Session }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [importing, setImporting] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
   const vehiclesRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const writable = canWrite(session.roles, "kraefteubersicht", {
@@ -181,6 +182,33 @@ export function Kraefteubersicht({ session }: { session: Session }) {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+  };
+
+  const exportPdf = async () => {
+    if (pdfBusy) return;
+    setPdfBusy(true);
+    try {
+      // pdf-lib ist schwer → erst beim Export dynamisch laden (eigener Chunk).
+      const { kraefteToPdf } = await import("../pdf");
+      const bytes = await kraefteToPdf(items, abschnittLabel, {
+        roomName: session.room.name,
+        joinCode: session.room.joinCode,
+        stamp: dug(),
+      });
+      const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `kraefteuebersicht-${session.room.joinCode}-${dug()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (cause) {
+      console.debug("Kräfte-PDF-Export fehlgeschlagen", cause);
+    } finally {
+      setPdfBusy(false);
+    }
   };
 
   // JSON-Import: ersetzt die gesamte Kräfteübersicht (client-CRDT, für alle im Raum).
@@ -416,6 +444,12 @@ export function Kraefteubersicht({ session }: { session: Session }) {
             <path d="M12 15V3M7 8l5-5 5 5M5 21h14" />
           </svg>
           Export JSON
+        </button>
+        <button className="tool" type="button" onClick={exportPdf} disabled={pdfBusy}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M6 2h9l5 5v15H6zM14 2v6h6" />
+          </svg>
+          {pdfBusy ? "Erzeuge…" : "Export PDF"}
         </button>
       </div>
 

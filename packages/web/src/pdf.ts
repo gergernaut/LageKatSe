@@ -16,8 +16,13 @@ import {
   AB_KOPF_FIELDS,
   AB_KOPF_LABELS,
   formatStaerke,
+  KRAFT_ORG_LABELS,
+  KRAFT_STATUS_LABELS,
+  sumStaerke,
   type AbAuftragZeile,
   type Arbeitsblatt,
+  type KraftStatus,
+  type KraftVehicle,
   type LogEntry,
   type Staerke,
 } from "@lagekatse/shared";
@@ -581,4 +586,217 @@ export async function lagekarteToPngPdf(
   page.drawText("LageKatSe · Lagekarte", { x: W - M - 110, y: M - 6, size: 8, font, color: MUTED });
 
   return pdf.save();
+}
+
+// ---- Geteilte Doku-Helfer für Kräfte- + Abschnitte-PDF (#202) ----
+// Bewusst nur von den neueren Buildern genutzt; etb/arbeitsblatt bleiben
+// self-contained (kein Umbau der bestehenden, getesteten Layouts).
+async function createDoc(landscape: boolean) {
+  const pdf = await PDFDocument.create();
+  const font = await embedDejaVu(pdf);
+  const W = landscape ? 842 : 595; // A4 quer / hoch
+  const H = landscape ? 595 : 842;
+  const M = 36;
+  const CW = W - 2 * M;
+  const ABOT = M + 16; // Platz für die Fußzeile
+  const S = 8.5; // Fließtext
+  const LBL = 7.5; // Label
+  const LH = 12; // Zeilenhöhe
+
+  let page = pdf.addPage([W, H]);
+  let y = H - M;
+  const newPage = () => {
+    page = pdf.addPage([W, H]);
+    y = H - M;
+  };
+  const need = (h: number) => {
+    if (y - h < ABOT) newPage();
+  };
+  const gap = (h = 6) => {
+    y -= h;
+  };
+
+  const title = (main: string, sub: string) => {
+    page.drawText(main, { x: M, y: y - 13, size: 13, font, color: INK });
+    page.drawText(sub, { x: M, y: y - 26, size: 9, font, color: MUTED });
+    y -= 40;
+  };
+
+  const heading = (text: string) => {
+    need(24);
+    page.drawRectangle({ x: M, y: y - 14, width: 3, height: 14, color: SIGNAL });
+    page.drawText(text, { x: M + 9, y: y - 10.8, size: 11, font, color: INK });
+    y -= 16;
+    page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.6, color: LINE });
+    y -= 8;
+  };
+
+  const para = (text: string, color = INK) => {
+    for (const ln of wrapText(text, font, S, CW)) {
+      need(LH);
+      page.drawText(ln, { x: M, y: y - S, size: S, font, color });
+      y -= LH;
+    }
+  };
+
+  const labelValue = (label: string, value: string) => {
+    const vlines = wrapText(value || "—", font, S, CW - 140);
+    need(vlines.length * LH);
+    page.drawText(label, { x: M, y: y - S, size: LBL, font, color: MUTED });
+    vlines.forEach((ln, i) => page.drawText(ln, { x: M + 140, y: y - S - i * LH, size: S, font, color: INK }));
+    y -= vlines.length * LH;
+  };
+
+  const table = (cols: { label: string; width: number }[], rows: string[][], emptyLabel: string) => {
+    const tW = cols.reduce((s, c) => s + c.width, 0);
+    const head = () => {
+      need(LH + 2);
+      page.drawRectangle({ x: M, y: y - LH, width: tW, height: LH, color: HEAD_BG });
+      let x = M;
+      for (const c of cols) {
+        page.drawText(c.label, { x: x + 3, y: y - S - 1, size: LBL, font, color: INK });
+        x += c.width;
+      }
+      y -= LH;
+    };
+    head();
+    if (rows.length === 0) {
+      need(LH);
+      page.drawText(emptyLabel, { x: M + 3, y: y - S - 1, size: S, font, color: MUTED });
+      y -= LH;
+      gap(4);
+      return;
+    }
+    for (const row of rows) {
+      const wr = cols.map((c, i) => wrapText(row[i] ?? "", font, S, c.width - 6));
+      const n = Math.max(...wr.map((w) => w.length));
+      const rh = n * LH + 2;
+      if (y - rh < ABOT) {
+        newPage();
+        head();
+      }
+      let x = M;
+      wr.forEach((cl, i) => {
+        cl.forEach((ln, li) => page.drawText(ln, { x: x + 3, y: y - S - 1 - li * LH, size: S, font, color: INK }));
+        x += cols[i].width;
+      });
+      page.drawLine({ start: { x: M, y: y - rh }, end: { x: M + tW, y: y - rh }, thickness: 0.4, color: LINE });
+      y -= rh;
+    }
+    gap(4);
+  };
+
+  // Fußzeile (Seitenzahlen) über alle Seiten — erst nach dem Zeichnen ist die
+  // Gesamtseitenzahl bekannt. Gibt die fertigen Bytes zurück.
+  const finalize = (footerLabel: string): Promise<Uint8Array> => {
+    const pages = pdf.getPages();
+    pages.forEach((p, idx) => {
+      p.drawText(`Seite ${idx + 1} / ${pages.length}`, { x: M, y: M - 4, size: 8, font, color: MUTED });
+      const w = font.widthOfTextAtSize(footerLabel, 8);
+      p.drawText(footerLabel, { x: W - M - w, y: M - 4, size: 8, font, color: MUTED });
+    });
+    return pdf.save();
+  };
+
+  return { CW, title, heading, para, labelValue, table, gap, finalize };
+}
+
+/** Erzeugt die Kräfteübersicht als PDF (A4 quer, Uint8Array) — #202. */
+export async function kraefteToPdf(
+  vehicles: KraftVehicle[],
+  abschnittLabel: (id: string | undefined) => string | null,
+  meta: PdfMeta,
+): Promise<Uint8Array> {
+  const doc = await createDoc(true);
+  doc.title(
+    `Kräfteübersicht — ${meta.roomName}`,
+    `Lobby ${meta.joinCode} · Stand ${meta.stamp} · ${vehicles.length} Fahrzeug${vehicles.length === 1 ? "" : "e"}`,
+  );
+
+  const cols = [
+    { label: "Funkrufname", width: 150 },
+    { label: "Organisation", width: 110 },
+    { label: "Typ", width: 154 },
+    { label: "Stärke (F/U/H//Σ)", width: 110 },
+    { label: "Zuordnung", width: 246 },
+  ];
+
+  // Im Einsatz zuerst (aktive Kräfte), dann Bereitstellungsraum.
+  const groups: KraftStatus[] = ["einsatz", "br"];
+  for (const status of groups) {
+    const group = vehicles.filter((v) => v.status === status);
+    doc.heading(`${KRAFT_STATUS_LABELS[status]} — ${formatStaerke(sumStaerke(group))} · ${group.length} Fz.`);
+    doc.table(
+      cols,
+      group.map((v) => [
+        v.funkrufname,
+        KRAFT_ORG_LABELS[v.org] ?? v.org,
+        v.typ,
+        formatStaerke(sumStaerke([v])),
+        status === "einsatz" ? abschnittLabel(v.einsatzabschnittId) ?? "—" : "—",
+      ]),
+      `Keine Fahrzeuge (${KRAFT_STATUS_LABELS[status]}).`,
+    );
+    doc.gap();
+  }
+
+  return doc.finalize("LageKatSe · Kräfteübersicht");
+}
+
+/* ---- Einsatzabschnitte-PDF (A4 hoch) — vom Aufrufer vor-abgeleitet (#202) ---- */
+export interface EaPdfListItem {
+  text: string;
+  erledigt: boolean;
+  uebermittelt?: boolean;
+  time?: string; // HH:MM (createdAt), leer wenn unbekannt
+}
+export interface EaPdfList {
+  label: string;
+  showUebermittelt?: boolean; // nur Aufträge (#180)
+  items: EaPdfListItem[];
+}
+export interface EaPdfSection {
+  title: string; // "Führung" / "Bereitstellungsraum" / "EA Nord" …
+  fields: { label: string; value: string }[];
+  strengthLine?: string; // "1/2/9//12 · 3 Fz."
+  lists: EaPdfList[];
+}
+
+/** Erzeugt die Einsatzabschnitte als PDF (A4 hoch, Uint8Array) — #202. */
+export async function einsatzabschnitteToPdf(sections: EaPdfSection[], meta: PdfMeta): Promise<Uint8Array> {
+  const doc = await createDoc(false);
+  doc.title(`Einsatzabschnitte — ${meta.roomName}`, `Lobby ${meta.joinCode} · Stand ${meta.stamp}`);
+
+  if (sections.length === 0) doc.para("Noch keine Abschnitte angelegt.", MUTED);
+
+  for (const sec of sections) {
+    doc.heading(sec.title);
+    for (const f of sec.fields) doc.labelValue(f.label, f.value);
+    if (sec.strengthLine) doc.labelValue("Kräfte", sec.strengthLine);
+    for (const list of sec.lists) {
+      doc.gap(2);
+      const textWidth = doc.CW - (list.showUebermittelt ? 98 : 72);
+      const cols = list.showUebermittelt
+        ? [
+            { label: "Erl.", width: 26 },
+            { label: "Üm.", width: 26 },
+            { label: "Zeit", width: 46 },
+            { label: `${list.label} (${list.items.length})`, width: textWidth },
+          ]
+        : [
+            { label: "Erl.", width: 26 },
+            { label: "Zeit", width: 46 },
+            { label: `${list.label} (${list.items.length})`, width: textWidth },
+          ];
+      const rows = list.items.map((it) =>
+        list.showUebermittelt
+          ? [it.erledigt ? "✓" : "—", it.uebermittelt ? "✓" : "—", it.time ?? "", it.text]
+          : [it.erledigt ? "✓" : "—", it.time ?? "", it.text],
+      );
+      doc.table(cols, rows, `Keine ${list.label}.`);
+    }
+    doc.gap();
+  }
+
+  return doc.finalize("LageKatSe · Einsatzabschnitte");
 }
