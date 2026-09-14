@@ -17,11 +17,9 @@
 	# - Gehashte Build-Assets (Vite legt sie unter /assets/ mit Content-Hash ab):
 	#   ändern bei Änderung den Dateinamen → unbegrenzt cachebar (immutable).
 	# - Taktische-Zeichen-Grafiken: stabile Namen, ändern sich praktisch nie
-	#   → lange cachen (spart Traffic für die ~1000 SVGs), aber nicht "immutable",
-	#   damit ein evtl. ersetztes Bild unter gleichem Namen nach der Frist ankommt.
+	#   → lange cachen (spart Traffic für die ~1000 SVGs), aber nicht "immutable".
 	# - Alles andere (HTML-Shell, taktische-zeichen/index.json, config.js, favicon …):
-	#   immer revalidieren. Das 304 via ETag ist billig, aber neue Builds/Symbole
-	#   erscheinen sofort — ohne dass Nutzer hart neu laden müssen.
+	#   immer revalidieren (billiges 304 via ETag) → neue Builds/Symbole sofort sichtbar.
 	@immutable path /assets/*
 	header @immutable Cache-Control "public, max-age=31536000, immutable"
 
@@ -33,6 +31,19 @@
 	}
 	header @revalidate Cache-Control "no-cache"
 
-	try_files {path} /index.html
-	file_server
+	# Gehashte Build-Assets: fehlt eine Datei (veralteter Client fordert einen
+	# Chunk aus einem alten Build an), liefert file_server einen echten 404 —
+	# NICHT den SPA-Fallback. Sonst käme index.html (HTML) mit Status 200, und ein
+	# dynamisches import() versucht, HTML als JS-Modul zu laden → kryptischer
+	# TypeError statt eines klaren 404 (#201). Der Client heilt sich per
+	# `vite:preloadError`-Reload (s. main.tsx).
+	handle /assets/* {
+		file_server
+	}
+
+	# Alles andere: SPA — client-seitiges Routing über index.html.
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
 }
