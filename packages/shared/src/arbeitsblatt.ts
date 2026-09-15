@@ -106,6 +106,71 @@ export interface AbNotiz {
   erledigt: boolean;
 }
 
+// ---- Zeitstrahl (#208): Meilensteine als eigene Karte unter A ----
+/** Key des Zeitstrahl-Arrays im arbeitsblatt-Dokument (Y.Array<Y.Map>, Feld-Merge wie E). */
+export const AB_ZEITSTRAHL = "zeitstrahl" as const;
+
+/**
+ * Ein Meilenstein im Zeitstrahl (#208). `datum` (ISO-8601, `YYYY-MM-DD`) und `uhrzeit`
+ * (`HH:MM`) sind getrennt — so lässt sich im UI je ein natives Input bedienen und die
+ * chronologische Ordnung via kombiniertem Schlüssel ableiten. `details` optional;
+ * bewusst **kein** `erledigt`-Flag (die Zeitleiste ist kein Aufgaben-Ersatz —
+ * Vergangenes wird per Uhrzeit kategorisiert, #208).
+ */
+export interface AbMeilenstein {
+  id: string;
+  datum: string; // ISO-Datum YYYY-MM-DD
+  uhrzeit: string; // HH:MM (24h)
+  titel: string;
+  details?: string;
+}
+
+/**
+ * Kombinierter chronologischer Schlüssel: `${datum}T${uhrzeit}` lexicografisch
+ * vergleichbar (beide Felder sind normalisiert YYYY-MM-DD / HH:MM). Rein & testbar.
+ */
+export function meilensteinSortKey(m: Pick<AbMeilenstein, "datum" | "uhrzeit">): string {
+  return `${m.datum}T${m.uhrzeit}`;
+}
+
+/** Die vier Kategorien eines Meilensteins relativ zur aktuellen Zeit (#208). */
+export type AbMeilensteinKategorie = "vergangen" | "aktuell" | "naechstes" | "geplant";
+
+/** Ein Meilenstein mit seiner Kategorie (Ergebnis von `kategorisiereMeilensteine`). */
+export type AbZeitstrahlEintrag<T> = T & { kategorie: AbMeilensteinKategorie };
+
+/** Intern: kombiniertes Datum/Uhrzeit als Date (Sekunden auf 00). */
+function meilensteinDate(m: Pick<AbMeilenstein, "datum" | "uhrzeit">): Date {
+  return new Date(`${meilensteinSortKey(m)}:00`);
+}
+
+/**
+ * Kategorisiert die (bereits chronologisch sortierten) Meilensteine relativ zu `jetzt`
+ * (#208): alles vor dem „aktuellen" Zeitpunkt = „vergangen" (grün, ohne Haken), der
+ * **letzte vergangene** ist zugleich „aktuell" (blau — die engste Vergangenheit), der
+ * erste zukünftige = „als Nächstes" (orange), alles danach = „geplant" (grau). Sind
+ * alle in der Zukunft, ist keiner „aktuell"/„vergangen". Reine Funktion — für UI und
+ * PDF identisch nutzbar.
+ */
+export function kategorisiereMeilensteine<T extends AbMeilenstein>(
+  sortiert: readonly T[],
+  jetzt: Date,
+): AbZeitstrahlEintrag<T>[] {
+  const nowMs = jetzt.getTime();
+  const msListe = sortiert.map((m) => meilensteinDate(m).getTime());
+  // Erster Meilenstein in der Zukunft („als Nächstes") — oder Listenende, wenn keiner folgt.
+  const naechsterIndex = msListe.findIndex((ms) => ms > nowMs);
+  const grenze = naechsterIndex === -1 ? sortiert.length : naechsterIndex;
+
+  return sortiert.map((m, i) => {
+    if (i < grenze) {
+      return { ...m, kategorie: i === grenze - 1 && grenze > 0 ? ("aktuell" as const) : ("vergangen" as const) };
+    }
+    if (i === naechsterIndex) return { ...m, kategorie: "naechstes" as const };
+    return { ...m, kategorie: "geplant" as const };
+  });
+}
+
 // ---- Feld F: Organisation / Kommunikation (nur Funkkanäle) ----
 /** Scalar part of Feld F, stored as keys on the AB_ORGANISATION Y.Map. */
 export interface AbOrganisation {
@@ -217,6 +282,8 @@ export interface Arbeitsblatt {
   organisation: AbOrganisation;
   kanaele: AbKanal[]; // Feld F — frei angelegte Funkkanäle
   wetter: AbWetterSnapshot | null; // Rückseite — null solange nie abgerufen
+  /** Zeitstrahl (#208): Meilensteine — im UI stets chronologisch sortiert dargestellt. */
+  zeitstrahl: AbMeilenstein[];
 }
 
 /** Envelope of the client-side JSON export (architecture.md §10.4 / §12). */
@@ -255,4 +322,24 @@ export function asBool(value: unknown): boolean {
 /** Funkkanal-Typ; alles außer "DMO" fällt auf "TMO" (der übliche Netzbetrieb). */
 export function asKanalTyp(value: unknown): AbKanalTyp {
   return value === "DMO" ? "DMO" : "TMO";
+}
+
+/** Ein Meilenstein (#208) defensiv aus rohen Import-Werten — niemals werfen. */
+export function coerceMeilenstein(value: unknown, fallbackId: () => string): AbMeilenstein {
+  const r = isRecord(value) ? value : {};
+  const datum = asString(r.datum);
+  const uhrzeit = asString(r.uhrzeit);
+  return {
+    id: asString(r.id) || fallbackId(),
+    // Datum/Uhrzeit grob normalisieren: nur wohlgeformte Werte durchlassen.
+    datum: /^\d{4}-\d{2}-\d{2}$/.test(datum) ? datum : "",
+    uhrzeit: /^\d{2}:\d{2}$/.test(uhrzeit) ? uhrzeit : "",
+    titel: asString(r.titel),
+    details: asString(r.details) || undefined,
+  };
+}
+
+/** Liste von Meilensteinen coercen (fehlend/defekt → []). */
+export function coerceMeilensteine(value: unknown, fallbackId: () => string): AbMeilenstein[] {
+  return (Array.isArray(value) ? value : []).map((r) => coerceMeilenstein(r, fallbackId));
 }

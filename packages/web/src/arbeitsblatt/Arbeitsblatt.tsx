@@ -14,8 +14,13 @@ import {
   AB_RUECKMELD,
   AB_WETTER,
   AB_WETTER_SNAPSHOT,
+  AB_ZEITSTRAHL,
   canWrite,
   coerceAbMassnahme,
+  coerceMeilenstein,
+  coerceMeilensteine,
+  kategorisiereMeilensteine,
+  meilensteinSortKey,
   EA_ABSCHNITTE,
   EA_BEREITSTELLUNG,
   EA_FUEHRUNG,
@@ -32,6 +37,8 @@ import {
   type AbKanalTyp,
   type AbKopfField,
   type AbMassnahme,
+  type AbMeilenstein,
+  type AbMeilensteinKategorie,
   type AbNotiz,
   type AbWetterSnapshot,
   type Arbeitsblatt as ArbeitsblattState,
@@ -49,6 +56,7 @@ import { connectModule } from "../sync/provider";
 import { uid } from "../uid";
 import { dug } from "../dug";
 import { Wetter } from "./Wetter";
+import { Zeitstrahl } from "./Zeitstrahl";
 import { applyArbeitsblattImport } from "./applyImport";
 
 const EMPTY_SHEET: ArbeitsblattState = {
@@ -69,6 +77,7 @@ const EMPTY_SHEET: ArbeitsblattState = {
   },
   kanaele: [],
   wetter: null,
+  zeitstrahl: [],
 };
 
 /** Abgeleitete Kräfte-Kennzahlen (Feld C) — read-only aus dem kraefteubersicht-Modul. */
@@ -79,8 +88,8 @@ interface KraftKennzahlen {
 
 /* ---- Einklappbare Karten (#206): reine Anzeige-Option (Invariante #4) ---- */
 
-/** Die Panels der Taktischen Übersicht (Karten A–F + W=Wetter). */
-const AB_PANEL_IDS = ["a", "b", "c", "d", "e", "f", "w"] as const;
+/** Die Panels der Taktischen Übersicht (Karten A–F + Z=Zeitstrahl + W=Wetter). */
+const AB_PANEL_IDS = ["a", "z", "b", "c", "d", "e", "f", "w"] as const;
 type AbPanelId = (typeof AB_PANEL_IDS)[number];
 
 /** localStorage-Key für den Collapse-Zustand (Punkt-Notation wie die anderen Keys). */
@@ -115,6 +124,7 @@ const PANEL_TITLE_IDS: Record<AbPanelId, string> = {
   d: "arbeitsblatt-auftraege-title",
   e: "arbeitsblatt-rueckmeld-title",
   f: "arbeitsblatt-organisation-title",
+  z: "arbeitsblatt-zeitstrahl-title",
   w: "arbeitsblatt-wetter-title",
 };
 
@@ -193,6 +203,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   const organisationRef = useRef<Y.Map<unknown> | null>(null);
   const kanaeleRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const wetterRef = useRef<Y.Map<unknown> | null>(null);
+  const zeitstrahlRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const writable = canWrite(session.roles, "arbeitsblatt", {
     allowMonitorChat: session.room.settings.allowMonitorChat,
   });
@@ -224,6 +235,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     const organisation = doc.getMap<unknown>(AB_ORGANISATION);
     const kanaele = doc.getArray<Y.Map<unknown>>(AB_KANAELE);
     const wetter = doc.getMap<unknown>(AB_WETTER);
+    const zeitstrahl = doc.getArray<Y.Map<unknown>>(AB_ZEITSTRAHL);
 
     kopfRef.current = kopf;
     massnahmenRef.current = massnahmen;
@@ -231,6 +243,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     organisationRef.current = organisation;
     kanaeleRef.current = kanaele;
     wetterRef.current = wetter;
+    zeitstrahlRef.current = zeitstrahl;
 
     const readSheet = (): ArbeitsblattState => ({
       kopf: {
@@ -255,6 +268,10 @@ export function Arbeitsblatt({ session }: { session: Session }) {
       },
       kanaele: kanaele.toArray().map((row) => row.toJSON() as AbKanal),
       wetter: (wetter.get(AB_WETTER_SNAPSHOT) as AbWetterSnapshot | undefined) ?? null,
+      // Zeitstrahl (#208): coerce + stets chronologisch sortiert (UI-invariant).
+      zeitstrahl: coerceMeilensteine(zeitstrahl.toJSON(), () => uid()).sort((a, b) =>
+        meilensteinSortKey(a).localeCompare(meilensteinSortKey(b)),
+      ),
     });
 
     const refresh = () => setSheet(readSheet());
@@ -282,6 +299,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
       organisationRef.current = null;
       kanaeleRef.current = null;
       wetterRef.current = null;
+      zeitstrahlRef.current = null;
       conn.destroy();
     };
   }, [session.room.id, session.token, session.room.createdAt, writable]);
@@ -395,6 +413,53 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     const index = rows.toArray().findIndex((row) => row.get("id") === id);
     if (index >= 0) rows.delete(index, 1);
   };
+
+  // ---- Zeitstrahl (#208) ----
+  // Ein Meilenstein anlegen oder bearbeiten (Dialog schreibt via upsert).
+  const upsertMeilenstein = (value: Omit<AbMeilenstein, "id"> & { id?: string }) => {
+    if (!writable) return;
+    const rows = zeitstrahlRef.current;
+    if (!rows) return;
+    const arr = rows.toArray();
+    if (value.id) {
+      // Bearbeiten: Feld-Write auf der bestehenden Zeile (Feld-Merge wie überall).
+      const row = arr.find((row) => row.get("id") === value.id);
+      row?.doc?.transact(() => {
+        row.set("datum", value.datum);
+        row.set("uhrzeit", value.uhrzeit);
+        row.set("titel", value.titel);
+        if (value.details) row.set("details", value.details);
+        else row.delete("details");
+      });
+    } else {
+      // Anlegen: als Y.Map-Zeile pushen (item-level Merge, wie Feld E).
+      const row = new Y.Map<unknown>();
+      row.doc = rows.doc;
+      row.set("id", uid());
+      row.set("datum", value.datum);
+      row.set("uhrzeit", value.uhrzeit);
+      row.set("titel", value.titel);
+      if (value.details) row.set("details", value.details);
+      rows.push([row]);
+    }
+  };
+
+  const deleteMeilenstein = (id: string) => {
+    if (!writable) return;
+    const rows = zeitstrahlRef.current;
+    if (!rows) return;
+    const index = rows.toArray().findIndex((row) => row.get("id") === id);
+    if (index >= 0) rows.delete(index, 1);
+  };
+
+  // "Jetzt"-Uhrzeit für Kategorisierung + Markierung: 30-s-Tick reicht (Minute-genau).
+  const [jetzt, setJetzt] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setJetzt(new Date()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  // Kategorisierte Liste (rein abgeleitet, gleiche Funktion wie im PDF):
+  const zeitstrahlEintraege = kategorisiereMeilensteine(sheet.zeitstrahl, jetzt);
 
   const setOrganisation = (field: AbKanalField, value: string) => {
     if (!writable) return;
@@ -621,6 +686,17 @@ export function Arbeitsblatt({ session }: { session: Session }) {
           </div>
         )}
       </section>
+
+      {/* Zeitstrahl (#208): eigene Karte direkt unter der Kopfzeile */}
+      <Zeitstrahl
+        eintraege={zeitstrahlEintraege}
+        jetzt={jetzt}
+        writable={writable}
+        collapsed={collapsed.z}
+        onTogglePanel={togglePanel}
+        onUpsert={upsertMeilenstein}
+        onDelete={deleteMeilenstein}
+      />
 
       <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-lagebild-title">
         <AbPanelHead

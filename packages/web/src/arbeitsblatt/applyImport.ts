@@ -18,9 +18,11 @@ import {
   AB_RUECKMELD,
   AB_WETTER,
   AB_WETTER_SNAPSHOT,
+  AB_ZEITSTRAHL,
   asBool,
   asKanalTyp,
   asString,
+  coerceMeilensteine,
   isRecord,
 } from "@lagekatse/shared";
 
@@ -43,6 +45,7 @@ export function applyArbeitsblattImport(doc: Y.Doc, sheet: unknown, newId: () =>
   const massnahmenObj = isRecord(s.massnahmen) ? s.massnahmen : {};
   const rueckArr = Array.isArray(s.rueckmeldungen) ? s.rueckmeldungen : [];
   const kanaeleArr = Array.isArray(s.kanaele) ? s.kanaele : [];
+  const zeitstrahlArr = Array.isArray(s.zeitstrahl) ? s.zeitstrahl : [];
 
   const kopf = doc.getMap<unknown>(AB_KOPF);
   const massnahmen = doc.getMap<unknown>(AB_MASSNAHMEN);
@@ -50,6 +53,7 @@ export function applyArbeitsblattImport(doc: Y.Doc, sheet: unknown, newId: () =>
   const organisation = doc.getMap<unknown>(AB_ORGANISATION);
   const kanaele = doc.getArray<Y.Map<unknown>>(AB_KANAELE);
   const wetter = doc.getMap<unknown>(AB_WETTER);
+  const zeitstrahl = doc.getArray<Y.Map<unknown>>(AB_ZEITSTRAHL);
 
   doc.transact(() => {
     // Feld A: Kopf-Skalare überschreiben
@@ -93,5 +97,19 @@ export function applyArbeitsblattImport(doc: Y.Doc, sheet: unknown, newId: () =>
     // Rückseite: Wetter-Snapshot (Whole-Value) übernehmen oder leeren
     if (isRecord(s.wetter)) wetter.set(AB_WETTER_SNAPSHOT, s.wetter);
     else wetter.delete(AB_WETTER_SNAPSHOT);
+
+    // Zeitstrahl (#208): Meilensteine (Array ersetzen, coercen, IDs erhalten)
+    zeitstrahl.delete(0, zeitstrahl.length);
+    for (const m of coerceMeilensteine(zeitstrahlArr, newId)) {
+      zeitstrahl.push([
+        rowMap({
+          id: m.id,
+          datum: m.datum,
+          uhrzeit: m.uhrzeit,
+          titel: m.titel,
+          ...(m.details ? { details: m.details } : {}),
+        }),
+      ]);
+    }
   });
 }
