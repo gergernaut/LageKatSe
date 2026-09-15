@@ -433,8 +433,10 @@ export function Arbeitsblatt({ session }: { session: Session }) {
       });
     } else {
       // Anlegen: als Y.Map-Zeile pushen (item-level Merge, wie Feld E).
+      // WICHTIG: Die Y.Map wird detached erzeugt und NUR via rows.push() integriert —
+      // row.doc manuell zu setzen korruptiert Yjs' internen Typ-State
+      // ("Unexpected case" in findRootTypeKey beim Write).
       const row = new Y.Map<unknown>();
-      row.doc = rows.doc;
       row.set("id", uid());
       row.set("datum", value.datum);
       row.set("uhrzeit", value.uhrzeit);
