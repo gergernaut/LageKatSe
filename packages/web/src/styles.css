@@ -520,7 +520,6 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   background: #1f6fe0; color: #fff; font: 700 10px var(--mono);
   padding: 2px 8px; border-radius: 10px; white-space: nowrap;
 }
-.zeitstrahl__add { margin-top: 6px; }
 /* Tooltip nativ via title-Attribut — kein Extra-Markup nötig. */
 
 /* Dialog (#208) */

@@ -155,11 +155,16 @@ export function Zeitstrahl({
           )}
           {writable && (
             <button
-              className="zeitstrahl__add"
+              className="etb-add"
               type="button"
-              onClick={() => setDialog({ meilenstein: {} })}
+              onClick={() =>
+                setDialog({
+                  // Meilensteine betreffen meist den aktuellen Tag → vorbelegen (#208-Feedback).
+                  meilenstein: { datum: new Date().toLocaleDateString("sv-SE") },
+                })
+              }
             >
-              + Neuen Meilenstein hinzufügen
+              Neuer Meilenstein
             </button>
           )}
         </div>
@@ -217,7 +222,7 @@ function MeilensteinDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <h4 id="zeitstrahl-dialog-title" className="zeitstrahl-dialog__title">
-          {initial.id ? "Meilenstein bearbeiten" : "Neuen Meilenstein hinzufügen"}
+          {initial.id ? "Meilenstein bearbeiten" : "Neuer Meilenstein"}
         </h4>
         <div className="zeitstrahl-dialog__row">
           <label>
