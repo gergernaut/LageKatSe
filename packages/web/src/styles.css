@@ -459,6 +459,20 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   width: 28px; height: 28px; border-radius: 7px; display: inline-grid; place-items: center;
   background: var(--ground); color: var(--signal); font: 700 12px var(--mono);
 }
+
+/* Einklappbare Karten (#206): Head als Button, Caret rotiert beim Einklappen. */
+.arbeitsblatt-panel__toggle {
+  width: 100%; text-align: left; font: inherit; color: inherit;
+  border: 0; cursor: pointer; user-select: none;
+}
+.arbeitsblatt-panel__toggle:hover { background: var(--surface-3, #eef2f6); }
+.arbeitsblatt-panel__chevron {
+  display: inline-block; color: var(--ink-3); font-size: 12px;
+  transition: transform .15s ease;
+}
+.arbeitsblatt-panel__chevron.is-collapsed { transform: rotate(-90deg); }
+/* Darkmode: Hover passend zum Set. */
+[data-theme="dark"] .arbeitsblatt-panel__toggle:hover { background: var(--panel); }
 .arbeitsblatt-fields {
   padding: 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px 18px;
 }

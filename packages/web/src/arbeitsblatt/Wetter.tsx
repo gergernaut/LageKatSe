@@ -18,6 +18,9 @@ interface WetterProps {
   roomId: string;
   onSnapshot: (snapshot: AbWetterSnapshot) => void;
   onWriteEtb: (inhalt: string) => Promise<void>;
+  /** Einklappbare Karte (#206) — Zustand liegt zentral im Arbeitsblatt (Invariante #4). */
+  collapsed: boolean;
+  onTogglePanel: (id: "w") => void;
 }
 
 const STALE_MS = 10 * 60 * 1000; // Auto-Refresh, wenn der Snapshot älter ist
@@ -168,7 +171,7 @@ function maybeNotify(alerts: AbWetterAlert[]): void {
   }
 }
 
-export function Wetter({ snapshot, writable, roomId, onSnapshot, onWriteEtb }: WetterProps) {
+export function Wetter({ snapshot, writable, roomId, onSnapshot, onWriteEtb, collapsed, onTogglePanel }: WetterProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [etbDone, setEtbDone] = useState(false);
@@ -252,14 +255,25 @@ export function Wetter({ snapshot, writable, roomId, onSnapshot, onWriteEtb }: W
 
   return (
     <section className="arbeitsblatt-panel wetter" aria-labelledby="arbeitsblatt-wetter-title">
-      <div className="arbeitsblatt-panel__head">
+      <button
+        type="button"
+        className="arbeitsblatt-panel__head arbeitsblatt-panel__toggle"
+        aria-expanded={!collapsed}
+        aria-controls="arbeitsblatt-wetter-title-body"
+        onClick={() => onTogglePanel("w")}
+      >
+        <span className={`arbeitsblatt-panel__chevron ${collapsed ? "is-collapsed" : ""}`} aria-hidden="true">
+          ▾
+        </span>
         <h3 id="arbeitsblatt-wetter-title">
           <span className="arbeitsblatt-panel__letter">W</span>
           <span aria-hidden="true">·</span> Wetter
         </h3>
-        <p>Aktuelle Lage, 4-h-Trend und DWD-Warnungen für die Kartenmitte des Lagebilds.</p>
-      </div>
+        <p className="arbeitsblatt-panel__hint">Aktuelle Lage, 4-h-Trend und DWD-Warnungen für die Kartenmitte des Lagebilds.</p>
+      </button>
 
+      {!collapsed && (
+      <>
       <div className="wetter__bar">
         <span className="wetter__meta">
           {snapshot
@@ -356,6 +370,8 @@ export function Wetter({ snapshot, writable, roomId, onSnapshot, onWriteEtb }: W
       )}
 
       <p className="wetter__source">Quelle: Deutscher Wetterdienst (via BrightSky)</p>
+      </>
+      )}
     </section>
   );
 }

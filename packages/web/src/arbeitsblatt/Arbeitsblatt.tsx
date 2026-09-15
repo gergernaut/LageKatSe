@@ -77,9 +77,86 @@ interface KraftKennzahlen {
   einsatzCount: number; // Anzahl Fahrzeuge im Einsatz (BR-Einheiten: Liste unten)
 }
 
+/* ---- Einklappbare Karten (#206): reine Anzeige-Option (Invariante #4) ---- */
+
+/** Die Panels der Taktischen Übersicht (Karten A–F + W=Wetter). */
+const AB_PANEL_IDS = ["a", "b", "c", "d", "e", "f", "w"] as const;
+type AbPanelId = (typeof AB_PANEL_IDS)[number];
+
+/** localStorage-Key für den Collapse-Zustand (Punkt-Notation wie die anderen Keys). */
+const COLLAPSE_KEY = "lagekatse.arbeitsblatt.collapsed";
+
+/** Liest den Collapse-Zustand defensiv — fehlend/defekt → alles aufgeklappt. */
+function loadCollapsedPanels(): Record<AbPanelId, boolean> {
+  const allOpen = Object.fromEntries(AB_PANEL_IDS.map((id) => [id, false])) as Record<AbPanelId, boolean>;
+  try {
+    const raw = localStorage.getItem(COLLAPSE_KEY);
+    if (!raw) return allOpen;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    for (const id of AB_PANEL_IDS) {
+      if (typeof parsed[id] === "boolean") allOpen[id] = parsed[id] as boolean;
+    }
+  } catch {
+    /* defektes Format → Default */
+  }
+  return allOpen;
+}
+
 function stringValue(map: Y.Map<unknown>, field: string): string {
   const value = map.get(field);
   return typeof value === "string" ? value : "";
+}
+
+/** Klickbarer Kartenkopf (#206) — titleId je Panel (Karte A–F + W). */
+const PANEL_TITLE_IDS: Record<AbPanelId, string> = {
+  a: "arbeitsblatt-kopf-title",
+  b: "arbeitsblatt-lagebild-title",
+  c: "arbeitsblatt-kraefte-title",
+  d: "arbeitsblatt-auftraege-title",
+  e: "arbeitsblatt-rueckmeld-title",
+  f: "arbeitsblatt-organisation-title",
+  w: "arbeitsblatt-wetter-title",
+};
+
+/**
+ * Klickbarer Kartenkopf (#206): Caret + Buchstabe + Titel, ganze Zeile ist der
+ * Toggle-Button. Eingeklappt bleibt die schmale Titelleiste sichtbar, damit man
+ * sieht, was ausgeblendet ist (wie EaItemList im EA-Modul).
+ */
+function AbPanelHead({
+  panelId,
+  letter,
+  title,
+  hint,
+  collapsed,
+  onToggle,
+}: {
+  panelId: AbPanelId;
+  letter: string;
+  title: string;
+  hint?: string;
+  collapsed: boolean;
+  onToggle: (id: AbPanelId) => void;
+}) {
+  const titleId = PANEL_TITLE_IDS[panelId];
+  return (
+    <button
+      type="button"
+      className="arbeitsblatt-panel__head arbeitsblatt-panel__toggle"
+      aria-expanded={!collapsed}
+      aria-controls={`${titleId}-body`}
+      onClick={() => onToggle(panelId)}
+    >
+      <span className={`arbeitsblatt-panel__chevron ${collapsed ? "is-collapsed" : ""}`} aria-hidden="true">
+        ▾
+      </span>
+      <h3 id={titleId}>
+        <span className="arbeitsblatt-panel__letter">{letter}</span>
+        <span aria-hidden="true">·</span> {title}
+      </h3>
+      {hint && <p className="arbeitsblatt-panel__hint">{hint}</p>}
+    </button>
+  );
 }
 
 function booleanValue(map: Y.Map<unknown>, field: string): boolean {
@@ -96,7 +173,19 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   const [fuehrungAuftraege, setFuehrungAuftraege] = useState<EaListItem[]>([]);
   const [importMessage, setImportMessage] = useState("");
   const [pdfBusy, setPdfBusy] = useState(false);
+  // Einklappbare Karten (#206): reine Anzeige-Option (Invariante #4) — client-lokal
+  // in localStorage, kein CRDT-Write. Default: alles aufgeklappt.
+  const [collapsed, setCollapsed] = useState<Record<AbPanelId, boolean>>(loadCollapsedPanels);
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSE_KEY, JSON.stringify(collapsed));
+    } catch {
+      /* storage unavailable — Ansicht bleibt nur für die Session */
+    }
+  }, [collapsed]);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const togglePanel = (id: AbPanelId) =>
+    setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
   const kopfRef = useRef<Y.Map<unknown> | null>(null);
   // Feld D (#163): Maßnahmen je Führungs-Auftrags-id (Y.Map<Y.Map>, Feld-Merge).
   const massnahmenRef = useRef<Y.Map<unknown> | null>(null);
@@ -509,50 +598,59 @@ export function Arbeitsblatt({ session }: { session: Session }) {
       </div>
 
       <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-kopf-title">
-        <div className="arbeitsblatt-panel__head">
-          <h3 id="arbeitsblatt-kopf-title">
-            <span className="arbeitsblatt-panel__letter">A</span>
-            <span aria-hidden="true">·</span> Kopfzeile
-          </h3>
-        </div>
-        <div className="arbeitsblatt-fields">
-          {AB_KOPF_FIELDS.map((field) => (
-            <label className="arbeitsblatt-field" key={field}>
-              <span>{AB_KOPF_LABELS[field]}</span>
-              <input
-                type="text"
-                value={sheet.kopf[field]}
-                readOnly={!writable}
-                onChange={(event) => setKopf(field, event.currentTarget.value)}
-              />
-            </label>
-          ))}
-        </div>
+        <AbPanelHead
+          panelId="a"
+          letter="A"
+          title="Kopfzeile"
+          collapsed={collapsed.a}
+          onToggle={togglePanel}
+        />
+        {!collapsed.a && (
+          <div className="arbeitsblatt-fields" id="arbeitsblatt-kopf-title-body">
+            {AB_KOPF_FIELDS.map((field) => (
+              <label className="arbeitsblatt-field" key={field}>
+                <span>{AB_KOPF_LABELS[field]}</span>
+                <input
+                  type="text"
+                  value={sheet.kopf[field]}
+                  readOnly={!writable}
+                  onChange={(event) => setKopf(field, event.currentTarget.value)}
+                />
+              </label>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-lagebild-title">
-        <div className="arbeitsblatt-panel__head">
-          <h3 id="arbeitsblatt-lagebild-title">
-            <span className="arbeitsblatt-panel__letter">B</span>
-            <span aria-hidden="true">·</span> Lagebild
-          </h3>
-          <p>Live-Lagekarte (read-only) aus dem Modul Lagekarte.</p>
-        </div>
-        <div className="arbeitsblatt-lagebild-row">
-          <div className="arbeitsblatt-lagebild arbeitsblatt-lagebild--full">
-            <Lagekarte session={session} embedded readOnly />
+        <AbPanelHead
+          panelId="b"
+          letter="B"
+          title="Lagebild"
+          hint="Live-Lagekarte (read-only) aus dem Modul Lagekarte."
+          collapsed={collapsed.b}
+          onToggle={togglePanel}
+        />
+        {!collapsed.b && (
+          <div className="arbeitsblatt-lagebild-row" id="arbeitsblatt-lagebild-title-body">
+            <div className="arbeitsblatt-lagebild arbeitsblatt-lagebild--full">
+              <Lagekarte session={session} embedded readOnly />
+            </div>
           </div>
-        </div>
+        )}
       </section>
 
       <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-kraefte-title">
-        <div className="arbeitsblatt-panel__head">
-          <h3 id="arbeitsblatt-kraefte-title">
-            <span className="arbeitsblatt-panel__letter">C</span>
-            <span aria-hidden="true">·</span> Einheiten / Kräfteübersicht
-          </h3>
-          <p>Automatisch aus dem Modul Kräfteübersicht.</p>
-        </div>
+        <AbPanelHead
+          panelId="c"
+          letter="C"
+          title="Einheiten / Kräfteübersicht"
+          hint="Automatisch aus dem Modul Kräfteübersicht."
+          collapsed={collapsed.c}
+          onToggle={togglePanel}
+        />
+        {!collapsed.c && (
+          <>
         <div className="arbeitsblatt-kraft-strip">
           <div className="arbeitsblatt-kraft-stat">
             <span className="arbeitsblatt-kraft-stat__label">Gesamtstärke im Einsatz</span>
@@ -595,17 +693,22 @@ export function Arbeitsblatt({ session }: { session: Session }) {
             })}
           </div>
         )}
+          </>
+        )}
+        <div id="arbeitsblatt-kraefte-title-body" />
       </section>
 
       <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-auftraege-title">
-        <div className="arbeitsblatt-panel__head">
-          <h3 id="arbeitsblatt-auftraege-title">
-            <span className="arbeitsblatt-panel__letter">D</span>
-            <span aria-hidden="true">·</span> Aufträge &amp; Maßnahmen
-          </h3>
-          <p>Aufträge (read-only) aus dem Modul Abschnitte · Führung — hier Maßnahmen ergänzen.</p>
-        </div>
-        <div className="table-scroll">
+        <AbPanelHead
+          panelId="d"
+          letter="D"
+          title="Aufträge & Maßnahmen"
+          hint="Aufträge (read-only) aus dem Modul Abschnitte · Führung — hier Maßnahmen ergänzen."
+          collapsed={collapsed.d}
+          onToggle={togglePanel}
+        />
+        {!collapsed.d && (
+        <div className="table-scroll" id="arbeitsblatt-auftraege-title-body">
           <table className="arbeitsblatt-table">
             <thead>
               <tr>
@@ -657,16 +760,19 @@ export function Arbeitsblatt({ session }: { session: Session }) {
             </tbody>
           </table>
         </div>
+        )}
       </section>
 
       <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-rueckmeld-title">
-        <div className="arbeitsblatt-panel__head">
-          <h3 id="arbeitsblatt-rueckmeld-title">
-            <span className="arbeitsblatt-panel__letter">E</span>
-            <span aria-hidden="true">·</span> Notizen
-          </h3>
-        </div>
-        <div className="arbeitsblatt-checklist">
+        <AbPanelHead
+          panelId="e"
+          letter="E"
+          title="Notizen"
+          collapsed={collapsed.e}
+          onToggle={togglePanel}
+        />
+        {!collapsed.e && (
+        <div className="arbeitsblatt-checklist" id="arbeitsblatt-rueckmeld-title-body">
           {sheet.rueckmeldungen.map((note) => (
             <div
               className={`arbeitsblatt-checklist__row ${
@@ -710,16 +816,19 @@ export function Arbeitsblatt({ session }: { session: Session }) {
             </button>
           )}
         </div>
+        )}
       </section>
 
       <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-organisation-title">
-        <div className="arbeitsblatt-panel__head">
-          <h3 id="arbeitsblatt-organisation-title">
-            <span className="arbeitsblatt-panel__letter">F</span>
-            <span aria-hidden="true">·</span> Kommunikation
-          </h3>
-        </div>
-        <div className="arbeitsblatt-organisation">
+        <AbPanelHead
+          panelId="f"
+          letter="F"
+          title="Kommunikation"
+          collapsed={collapsed.f}
+          onToggle={togglePanel}
+        />
+        {!collapsed.f && (
+        <div className="arbeitsblatt-organisation" id="arbeitsblatt-organisation-title-body">
           <div className="arbeitsblatt-group">
             <h4>Funkkanäle</h4>
             <div className="arbeitsblatt-kanal-grid">
@@ -801,6 +910,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
             </div>
           </div>
         </div>
+        )}
       </section>
 
       <Wetter
@@ -809,6 +919,8 @@ export function Arbeitsblatt({ session }: { session: Session }) {
         roomId={session.room.id}
         onSnapshot={setWetter}
         onWriteEtb={writeWetterEtb}
+        collapsed={collapsed.w}
+        onTogglePanel={togglePanel}
       />
     </div>
   );
