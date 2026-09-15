@@ -481,7 +481,7 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 /* Zeitstrahl (#208): horizontale Skala, gleichmäßig verteilte Punkte. */
 .zeitstrahl { padding: 18px; }
 .zeitstrahl__track {
-  position: relative; height: 130px; margin: 34px 24px 8px; /* oben Platz für die "Jetzt"-Bubble (#208-Feedback) */
+  position: relative; height: 148px; margin: 34px 24px 8px; /* oben Platz für die "Jetzt"-Bubble (#208-Feedback), unten für 2-zeilige Titel */
 }
 .zeitstrahl__line {
   position: absolute; left: 0; right: 0; top: 90px; height: 3px;

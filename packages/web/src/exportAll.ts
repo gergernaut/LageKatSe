@@ -22,6 +22,7 @@ import {
   AB_RUECKMELD,
   AB_WETTER,
   AB_WETTER_SNAPSHOT,
+  AB_ZEITSTRAHL,
   coerceBereitstellung,
   coerceEaListItems,
   coerceFuehrung,
@@ -61,6 +62,7 @@ function extractArbeitsblatt(doc: Y.Doc) {
   const organisation = doc.getMap<unknown>(AB_ORGANISATION);
   const kanaele = doc.getArray<Y.Map<unknown>>(AB_KANAELE);
   const wetter = doc.getMap<unknown>(AB_WETTER);
+  const zeitstrahl = doc.getArray<Y.Map<unknown>>(AB_ZEITSTRAHL);
 
   return {
     format: AB_EXPORT_FORMAT,
@@ -84,6 +86,7 @@ function extractArbeitsblatt(doc: Y.Doc) {
       },
       kanaele: kanaele.toJSON(),
       wetter: wetter.get(AB_WETTER_SNAPSHOT) ?? null,
+      zeitstrahl: zeitstrahl.toJSON(),
     },
   };
 }
