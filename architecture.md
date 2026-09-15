@@ -657,6 +657,11 @@ Die Übersicht ist in feste Felder gegliedert:
 | **E** | Notizen | Freie Notiz-/Checkliste |
 | **F** | Kommunikation | Feste Funkkanäle (TMO-/DMO-Gruppe, Führung, Gebäude) **plus frei anlegbare Kanäle** (Typ TMO/DMO · Gruppe · Verwendungszweck) |
 
+> **Einklappbar (#206):** Jede Karte (A–F **plus W=Wetter**, §10.5) lässt sich per Klick auf die
+> Titelzeile ein-/ausklappen — eingeklappt bleibt die schmale Titelleiste (Caret + Buchstabe + Titel)
+> sichtbar. Der Zustand ist **client-lokal** (`localStorage`, E9-Muster, kein CRDT-Write); der
+> PDF-Export zeigt alle Karten vollständig unabhängig vom Klappzustand.
+
 > Die **Rückseite** (Checklisten für ABC-/Gefahrgut-Einsatz, Dekon, MANV): nur der **Wetter-Teil** ist
 > umgesetzt (§10.5, DWD/BrightSky); ABC/MANV/Dekon wurden verworfen (#42 geschlossen, #73).
 
@@ -1073,6 +1078,11 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
 - ✅ **Lagekarten-PDF-Export** (#101): aktueller Kartenausschnitt als A4-quer-PDF, client-seitig
   via `html-to-image` + `pdf-lib`, OSM-Attribution im Fuß. OSM-Tiles liefern CORS — kein eigener
   Tile-Server nötig (Abhängigkeit zu #96 aufgelöst)
+- ✅ **Einklappbare Karten in der Taktischen Übersicht** (#206): Karten A–F + W (Wetter) per Klick
+  auf die Titelzeile ein-/ausklappbar; eingeklappt bleibt die schmale Titelleiste (Caret + Karte)
+  sichtbar. Zustand **client-lokal** (`localStorage`, Invariante #4 / E9-Muster); PDF-Export
+  unbeeinflusst (arbeitet auf dem State, nicht dem DOM). Muster skaliert für künftige Karten
+  (`AbPanelHead` + `AbPanelId`).
 - ❌ Verworfen (per #73): Auth-Proxy/SSO als Pflicht (#67, optional bleibt möglich), Admin-Auth/-Portal (#68)
 
 ### Modul 4 – Kräfteübersicht (#100) — ✅ umgesetzt
@@ -1184,4 +1194,4 @@ lagekatse/
 
 ---
 
-*Ende des Konzepts v0.8 — die offenen Entscheidungen (E1–E10) sind geklärt (§17).*
+*Ende des Konzepts v0.9 — die offenen Entscheidungen (E1–E10) sind geklärt (§17).*
