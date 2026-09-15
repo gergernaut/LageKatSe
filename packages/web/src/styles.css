@@ -481,7 +481,7 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 /* Zeitstrahl (#208): horizontale Skala, gleichmäßig verteilte Punkte. */
 .zeitstrahl { padding: 18px; }
 .zeitstrahl__track {
-  position: relative; height: 110px; margin: 0 24px 8px;
+  position: relative; height: 130px; margin: 34px 24px 8px; /* oben Platz für die "Jetzt"-Bubble (#208-Feedback) */
 }
 .zeitstrahl__line {
   position: absolute; left: 0; right: 0; top: 62px; height: 3px;
@@ -499,24 +499,25 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--line-2);
   background: var(--surface); padding: 0; cursor: default; position: relative; z-index: 1;
 }
-.arbeitsblatt-panel__toggle + .zeitstrahl__track { /* kein extra */ }
 .zeitstrahl__item button.zeitstrahl__punkt { cursor: pointer; }
-.zeitstrahl__punkt--vergangen { background: #2e9e5b; border-color: #2e9e5b; }
-.zeitstrahl__punkt--aktuell {
+/* Kategorien-Farben: die Kategorie-Klasse sitzt am .zeitstrahl__item (Parent). */
+.zeitstrahl__item--vergangen .zeitstrahl__punkt { background: #2e9e5b; border-color: #2e9e5b; }
+.zeitstrahl__item--aktuell .zeitstrahl__punkt {
   background: #1f6fe0; border-color: #1f6fe0; box-shadow: 0 0 0 4px rgba(31, 111, 224, .25);
 }
-.zeitstrahl__punkt--naechstes { background: var(--surface); border-color: #e08a1f; }
-.zeitstrahl__punkt--geplant { background: var(--surface); border-color: var(--ink-3); }
+.zeitstrahl__item--naechstes .zeitstrahl__punkt { background: var(--surface); border-color: #e08a1f; }
+.zeitstrahl__item--geplant .zeitstrahl__punkt { background: var(--surface); border-color: var(--ink-3); }
+/* Darkmode: Flächen-Punkte bleiben lesbar, Randfarben unverändert. */
 .zeitstrahl__titel {
   font-size: 11.5px; color: var(--ink-2); max-width: 110px; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap;
 }
 .zeitstrahl__now {
-  position: absolute; top: 30px; bottom: 0; width: 0; z-index: 2;
+  position: absolute; top: 22px; bottom: 0; width: 0; z-index: 0;
   border-left: 2px dashed #1f6fe0;
 }
 .zeitstrahl__jetzt-badge {
-  position: absolute; top: -26px; left: 50%; transform: translateX(-50%);
+  position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
   background: #1f6fe0; color: #fff; font: 700 10px var(--mono);
   padding: 2px 8px; border-radius: 10px; white-space: nowrap;
 }
