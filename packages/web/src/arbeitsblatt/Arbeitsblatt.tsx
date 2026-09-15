@@ -79,8 +79,8 @@ interface KraftKennzahlen {
 
 /* ---- Einklappbare Karten (#206): reine Anzeige-Option (Invariante #4) ---- */
 
-/** Die Panels der Taktischen Übersicht (Karte A–F). */
-const AB_PANEL_IDS = ["a", "b", "c", "d", "e", "f"] as const;
+/** Die Panels der Taktischen Übersicht (Karten A–F + W=Wetter). */
+const AB_PANEL_IDS = ["a", "b", "c", "d", "e", "f", "w"] as const;
 type AbPanelId = (typeof AB_PANEL_IDS)[number];
 
 /** localStorage-Key für den Collapse-Zustand (Punkt-Notation wie die anderen Keys). */
@@ -107,6 +107,17 @@ function stringValue(map: Y.Map<unknown>, field: string): string {
   return typeof value === "string" ? value : "";
 }
 
+/** Klickbarer Kartenkopf (#206) — titleId je Panel (Karte A–F + W). */
+const PANEL_TITLE_IDS: Record<AbPanelId, string> = {
+  a: "arbeitsblatt-kopf-title",
+  b: "arbeitsblatt-lagebild-title",
+  c: "arbeitsblatt-kraefte-title",
+  d: "arbeitsblatt-auftraege-title",
+  e: "arbeitsblatt-rueckmeld-title",
+  f: "arbeitsblatt-organisation-title",
+  w: "arbeitsblatt-wetter-title",
+};
+
 /**
  * Klickbarer Kartenkopf (#206): Caret + Buchstabe + Titel, ganze Zeile ist der
  * Toggle-Button. Eingeklappt bleibt die schmale Titelleiste sichtbar, damit man
@@ -127,7 +138,7 @@ function AbPanelHead({
   collapsed: boolean;
   onToggle: (id: AbPanelId) => void;
 }) {
-  const titleId = `arbeitsblatt-${panelId === "a" ? "kopf" : panelId === "b" ? "lagebild" : panelId === "c" ? "kraefte" : panelId === "d" ? "auftraege" : panelId === "e" ? "rueckmeld" : "organisation"}-title`;
+  const titleId = PANEL_TITLE_IDS[panelId];
   return (
     <button
       type="button"
@@ -908,6 +919,8 @@ export function Arbeitsblatt({ session }: { session: Session }) {
         roomId={session.room.id}
         onSnapshot={setWetter}
         onWriteEtb={writeWetterEtb}
+        collapsed={collapsed.w}
+        onTogglePanel={togglePanel}
       />
     </div>
   );
