@@ -484,11 +484,14 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   position: relative; height: 130px; margin: 34px 24px 8px; /* oben Platz für die "Jetzt"-Bubble (#208-Feedback) */
 }
 .zeitstrahl__line {
-  position: absolute; left: 0; right: 0; top: 62px; height: 3px;
+  position: absolute; left: 0; right: 0; top: 90px; height: 3px;
   background: var(--line-2); border-radius: 2px;
 }
 .zeitstrahl__item {
   position: absolute; top: 0; width: 90px; margin-left: -45px; text-align: center;
+  /* Erst Datum/Uhrzeit, dann Punkt — das obere Band (0–28px) bleibt frei für die
+     "Jetzt"-Bubble, damit sie nichts überdeckt (#208-Feedback). */
+  padding-top: 28px;
   display: grid; grid-template-rows: auto auto auto; justify-items: center; gap: 3px;
 }
 .zeitstrahl__datum {
@@ -513,11 +516,11 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   text-overflow: ellipsis; white-space: nowrap;
 }
 .zeitstrahl__now {
-  position: absolute; top: 34px; bottom: 0; width: 0; z-index: 0;
+  position: absolute; top: 0; bottom: 0; width: 0; z-index: 0;
   border-left: 2px dashed #1f6fe0;
 }
 .zeitstrahl__jetzt-badge {
-  position: absolute; top: -30px; left: 50%; transform: translateX(-50%);
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
   background: #1f6fe0; color: #fff; font: 700 10px var(--mono);
   padding: 2px 8px; border-radius: 10px; white-space: nowrap;
 }
