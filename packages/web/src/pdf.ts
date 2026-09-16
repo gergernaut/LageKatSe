@@ -15,11 +15,13 @@ import {
   AB_KANAL_LABELS,
   AB_KOPF_FIELDS,
   AB_KOPF_LABELS,
+  kategorisiereMeilensteine,
   formatStaerke,
   KRAFT_ORG_LABELS,
   KRAFT_STATUS_LABELS,
   sumStaerke,
   type AbAuftragZeile,
+  type AbMeilensteinKategorie,
   type Arbeitsblatt,
   type KraftStatus,
   type KraftVehicle,
@@ -483,6 +485,44 @@ export async function arbeitsblattToPdf(
       ],
       sheet.kanaele.map((k) => [k.typ, k.gruppe, k.verwendungszweck]),
       "Keine weiteren Kanäle.",
+    );
+  }
+  gap();
+
+  // Z · Zeitstrahl (#208): Meilensteine als chronologische Liste (Kategorie je Zeile).
+  // Kategorisierung zur Druckzeit (jetzt = Exportzeitpunkt), gleiche Funktion wie im UI.
+  heading("Z", "Zeitstrahl");
+  if (sheet.zeitstrahl.length === 0) {
+    para("Noch keine Meilensteine angelegt.", MUTED);
+  } else {
+    const katLabel: Record<AbMeilensteinKategorie, string> = {
+      vergangen: "vergangen",
+      aktuell: "aktuell",
+      naechstes: "als Nächstes",
+      geplant: "geplant",
+    };
+    const kategorien = kategorisiereMeilensteine(sheet.zeitstrahl, new Date());
+    // Nur der Datumsteil (DD.MM.YYYY) — die Uhrzeit steht in der eigenen Spalte.
+    const fmtDatum = (iso: string): string => {
+      const [y, m, d] = iso.split("-");
+      return d && m && y ? `${d}.${m}.${y}` : iso;
+    };
+    table(
+      [
+        { label: "Datum", width: 85 },
+        { label: "Uhrzeit", width: 65 },
+        { label: "Meilenstein", width: 180 },
+        { label: "Status", width: 70 },
+        { label: "Details", width: 123 },
+      ],
+      sheet.zeitstrahl.map((m, i) => [
+        fmtDatum(m.datum),
+        m.uhrzeit,
+        m.titel,
+        katLabel[kategorien[i]?.kategorie ?? "geplant"],
+        m.details ?? "",
+      ]),
+      "Keine Meilensteine.",
     );
   }
   gap();
