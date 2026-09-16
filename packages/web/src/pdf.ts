@@ -502,6 +502,11 @@ export async function arbeitsblattToPdf(
       geplant: "geplant",
     };
     const kategorien = kategorisiereMeilensteine(sheet.zeitstrahl, new Date());
+    // Nur der Datumsteil (DD.MM.YYYY) — die Uhrzeit steht in der eigenen Spalte.
+    const fmtDatum = (iso: string): string => {
+      const [y, m, d] = iso.split("-");
+      return d && m && y ? `${d}.${m}.${y}` : iso;
+    };
     table(
       [
         { label: "Datum", width: 85 },
@@ -511,7 +516,7 @@ export async function arbeitsblattToPdf(
         { label: "Details", width: 123 },
       ],
       sheet.zeitstrahl.map((m, i) => [
-        formatDateTime(`${m.datum}T${m.uhrzeit}:00`),
+        fmtDatum(m.datum),
         m.uhrzeit,
         m.titel,
         katLabel[kategorien[i]?.kategorie ?? "geplant"],
