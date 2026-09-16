@@ -650,7 +650,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
           onToggle={togglePanel}
         />
         {!collapsed.c && (
-          <>
+          <div id="arbeitsblatt-kraefte-title-body">
         <div className="arbeitsblatt-kraft-strip">
           <div className="arbeitsblatt-kraft-stat">
             <span className="arbeitsblatt-kraft-stat__label">Gesamtstärke im Einsatz</span>
@@ -693,9 +693,8 @@ export function Arbeitsblatt({ session }: { session: Session }) {
             })}
           </div>
         )}
-          </>
+          </div>
         )}
-        <div id="arbeitsblatt-kraefte-title-body" />
       </section>
 
       <section className="arbeitsblatt-panel" aria-labelledby="arbeitsblatt-auftraege-title">
