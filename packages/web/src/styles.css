@@ -533,7 +533,10 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 
 /* Dialog (#208) */
 .zeitstrahl-dialog-backdrop {
-  position: fixed; inset: 0; background: rgba(11, 17, 25, .45); z-index: 100;
+  /* Muss über die eingebettete Lagebild-Karte (Feld B): Leaflet-Panes/Controls
+     liegen bei 400–1000, die Lagekarte-Overlays bei 1000 — daher deutlich darüber,
+     sonst verdeckt die Karte den Meilenstein-Dialog (#213). */
+  position: fixed; inset: 0; background: rgba(11, 17, 25, .45); z-index: 2000;
   display: grid; place-items: center; padding: 20px;
 }
 .zeitstrahl-dialog {
