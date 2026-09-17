@@ -141,6 +141,11 @@ input, select, textarea { font-family: inherit; }
   display: flex; align-items: center; gap: 14px; padding: 0 18px; border-bottom: 1px solid var(--line-dark);
 }
 .topbar .room b { font-size: 15px; }
+/* Taktische Zeit (DUG) zentriert in der Topbar (#210) — Stil wie der Raumtitel. */
+.topbar__dug {
+  font: 700 14px var(--mono); color: var(--on-dark); letter-spacing: .04em;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
 .chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line-dark); color: var(--on-dark-2); }
 .chip--code { color: var(--signal); border-color: rgba(247,168,27,.35); }
 .topbar .spacer, .lagekarte-bar .spacer { flex: 1; }
