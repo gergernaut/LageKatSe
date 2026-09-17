@@ -23,7 +23,7 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   `getStaleRooms`/`deleteRoom`, Room mit `createdBy`, **Backend = Single Source of Truth fuer Schema** #106/#107).
 - `packages/web` — `@lagekatse/web`: React/Vite-SPA. `lobby/`, `uebersicht/`, `lagekarte/`
   (Karte + `Palette.tsx` + Regenradar [Bright Sky, proj4-reprojiziert, #166] / KONRAD3D-WMS-Overlay + Pegel-Layer), `etb/`,
-  `arbeitsblatt/` (`Arbeitsblatt.tsx`, `Wetter.tsx`; Feld D „Aufträge" read-only aus EA-Führung gesynct, Maßnahmen je Auftrags-id in `AB_MASSNAHMEN`, #163), `kraefteubersicht/` (`Kraefteubersicht.tsx`
+  `arbeitsblatt/` (`Arbeitsblatt.tsx`, `Wetter.tsx`, `Zeitstrahl.tsx`; Feld D „Aufträge" read-only aus EA-Führung gesynct, Maßnahmen je Auftrags-id in `AB_MASSNAHMEN`, #163; **Karte Z „Zeitstrahl"**: Meilensteine `AB_ZEITSTRAHL` = `Y.Array<Y.Map>`, reine `kategorisiereMeilensteine` + „Jetzt"-Marker, #208; **Karten A–F+W einklappbar** via `AbPanelHead`/`collapsed`-localStorage, #206), `kraefteubersicht/` (`Kraefteubersicht.tsx`
   — Bereitstellungsraum/Im-Einsatz, DV-100-Stärke, #100), `einsatzabschnitte/`
   (`Einsatzabschnitte.tsx` — EA/UA + Führungs-Singleton `EA_FUEHRUNG` (#154) + Fahrzeug-Zuordnung `einsatzabschnittId`, abgeleitete Stärke, #133;
   abhakbare Listen Aufträge/Rückmeldungen/Anforderungen mit ETB-Sync #161/#162, je Eintrag Umbruch + Zeitstempel + „übermittelt"-Haken bei Aufträgen #180; Bereitstellungsraum-Singleton `EA_BEREITSTELLUNG` fix unter der Führung, „Fahrzeuge" = Status-„br"-Zahl aus Kräfte, #180),
@@ -31,8 +31,8 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   Client-Utilities: `wetter.ts` (BrightSky-Abruf), `brightskyRadar.ts` (Regenradar: RADOLAN-Gitter von
   Bright Sky, zlib-Decode via fflate + Reprojektion DE1200→Web-Mercator via proj4 [Mapping+Farb-LUT
   gecacht] + optionaler Animations-Loop `fetchRadarFrames`, #166), `pegel.ts` (PEGELONLINE/WSV-Pegelstaende,
-  CORS-offen; reine Coercion + Status->Farbe, unit-getestet), `pdf.ts` (`etbToPdf`/`arbeitsblattToPdf`/`lagekarteToPngPdf`
-  via pdf-lib, Schrift `public/fonts/DejaVuSans.ttf`; Lagekarten-PDF rastert via `html-to-image`), `exportAll.ts` (Gesamt-Export) +
+  CORS-offen; reine Coercion + Status->Farbe, unit-getestet), `pdf.ts` (`etbToPdf`/`arbeitsblattToPdf`/`kraefteToPdf`/`einsatzabschnitteToPdf` (#202)/`lagekarteToPngPdf`
+  via pdf-lib, geteilte `createDoc`-Factory für Kräfte/Abschnitte-PDF, Schrift `public/fonts/DejaVuSans.ttf`; Lagekarten-PDF rastert via `html-to-image`), `exportAll.ts` (Gesamt-Export) +
   `importAll.ts` (Bundle-Import, beide ZIP via fflate), `*/applyImport.ts` (geteilte, React-freie
   Import-Apply-Logik fuer Lagekarte/Arbeitsblatt/Kraefteuebersicht — von Einzeldatei- **und** Bundle-Import genutzt),
   `dug.ts` (Datum-Uhrzeit-Gruppe fuer Dateinamen), `format.ts` (`formatDateTime`, PDF-Export),
@@ -100,6 +100,11 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   `backend` (Node/tsx), `db` (PostgreSQL). Caddy terminiert TLS (Let's-Encrypt für öffentliche
   Domains, `tls internal`/HTTP für geschlossene Netze) und routet `/api` + `/sync` ans Backend,
   `/` ans Frontend. Dual-Mode: HTTPS-Internet + HTTP-LAN.
+- **Web-Cache + Self-Heal** (#194/#201, `packages/web/Caddyfile.web`): `/assets/*` (gehashte Vite-Chunks)
+  `immutable`, `/taktische-zeichen/svg/*` 7 Tage, HTML/`index.json`/`config.js` `no-cache` → neue
+  Builds/Symbole ohne Hard-Reload. `/assets/*` liegt in eigenem `handle`-Block (fehlend → echter 404
+  statt SPA-HTML). Veralteter Client heilt sich via `main.tsx`-`vite:preloadError`→einmaliger Reload
+  (Session-Flag-Loop-Schutz). `RUN caddy validate` im Web-Dockerfile prüft die Config beim Build.
 - **GHCR-Images** (#99/#108): CI (`docker.yml`) baut + pusht `ghcr.io/gergernaut/lagekatse-backend`
   und `…-web` bei Push auf main (`latest` + `sha-<kurz>`, semver bei `v*`-Tags). `docker compose pull`
   statt Repo klonen; `LAGEKATSE_IMAGE_TAG` pinbar. Build aus Quellcode: `docker-compose.build.yml`.
