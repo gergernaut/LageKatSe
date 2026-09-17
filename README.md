@@ -89,7 +89,22 @@ beobachten.
 ### B) Produktivbetrieb mit Docker (empfohlen)
 
 Es gibt fertige Container-Images auf der GitHub Container Registry (GHCR) —
-kein Klonen, kein Bauen nötig. Man braucht nur zwei Dateien plus eine `.env`:
+kein Klonen, kein Bauen nötig.
+
+**Am einfachsten — geführtes Installationsskript** (fragt den Modus ab, erzeugt
+sichere Secrets, lädt die Dateien und startet alles):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/gergernaut/LageKatSe/main/scripts/install.sh -o install.sh
+bash install.sh
+```
+
+Es führt durch **lokal/LAN** (HTTP, z. B. ein Raspberry Pi als mobiler
+Einsatz-Server) oder **öffentlich** (HTTPS mit eigener Domain + automatischem
+Let's-Encrypt). Voraussetzung ist Docker inkl. `docker compose`-Plugin — fehlt
+Docker, bietet das Skript an, es zu installieren.
+
+**Oder manuell** — zwei Dateien plus eine `.env`:
 
 ```bash
 # 1) Deploy-Dateien holen:
