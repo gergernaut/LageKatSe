@@ -25,6 +25,10 @@
 services:
   db:
     image: postgres:16-alpine
+    # Wie die übrigen Services automatisch (wieder)starten — beim Host-Boot und
+    # nach einem Container-Crash. Wichtig fürs Feld (Raspberry, Generator-/
+    # Batterie-Strom): Host fährt hoch → DB kommt mit → Backend findet sie.
+    restart: unless-stopped
     environment:
       POSTGRES_USER: lagekatse
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lagekatse}
