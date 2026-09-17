@@ -61,11 +61,44 @@ export class PostgresStore implements Store {
   private pool: Pool;
 
   constructor(connectionString: string) {
-    this.pool = new Pool({ connectionString });
+    // connectionTimeoutMillis: ein Verbindungsaufbau, der hängt (DB-Host routbar,
+    // aber tot/überlastet), bricht nach 5 s ab statt endlos zu blockieren — so
+    // greift der Startup-Retry (waitForDb) auch in diesem Fall und Runtime-Queries
+    // hängen nicht ewig an einer weggebrochenen DB.
+    this.pool = new Pool({ connectionString, connectionTimeoutMillis: 5_000 });
+    // Ein Idle-Client, den die DB wegkappt (DB-Neustart/-Blip im Feld), feuert ein
+    // 'error' am Pool — OHNE Handler beendet das den ganzen Prozess. Nur loggen; der
+    // Pool baut bei der nächsten Query eine frische Verbindung auf.
+    this.pool.on("error", (err: Error) => {
+      console.warn("[store] Postgres-Pool-Fehler (idle client):", (err as { code?: string }).code ?? err.message);
+    });
   }
 
   async init(): Promise<void> {
+    // Beim (Host-)Reboot kommen backend und db parallel hoch — `depends_on` greift
+    // nur bei `compose up`, NICHT bei daemon-getriebenen Restarts. Statt hart zu
+    // crashen (Restart-Loop, „getaddrinfo ENOTFOUND db"/ECONNREFUSED) kurz auf die
+    // DB warten (Retry mit Backoff), erst danach das Schema anwenden.
+    await this.waitForDb();
     await this.pool.query(SCHEMA_SQL);
+  }
+
+  /** Wartet bis zu ~60 s auf eine erreichbare DB; wirft erst nach Ablauf. */
+  private async waitForDb(): Promise<void> {
+    const deadline = Date.now() + 60_000;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const client = await this.pool.connect();
+        client.release();
+        return;
+      } catch (err) {
+        if (Date.now() >= deadline) throw err;
+        const waitMs = Math.min(5_000, 500 * attempt);
+        const code = (err as { code?: string }).code ?? "?";
+        console.warn(`[store] Postgres noch nicht erreichbar (${code}), Versuch ${attempt} — warte ${waitMs}ms…`);
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      }
+    }
   }
 
   async close(): Promise<void> {
