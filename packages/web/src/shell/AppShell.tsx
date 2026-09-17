@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { MODULE_LABELS, type ActivityCounters, type Module } from "@lagekatse/shared";
+import { dug } from "../dug";
 import type { Session } from "../session";
 import { useActivityNotifications } from "../sync/useActivityNotifications";
 import { useActivityTitle } from "../sync/useActivityTitle";
@@ -201,6 +202,12 @@ const RAIL_LABELS: Record<ActiveView, string> = {
 };
 
 export function AppShell({ session, onLeave }: { session: Session; onLeave: () => void }) {
+  // Taktische Zeit (DUG) in der Topbar (#210): minute-genau reicht — 10-s-Tick.
+  const [taktischeZeit, setTaktischeZeit] = useState(() => dug());
+  useEffect(() => {
+    const timer = setInterval(() => setTaktischeZeit(dug()), 10_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const [activeView, setActiveView] = useState<ActiveView>(loadActiveView);
   const [seen, setSeen] = useState<ActivityCounters>(() => loadActivitySeen(session.room.id));
   const [notificationsEnabled, setNotificationsEnabled] = useState(loadNotificationsEnabled);
@@ -423,6 +430,9 @@ export function AppShell({ session, onLeave }: { session: Session; onLeave: () =
         </div>
         <span className="chip chip--code">⬡ {session.room.joinCode}</span>
         <span className="role-badge">◆ {session.roles.join(" · ")}</span>
+        <div className="spacer" />
+        {/* Taktische Zeit zentriert (#210) — Stil wie der Raumtitel */}
+        <b className="topbar__dug mono">{taktischeZeit}</b>
         <div className="spacer" />
         <span className="live">
           <span className={`dot ${
