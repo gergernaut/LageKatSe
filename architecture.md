@@ -1,7 +1,7 @@
 # LageKatSe – Architektur- und Fachkonzept
 
 > Modulare, browserbasierte Multi-User-Lageverwaltung für den Katastrophenschutz.
-> Version 0.8 · Stand: 2026-08-19 · Konzept + Umsetzungsstand: **M0–M4 komplett — Kern-Module + Phase-2-Ausbau + Härtung & Ausbau (M4) abgeschlossen; danach #96 (Grundkarten-URL + Tile-Server), Modul 4 „Kräfteübersicht" (#100), neue Rollen (#102/#103), Docker-GHCR (#99/#108), Schema-Konsolidierung (#106/#107) und Lagekarten-PDF (#101) ergänzt**
+> Version 0.9 · Stand: 2026-09-17 · Konzept + Umsetzungsstand: **M0–M4 komplett — Kern-Module + Phase-2-Ausbau + Härtung & Ausbau (M4) abgeschlossen; danach #96 (Grundkarten-URL + Tile-Server), Modul 4 „Kräfteübersicht" (#100), neue Rollen inkl. EL/FüAss (#102/#103/#195), Docker-GHCR (#99/#108), Schema-Konsolidierung (#106/#107), Lagekarten-PDF (#101); „Testlauf-2"-Runde: Zeitstrahl-Karte (#208), einklappbare Übersichts-Karten (#206), PDF-Export für Kräfte + Abschnitte (#202), Web-Cache-Header + Redeploy-Self-Heal (#194/#201) ergänzt**
 
 Dieses Dokument ist das tragfähige technische Konzept für LageKatSe.
 Es beschreibt Zielbild, Architektur, Datenmodell, Rechtemodell und einen Umsetzungsfahrplan.
@@ -270,7 +270,9 @@ schreiben darf**:
 | Rolle | Lagekarte | Einsatztagebuch | Arbeitsblatt | Kräfteübersicht | Chat | Anmerkung |
 |-------|:---------:|:---------------:|:------------:|:--------------:|:----:|-----------|
 | **S1–S6** | ✅ RW | ✅ RW | ✅ RW | ✅ RW | ✅ | Keine Beschränkungen |
-| **LdS / Einsatzleiter** | ✅ RW | ✅ RW | ✅ RW | ✅ RW | ✅ | Stabsrolle wie S1–S6 (#102) |
+| **LdS** (Leiter des Stabes) | ✅ RW | ✅ RW | ✅ RW | ✅ RW | ✅ | Stabsrolle wie S1–S6 (#102) |
+| **EL** (Einsatzleiter) | ✅ RW | ✅ RW | ✅ RW | ✅ RW | ✅ | Stabsrolle, gleichwertig mit LdS (#195) |
+| **FüAss** (Führungsassistent) | ✅ RW | ✅ RW | ✅ RW | ✅ RW | ✅ | Stabsrolle, gleichwertig mit LdS (#195) |
 | **Lagekartenführer** | ✅ RW | 👁 RO | 👁 RO | ✅ RW | ✅ | Schreibt Lagekarte + Kräfteübersicht (#100) |
 | **Einsatztagebuchführer** | 👁 RO | ✅ RW | 👁 RO | ✅ RW | ✅ | Schreibt ETB + Kräfteübersicht (#100) |
 | **Leiter BR** | 👁 RO | 👁 RO | 👁 RO | ✅ RW | ✅ | Nur Kräfteübersicht, Rest read-only (#102) |
@@ -692,6 +694,7 @@ ETB, §9.3). Definiert in `packages/shared/src/arbeitsblatt.ts`.
 | `organisation` (`Y.Map`) | F | Feste Funkkanäle-Skalare (TMO/Führung/DMO/Gebäude) |
 | `kanaele` (`Y.Array<Y.Map>`) | F | Frei angelegte Kanäle (typ TMO/DMO, gruppe, verwendungszweck) |
 | `wetter` (`Y.Map`) | Rückseite | Wetter-Snapshot (§10.5), ein Whole-Value-Key |
+| `zeitstrahl` (`Y.Array<Y.Map>`) | Z | Meilensteine (id, datum, uhrzeit, titel, details?) — Karte „Z Zeitstrahl" direkt unter A, #208 |
 
 Feld **B** referenziert die `lagekarte` read-only (§10.2) und hat **keine eigenen Daten** im Doc.
 Feld **C** ist rein **abgeleitet** aus dem `kraefteubersicht`-Modul (read-only cross-module,
@@ -702,10 +705,9 @@ Feld **C** ist rein **abgeleitet** aus dem `kraefteubersicht`-Modul (read-only c
 interface Arbeitsblatt {
   kopf: { einsatzstichwort: string; einsatzort: string; meldender: string;   // A
           objektnr: string; datumUhrzeitgruppe: string };
-  auftraege: {                                                              // D (Y.Array<Y.Map>)
-    id: string; auftrag: string; massnahmen: string;
-    laufenderVorgang: boolean; erledigt: boolean;
-  }[];
+  massnahmen: Record<string, {                                              // D (Y.Map<Y.Map>, #163)
+    massnahmen: string; laufenderVorgang: boolean;   // je Führungs-Auftrags-id; Aufträge read-only aus EA
+  }>;
   rueckmeldungen: { id: string; text: string; erledigt: boolean }[];        // E (Checkliste)
   organisation: {                                                           // F (feste Kanäle)
     tmoGruppe: string; fuehrungsKanal: string; dmoGruppe: string; gebFunk: string;
@@ -714,6 +716,9 @@ interface Arbeitsblatt {
     id: string; typ: "TMO" | "DMO"; gruppe: string; verwendungszweck: string;
   }[];
   wetter: AbWetterSnapshot | null;                                          // Rückseite (§10.5)
+  zeitstrahl: {                                                             // Z (Y.Array<Y.Map>, #208)
+    id: string; datum: string; uhrzeit: string; titel: string; details?: string;
+  }[];
   // Feld B (Lagebild) = read-only-Referenz auf `lagekarte`; Feld C = abgeleitet aus `kraefteubersicht`
 }
 ```
@@ -731,7 +736,18 @@ interface Arbeitsblatt {
   A–F + Wetter, eingebettete DejaVu-Sans-Schrift für Umlaute/Sonderzeichen, Tabellen mit Wort-Umbruch
   und Paginierung). Bewusst **kein** Ausfüllen amtlicher AcroForm-Vorlagen (robust, keine Vorlagen-/
   Lizenz-Abhängigkeit); ETB und Arbeitsblatt teilen `packages/web/src/pdf.ts` (pdf-lib wird erst beim
-  Klick per dynamischem `import()` geladen).
+  Klick per dynamischem `import()` geladen). Seit **#202** haben auch **Kräfteübersicht**
+  (`kraefteToPdf`, A4 quer) und **Einsatzabschnitte** (`einsatzabschnitteToPdf`, A4 hoch) je einen
+  PDF-Export (geteilte `createDoc`-Factory in `pdf.ts`); die Zeitstrahl-Meilensteine (#208) erscheinen
+  als eigene Sektion **Z** im Arbeitsblatt-PDF (Kategorisierung zur Druckzeit via
+  `kategorisiereMeilensteine`, dieselbe reine Funktion wie im UI).
+- **Zeitstrahl (Karte Z, #208)** — Meilensteine (Datum/Uhrzeit/Titel/Details) auf einer horizontalen
+  Skala mit gleichmäßig verteilten Punkten; reine `kategorisiereMeilensteine` färbt sie
+  vergangen/aktuell/naechstes/geplant relativ zur „Jetzt"-Markierung. Anlegen/Bearbeiten/Löschen per
+  Dialog (nur Schreibberechtigte); `Zeitstrahl.tsx` ist rein präsentational, die CRDT-Writes laufen
+  über `Arbeitsblatt.tsx` (Anlegen: detachte `Y.Map` + `push`; Edit: `row.set` in `transact`).
+- **Einklappbare Karten (#206)** — jede Karte A–F + Z + W lässt sich per Klick auf die Titelzeile
+  ein-/ausklappen; der Zustand ist eine reine Anzeige-Option (localStorage, Invariante #4, kein CRDT).
 
 ### 10.5 Rückseite: Wetter (DWD/BrightSky) — umgesetzt
 
@@ -959,7 +975,15 @@ Skalierung:
   und HTTP-LAN (einfachste Variante, kein TLS). `VITE_API_URL` Default `""` = Same-Origin;
   `wsBase()` baut die WSS-URL aus `window.location` (nicht aus leerem Base).
 - **Dockerfiles:** Backend (`packages/server/Dockerfile`, Node + tsx), Web (Multi-Stage:
-  `pnpm build` → `dist/` per Caddy `file_server`, `packages/web/Dockerfile`).
+  `pnpm build` → `dist/` per Caddy `file_server`, `packages/web/Dockerfile`; ein `RUN caddy validate`
+  prüft `Caddyfile.web` beim Build).
+- **Web-Cache & Self-Heal** (#194/#201, `packages/web/Caddyfile.web` + `main.tsx`): gehashte
+  `/assets/*` sind `immutable` (1 Jahr), `/taktische-zeichen/svg/*` 7 Tage, HTML-Shell +
+  `taktische-zeichen/index.json` + `config.js` `no-cache` (immer revalidieren) → neue Builds/Symbole
+  erscheinen ohne Hard-Reload. `/assets/*` liegt in einem eigenen `handle`-Block **ohne** SPA-Fallback:
+  ein fehlender Chunk (veralteter Client nach Redeploy) liefert einen **echten 404** statt HTML —
+  worauf Vites `vite:preloadError` einen **einmaligen** `location.reload()` auslöst (Session-Flag als
+  Loop-Schutz) und der Client sich selbst auf den frischen Stand hebt.
 - **OSM-Tiles / Grundkarten-URL:** MVP nutzt öffentliche OSM-Tiles (Tile-Usage-Policy beachten!).
   Die Kachel-URL ist **konfigurierbar** (#96, Phase 1): Auflösung in `packages/web/src/config.ts`
   mit Priorität Laufzeit (`packages/web/public/config.js` → `window.__LAGEKATSE_CONFIG__.tileUrl`,
