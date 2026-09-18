@@ -596,7 +596,7 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   flex: none; background: rgba(225,29,29,.12); color: var(--ea-red);
   font: 700 11px var(--mono); padding: 2px 8px; border-radius: 5px; white-space: nowrap;
 }
-.arbeitsblatt-ea-row__auftrag { min-width: 0; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arbeitsblatt-ea-row__standort { min-width: 0; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .arbeitsblatt-ea-row__staerke { margin-left: auto; flex: none; font-family: var(--mono); font-size: 12px; color: var(--ink-2); white-space: nowrap; }
 .arbeitsblatt-table {
   width: 100%; min-width: 820px; border-collapse: collapse; font-size: 13px;

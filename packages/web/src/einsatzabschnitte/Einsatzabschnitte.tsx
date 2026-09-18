@@ -304,7 +304,7 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
       befehlsstelle: "",
       leiter: "",
       kommunikation: "",
-      auftrag: "",
+      standort: "",
       einsatzbeginn: dug(),
       createdAt: new Date().toISOString(),
       auftraege: [],
@@ -517,7 +517,7 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
             { label: "Leiter", value: a.leiter },
             { label: "Befehlsstelle", value: a.befehlsstelle },
             { label: "Kommunikation", value: a.kommunikation },
-            { label: "Auftrag", value: a.auftrag },
+            { label: "Standort", value: a.standort },
             { label: "Einsatzbeginn", value: a.einsatzbeginn },
           ],
           strengthLine: strengthLine(assignedVehicles(a.id)),
@@ -946,11 +946,11 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
                       />
                     </label>
                     <label className="ea-field">
-                      <span>Auftrag</span>
+                      <span>Standort</span>
                       <input
-                        value={a.auftrag}
+                        value={a.standort}
                         readOnly={!writable}
-                        onChange={(e) => setField(a.id, "auftrag", e.currentTarget.value)}
+                        onChange={(e) => setField(a.id, "standort", e.currentTarget.value)}
                       />
                     </label>
                   </div>

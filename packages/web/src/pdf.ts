@@ -47,7 +47,7 @@ export interface AbKraftKennzahlen {
 /** Eine Einsatzabschnitts-Zeile für Feld C (#140) — bereits vom Aufrufer abgeleitet. */
 export interface AbAbschnittZeile {
   titel: string; // formatAbschnittTitel(a) — "EA Nord" / "UA Nord-1"
-  auftrag: string;
+  standort: string; // früher „Auftrag"-Freitext des Abschnitts
   staerke: Staerke; // Summe der zugeordneten Einsatz-Fahrzeuge
   count: number; // Anzahl zugeordneter Fahrzeuge
 }
@@ -435,10 +435,10 @@ export async function arbeitsblattToPdf(
     table(
       [
         { label: "Abschnitt", width: 150 },
-        { label: "Auftrag", width: 245 },
+        { label: "Standort", width: 245 },
         { label: "Stärke / Fz.", width: 128 },
       ],
-      abschnitte.map((a) => [a.titel, a.auftrag, `${formatStaerke(a.staerke)} · ${a.count} Fz.`]),
+      abschnitte.map((a) => [a.titel, a.standort, `${formatStaerke(a.staerke)} · ${a.count} Fz.`]),
       "Keine Einsatzabschnitte.",
     );
   }
