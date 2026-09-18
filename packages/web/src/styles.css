@@ -1018,7 +1018,7 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   width: 100%; text-align: center; border: 0; background: transparent; color: #fff;
   font-family: var(--sans); font-weight: 800; font-size: 18px; line-height: 1.15;
   border-bottom: 2px solid rgba(255,255,255,.7); padding: 0 2px 2px;
-  resize: none; overflow: hidden; display: block; overflow-wrap: anywhere;
+  resize: none; overflow: hidden; display: block; overflow-wrap: normal;
 }
 .ea-card__titleinput::placeholder { color: rgba(255,255,255,.5); }
 .ea-card__titleinput:read-only { cursor: default; }
