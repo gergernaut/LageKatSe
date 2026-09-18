@@ -905,11 +905,10 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
                       ))}
                     </select>
                     <div className="ea-card__title">
-                      <input
+                      <TitleField
                         value={a.titel}
-                        readOnly={!writable}
-                        aria-label="Titel"
-                        onChange={(e) => setField(a.id, "titel", e.currentTarget.value)}
+                        writable={writable}
+                        onChange={(value) => setField(a.id, "titel", value)}
                       />
                     </div>
                     <div className="ea-card__legend">
@@ -1130,6 +1129,72 @@ function AutoTextarea({
       value={value}
       aria-label={ariaLabel}
       onChange={(e) => onChange(e.currentTarget.value)}
+    />
+  );
+}
+
+/**
+ * Titelfeld im roten EA/UA-Badge. Statt einzeiligem Input ein umbrechendes
+ * Textarea: lange Namen (z. B. „med. Absicherung") laufen in eine zweite Zeile,
+ * statt in die Breite. Reicht das nicht, verkleinert `fitTitle` die Schrift
+ * schrittweise (18→11px), bis der Text in zwei Zeilen passt. Enter bricht NICHT
+ * um (würde den Titel mit \n verunreinigen), sondern beendet die Eingabe.
+ */
+const TITLE_FONT_MAX = 18;
+const TITLE_FONT_MIN = 11;
+const TITLE_LINE_HEIGHT = 1.15;
+
+function TitleField({
+  value,
+  writable,
+  onChange,
+}: {
+  value: string;
+  writable: boolean;
+  onChange: (value: string) => void;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const fit = () => {
+    const el = ref.current;
+    if (!el) return;
+    // Vertikales Padding aus der Content-Höhe herausrechnen — sonst zählt es zur
+    // gemessenen scrollHeight und ein echter 2-Zeiler gilt fälschlich als „zu hoch".
+    const cs = getComputedStyle(el);
+    const padV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    // Größte Schrift, die den Text in ≤ 2 Zeilen unterbringt. scrollHeight wird
+    // je Schrittgröße bei height:auto gemessen (wie in AutoTextarea).
+    let fs = TITLE_FONT_MAX;
+    for (; fs > TITLE_FONT_MIN; fs--) {
+      el.style.fontSize = `${fs}px`;
+      el.style.height = "auto";
+      const twoLines = Math.round(fs * TITLE_LINE_HEIGHT * 2) + 1; // +1 gegen Rundung
+      if (el.scrollHeight - padV <= twoLines) break;
+    }
+    el.style.fontSize = `${fs}px`;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
+  // Bei Textänderung UND Breitenänderung (Resize/Layoutwechsel) neu einpassen.
+  useEffect(fit, [value]);
+  useEffect(() => {
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
+  return (
+    <textarea
+      ref={ref}
+      className="ea-card__titleinput"
+      rows={1}
+      value={value}
+      readOnly={!writable}
+      aria-label="Titel"
+      onChange={(e) => onChange(e.currentTarget.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+      }}
     />
   );
 }
