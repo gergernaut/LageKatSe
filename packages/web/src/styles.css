@@ -1013,12 +1013,15 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .ea-card__badge select option { color: #000; }
 .ea-card__badge select:disabled { opacity: 1; cursor: default; }
 .ea-card__title { flex: 1; display: flex; align-items: center; justify-content: center; }
-.ea-card__title input {
+/* Umbrechendes, per JS auf ≤ 2 Zeilen gefittetes Titelfeld (font-size wird inline gesetzt). */
+.ea-card__titleinput {
   width: 100%; text-align: center; border: 0; background: transparent; color: #fff;
-  font: 800 18px var(--sans); border-bottom: 2px solid rgba(255,255,255,.7); padding: 0 2px 2px;
+  font-family: var(--sans); font-weight: 800; font-size: 18px; line-height: 1.15;
+  border-bottom: 2px solid rgba(255,255,255,.7); padding: 0 2px 2px;
+  resize: none; overflow: hidden; display: block; overflow-wrap: anywhere;
 }
-.ea-card__title input::placeholder { color: rgba(255,255,255,.5); }
-.ea-card__title input:read-only { cursor: default; }
+.ea-card__titleinput::placeholder { color: rgba(255,255,255,.5); }
+.ea-card__titleinput:read-only { cursor: default; }
 .ea-card__legend { font: 8px var(--sans); line-height: 1.25; color: rgba(255,255,255,.9); }
 /* Bereitstellungsraum (#180): gelbes „BR"-Badge (schwarze Schrift) statt rotem EA/UA-Badge. */
 .ea-card__badge--br { background: var(--signal); color: var(--signal-ink); align-items: center; justify-content: center; text-align: center; }
