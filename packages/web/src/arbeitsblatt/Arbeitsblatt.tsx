@@ -17,6 +17,7 @@ import {
   AB_ZEITSTRAHL,
   canWrite,
   coerceAbMassnahme,
+  coerceEinsatzabschnitt,
   coerceMeilenstein,
   coerceMeilensteine,
   kategorisiereMeilensteine,
@@ -218,8 +219,8 @@ export function Arbeitsblatt({ session }: { session: Session }) {
   // Kein einsatzabschnittId-Filter — beim "→ BR"-Schieben in der Kräfteübersicht
   // wird die Zuordnung bewusst geleert (#137); ein Status-"br"-Fahrzeug IST im BR.
   const brVehicles = vehicles.filter((v) => v.status === "br");
-  // Auftrag der BR-Karte (read-only aus dem Bereitstellungsraum-Singleton) für die BR-Zeile.
-  const [brAuftrag, setBrAuftrag] = useState("");
+  // Standort der BR-Karte (read-only aus dem Bereitstellungsraum-Singleton) für die BR-Zeile.
+  const [brStandort, setBrStandort] = useState("");
   // Stärke + Fahrzeug-Anzahl je Abschnitt (geteiltes, getestetes Primitiv, #141).
   const abschnittKraft = (id: string) => {
     const assigned = vehiclesInAbschnitt(vehicles, id);
@@ -326,13 +327,16 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     const list = conn.doc.getArray<Y.Map<unknown>>(EA_ABSCHNITTE);
     // Feld D (#163): die „Aufträge" der Führung read-only mitlesen (Auftrags-Sync).
     const fuehrungMap = conn.doc.getMap<unknown>(EA_FUEHRUNG);
-    // BR (#189): der Auftrag des Bereitstellungsraum-Singletons für die BR-Zeile.
+    // BR (#189): der Standort des Bereitstellungsraum-Singletons für die BR-Zeile.
     const brMap = conn.doc.getMap<unknown>(EA_BEREITSTELLUNG);
     const refresh = () => {
-      setAbschnitte(list.toArray().map((m) => m.toJSON() as Einsatzabschnitt));
+      // coerce statt roher Cast: fängt fehlende Felder ab UND liefert die Migration
+      // des früheren „auftrag"-Freitextfelds auf „standort" (Alt-Key als Fallback).
+      setAbschnitte(list.toArray().map((m) => coerceEinsatzabschnitt(m.toJSON(), () => "")));
       const fuList = fuehrungMap.get(EA_FUEHRUNG_AUFTRAEGE);
       setFuehrungAuftraege(fuList instanceof Y.Array ? (fuList.toJSON() as EaListItem[]) : []);
-      setBrAuftrag(stringValue(brMap, "auftrag"));
+      // Standort mit Alt-Key-Fallback (nur solange „standort" nie geschrieben wurde).
+      setBrStandort(brMap.has("standort") ? stringValue(brMap, "standort") : stringValue(brMap, "auftrag"));
     };
     list.observeDeep(refresh);
     fuehrungMap.observeDeep(refresh);
@@ -525,10 +529,10 @@ export function Arbeitsblatt({ session }: { session: Session }) {
         count: brVehicles.length,
       };
       const abschnittZeilen = [
-        { titel: "BR", auftrag: brAuftrag, staerke: brK.staerke, count: brK.count },
+        { titel: "BR", standort: brStandort, staerke: brK.staerke, count: brK.count },
         ...abschnitte.map((a) => {
           const k = abschnittKraft(a.id);
-          return { titel: formatAbschnittTitel(a), auftrag: a.auftrag, staerke: k.staerke, count: k.count };
+          return { titel: formatAbschnittTitel(a), standort: a.standort, staerke: k.staerke, count: k.count };
         }),
       ];
       // Feld D · read-only Aufträge aus der Führung + gepflegte Maßnahmen (#163).
@@ -752,7 +756,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
                 (Status „br", ohne Zuordnungs-Filter — s. Definition brVehicles). */}
             <div className="arbeitsblatt-ea-row">
               <span className="arbeitsblatt-ea-row__tag">BR</span>
-              {brAuftrag && <span className="arbeitsblatt-ea-row__auftrag">{brAuftrag}</span>}
+              {brStandort && <span className="arbeitsblatt-ea-row__standort">{brStandort}</span>}
               <span className="arbeitsblatt-ea-row__staerke">
                 {formatStaerke(sumStaerke(brVehicles))} · {brVehicles.length} Fz.
               </span>
@@ -762,7 +766,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
               return (
                 <div className="arbeitsblatt-ea-row" key={a.id}>
                   <span className="arbeitsblatt-ea-row__tag">{formatAbschnittTitel(a)}</span>
-                  {a.auftrag && <span className="arbeitsblatt-ea-row__auftrag">{a.auftrag}</span>}
+                  {a.standort && <span className="arbeitsblatt-ea-row__standort">{a.standort}</span>}
                   <span className="arbeitsblatt-ea-row__staerke">
                     {formatStaerke(k.staerke)} · {k.count} Fz.
                   </span>

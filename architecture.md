@@ -1139,7 +1139,9 @@ Client-CRDT-Writes, kein eigener Endpoint, kein Seeding.
 
 - **Datenstruktur** (Yjs-Dokument `einsatzabschnitte`, `shared/src/einsatzabschnitte.ts`): **eine**
   `Y.Array` `abschnitte`; jede Zeile eine `Y.Map` (Feld-Level-Merge wie ETB-/Kräfte-Zeilen).
-  Felder: `typ` (EA/UA), `titel`, `befehlsstelle`, `leiter`, `kommunikation`, `auftrag`,
+  Felder: `typ` (EA/UA), `titel`, `befehlsstelle`, `leiter`, `kommunikation`, `standort`
+  (früher `auftrag`-Freitext, jetzt redundant zur abhakbaren `auftraege`-Liste — Coercion
+  liest den Alt-Key `auftrag` als Fallback, solange `standort` fehlt),
   `einsatzbeginn` (DUG, bei Anlage vorbelegt), `createdAt`. `id` via `uid()` (Invariante #3).
 - **Abhakbare Listen (#155/#161):** je Abschnitt drei ausklappbare Listen — **Aufträge**,
   **Rückmeldungen**, **Anforderungen** — als **verschachtelte** `Y.Array<Y.Map>` in der Abschnitts-`Y.Map`

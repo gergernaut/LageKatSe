@@ -106,7 +106,7 @@ async function main() {
     befehlsstelle: "FW 1",
     leiter: "B-Dienst",
     kommunikation: "Florian 1",
-    auftrag: "Menschenrettung",
+    standort: "Bushaltestelle Mitte",
     einsatzbeginn: "260918Aug26",
     createdAt: "2026-08-26T09:18:00.000Z",
   });

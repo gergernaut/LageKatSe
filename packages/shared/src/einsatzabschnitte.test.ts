@@ -70,7 +70,7 @@ describe("Einsatzabschnitte-Modell", () => {
           befehlsstelle: "FW 1",
           leiter: "ZF",
           kommunikation: "Florian 1",
-          auftrag: "Riegelstellung",
+          standort: "Bushaltestelle Mitte",
           einsatzbeginn: "260918Aug26",
           createdAt: "2026-08-26T09:18:00.000Z",
         },
@@ -83,7 +83,7 @@ describe("Einsatzabschnitte-Modell", () => {
         befehlsstelle: "FW 1",
         leiter: "ZF",
         kommunikation: "Florian 1",
-        auftrag: "Riegelstellung",
+        standort: "Bushaltestelle Mitte",
         einsatzbeginn: "260918Aug26",
         createdAt: "2026-08-26T09:18:00.000Z",
         auftraege: [],
@@ -105,6 +105,21 @@ describe("Einsatzabschnitte-Modell", () => {
       const a = coerceEinsatzabschnitt(null, () => "x");
       expect(a.id).toBe("x");
       expect(a.typ).toBe("EA");
+    });
+
+    // Migration „auftrag"-Freitext → „standort": Alt-Daten sollen als Standort
+    // weiterleben, ein bewusst geleerter Standort aber NICHT wiederauferstehen.
+    it("liest den Alt-Key „auftrag“ als „standort“, solange „standort“ fehlt", () => {
+      const a = coerceEinsatzabschnitt({ auftrag: "Bushaltestelle Mitte" }, () => "x");
+      expect(a.standort).toBe("Bushaltestelle Mitte");
+    });
+
+    it("bevorzugt „standort“, sobald der Key vorhanden ist (auch leer → kein Fallback)", () => {
+      expect(coerceEinsatzabschnitt({ standort: "Neuer Ort", auftrag: "alt" }, () => "x").standort).toBe(
+        "Neuer Ort",
+      );
+      // Standort explizit geleert: darf nicht auf den Alt-Auftrag zurückfallen.
+      expect(coerceEinsatzabschnitt({ standort: "", auftrag: "alt" }, () => "x").standort).toBe("");
     });
   });
 
@@ -314,7 +329,7 @@ describe("Einsatzabschnitte-Modell", () => {
           befehlsstelle: "ELW 1",
           leiter: "ZF Meier",
           kommunikation: "Kanal 4",
-          auftrag: "Kräfte sammeln",
+          standort: "Sportplatz Süd",
           einsatzbeginn: "021200Sep26",
           auftraege: [{ id: "a1", text: "Verpflegung", erledigt: false }],
         },
@@ -324,7 +339,7 @@ describe("Einsatzabschnitte-Modell", () => {
         befehlsstelle: "ELW 1",
         leiter: "ZF Meier",
         kommunikation: "Kanal 4",
-        auftrag: "Kräfte sammeln",
+        standort: "Sportplatz Süd",
         einsatzbeginn: "021200Sep26",
         auftraege: [{ id: "a1", text: "Verpflegung", erledigt: false }],
         rueckmeldungen: [],
@@ -337,12 +352,17 @@ describe("Einsatzabschnitte-Modell", () => {
         befehlsstelle: "",
         leiter: "",
         kommunikation: "",
-        auftrag: "",
+        standort: "",
         einsatzbeginn: "",
         auftraege: [],
         rueckmeldungen: [],
         anforderungen: [],
       });
+    });
+
+    it("migriert den Alt-Key „auftrag“ → „standort“ (nur solange „standort“ fehlt)", () => {
+      expect(coerceBereitstellung({ auftrag: "Sammelplatz" }, () => "x").standort).toBe("Sammelplatz");
+      expect(coerceBereitstellung({ standort: "", auftrag: "Sammelplatz" }, () => "x").standort).toBe("");
     });
 
     it("parseBereitstellungExport: liest payload.bereitstellung; fehlt → leer", () => {

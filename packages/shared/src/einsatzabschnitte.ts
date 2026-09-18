@@ -155,7 +155,10 @@ export interface Einsatzabschnitt {
   befehlsstelle: string;
   leiter: string;
   kommunikation: string;
-  auftrag: string;
+  /** Standort des Abschnitts (früher „Auftrag"-Freitext, jetzt redundant zur
+   *  abhakbaren `auftraege`-Liste). Coercion liest den Alt-Key `auftrag` als
+   *  Fallback (s. coerceEinsatzabschnitt), solange `standort` nie geschrieben wurde. */
+  standort: string;
   einsatzbeginn: string; // DUG (dug()), bei Anlage vorbelegt
   createdAt: string; // ISO-8601
   // Abhakbare Listen (#155/#161) — je als verschachtelte Y.Array<Y.Map> gespeichert.
@@ -220,7 +223,10 @@ export function coerceEinsatzabschnitt(value: unknown, fallbackId: () => string)
     befehlsstelle: asString(r.befehlsstelle),
     leiter: asString(r.leiter),
     kommunikation: asString(r.kommunikation),
-    auftrag: asString(r.auftrag),
+    // Migration: das frühere Freitextfeld „auftrag" heißt jetzt „standort". Nur
+    // solange `standort` NIE geschrieben wurde (Key fehlt) auf den Alt-Key
+    // zurückfallen — ein bewusst geleerter Standort ("") bleibt so leer.
+    standort: "standort" in r ? asString(r.standort) : asString(r.auftrag),
     einsatzbeginn: asString(r.einsatzbeginn),
     createdAt: asString(r.createdAt),
     auftraege: coerceEaListItems(r.auftraege, fallbackId),
@@ -236,20 +242,20 @@ export function coerceEinsatzabschnitt(value: unknown, fallbackId: () => string)
  * kraefteubersicht-Doc abgeleitet (Fahrzeuge mit Status „br"), nicht hier gespeichert. */
 export const EA_BEREITSTELLUNG = "bereitstellung" as const;
 
-export const BEREITSTELLUNG_FIELDS = ["befehlsstelle", "leiter", "kommunikation", "auftrag"] as const;
+export const BEREITSTELLUNG_FIELDS = ["befehlsstelle", "leiter", "kommunikation", "standort"] as const;
 export type BereitstellungField = (typeof BEREITSTELLUNG_FIELDS)[number];
 export const BEREITSTELLUNG_LABELS: Record<BereitstellungField, string> = {
   befehlsstelle: "Befehlsstelle",
   leiter: "Leiter",
   kommunikation: "Kommunikation",
-  auftrag: "Auftrag",
+  standort: "Standort",
 };
 
 export interface Bereitstellung {
   befehlsstelle: string;
   leiter: string;
   kommunikation: string;
-  auftrag: string;
+  standort: string; // früher „Auftrag"-Freitext (Alt-Key `auftrag` als Fallback, s. coerceBereitstellung)
   einsatzbeginn: string;
   auftraege: EaListItem[];
   rueckmeldungen: EaListItem[];
@@ -260,7 +266,7 @@ export const EMPTY_BEREITSTELLUNG: Bereitstellung = {
   befehlsstelle: "",
   leiter: "",
   kommunikation: "",
-  auftrag: "",
+  standort: "",
   einsatzbeginn: "",
   auftraege: [],
   rueckmeldungen: [],
@@ -274,7 +280,9 @@ export function coerceBereitstellung(value: unknown, fallbackId: () => string): 
     befehlsstelle: asString(r.befehlsstelle),
     leiter: asString(r.leiter),
     kommunikation: asString(r.kommunikation),
-    auftrag: asString(r.auftrag),
+    // Migration wie beim Einsatzabschnitt: Alt-Key „auftrag" nur als Fallback,
+    // solange „standort" nie geschrieben wurde.
+    standort: "standort" in r ? asString(r.standort) : asString(r.auftrag),
     einsatzbeginn: asString(r.einsatzbeginn),
     auftraege: coerceEaListItems(r.auftraege, fallbackId),
     rueckmeldungen: coerceEaListItems(r.rueckmeldungen, fallbackId),
