@@ -1161,14 +1161,30 @@ function TitleField({
     // gemessenen scrollHeight und ein echter 2-Zeiler gilt fälschlich als „zu hoch".
     const cs = getComputedStyle(el);
     const padV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-    // Größte Schrift, die den Text in ≤ 2 Zeilen unterbringt. scrollHeight wird
-    // je Schrittgröße bei height:auto gemessen (wie in AutoTextarea).
+    // Nur an Wortgrenzen umbrechen — ein einzelnes langes Wort (z. B. „Verpflegung")
+    // wird NICHT mitten im Wort getrennt, sondern läuft (noch) über die Breite.
+    el.style.overflowWrap = "normal";
+    // Größte Schrift, bei der der Text in ≤ 2 Zeilen UND ohne horizontalen Überlauf
+    // passt. Der Breiten-Check fängt lange Einzelwörter ab (kein Umbruchpunkt →
+    // Schrift verkleinern statt trennen); der Höhen-Check erlaubt saubere 2-Zeiler.
     let fs = TITLE_FONT_MAX;
-    for (; fs > TITLE_FONT_MIN; fs--) {
+    let fitted = false;
+    for (; fs >= TITLE_FONT_MIN; fs--) {
       el.style.fontSize = `${fs}px`;
       el.style.height = "auto";
       const twoLines = Math.round(fs * TITLE_LINE_HEIGHT * 2) + 1; // +1 gegen Rundung
-      if (el.scrollHeight - padV <= twoLines) break;
+      const heightOk = el.scrollHeight - padV <= twoLines;
+      const widthOk = el.scrollWidth <= el.clientWidth + 1;
+      if (heightOk && widthOk) {
+        fitted = true;
+        break;
+      }
+    }
+    if (!fitted) {
+      // Allerletzter Ausweg: ein einzelnes Wort passt selbst bei Minimalgröße nicht
+      // in die Breite → doch im Wort umbrechen, damit es nicht aus dem Badge läuft.
+      fs = TITLE_FONT_MIN;
+      el.style.overflowWrap = "anywhere";
     }
     el.style.fontSize = `${fs}px`;
     el.style.height = "auto";
