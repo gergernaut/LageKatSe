@@ -123,6 +123,24 @@ export function buildEaEtbEntry(
   };
 }
 
+/**
+ * Baut den ETB-Eintrag (#225) für die **Auftrags-Übermittlung** („übermittelt"-Haken
+ * an einem Auftrag): Richtung „A" (Ausgang — der Auftrag geht zur EA raus), Von/Weg
+ * leer, An = Name des Abschnitts, Inhalt = „Auftrag an <Abschnitt> übermittelt: <Text>".
+ * Rein & testbar; der Aufrufer postet ihn server-autoritativ (Invariante #6).
+ */
+export function buildUebermittlungEtbEntry(
+  abschnitt: Pick<Einsatzabschnitt, "typ" | "titel">,
+  text: string,
+): { richtung: "A"; an: string; inhalt: string } {
+  const an = formatAbschnittTitel(abschnitt) || "Einsatzabschnitt";
+  return {
+    richtung: "A",
+    an,
+    inhalt: `Auftrag an ${an} übermittelt: ${text.trim()}`,
+  };
+}
+
 /** Defensive Coercion einer Listen-Zeile (fehlende/defekte Felder → sichere Defaults). */
 export function coerceEaListItem(value: unknown, fallbackId: () => string): EaListItem {
   const r: Record<string, unknown> = isRecord(value) ? value : {};

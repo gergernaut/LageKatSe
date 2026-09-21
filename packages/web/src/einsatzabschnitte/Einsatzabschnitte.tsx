@@ -4,6 +4,7 @@ import {
   AB_KANAL_FIELDS,
   AB_ORGANISATION,
   buildEaEtbEntry,
+  buildUebermittlungEtbEntry,
   canWrite,
   coerceBereitstellung,
   coerceEinsatzabschnitt,
@@ -214,10 +215,12 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     if (item) item.set("erledigt", item.get("erledigt") !== true);
   };
 
-  const toggleFuehrungAuftragUebermittelt = (itemId: string) => {
+  // „Übermittelt"-Haken (#225): Setzt den Haken FEST (fix nach dem ETB-Write, nicht
+  // mehr entfernbar) — der ETB-Eintrag wird vom Aufrufer (Führungs-Karte) erzeugt.
+  const markFuehrungAuftragUebermittelt = (itemId: string) => {
     if (!writable) return;
     const item = fuehrungListArray()?.toArray().find((m) => m.get("id") === itemId);
-    if (item) item.set("uebermittelt", item.get("uebermittelt") !== true);
+    if (item) item.set("uebermittelt", true);
   };
 
   // --- Bereitstellungsraum-Singleton (#180) — Felder + drei Listen an der brMap. ---
@@ -272,10 +275,11 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     if (index >= 0) arr.delete(index, 1);
   };
 
-  const toggleBrItemUebermittelt = (key: EaListKey, itemId: string) => {
+  // „Übermittelt"-Haken (#225): Setzt den Haken FEST — ETB-Write übernimmt der Aufrufer.
+  const markBrItemUebermittelt = (key: EaListKey, itemId: string) => {
     if (!writable) return;
     const item = brItem(key, itemId);
-    if (item) item.set("uebermittelt", item.get("uebermittelt") !== true);
+    if (item) item.set("uebermittelt", true);
   };
 
   const setFuehrungAuftragText = (itemId: string, text: string) => {
@@ -374,11 +378,12 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     if (item) item.set("erledigt", item.get("erledigt") !== true);
   };
 
-  // „Übermittelt"-Haken (#180) — nur für Aufträge; unabhängig von „erledigt".
-  const toggleItemUebermittelt = (abschnittId: string, key: EaListKey, itemId: string) => {
+  // „Übermittelt"-Haken (#225) — nur für Aufträge; Setzt den Haken FEST — der
+  // ETB-Write übernimmt der Aufrufer (Abschnitts-Karte).
+  const markItemUebermittelt = (abschnittId: string, key: EaListKey, itemId: string) => {
     if (!writable) return;
     const item = listArray(abschnittId, key)?.toArray().find((m) => m.get("id") === itemId);
-    if (item) item.set("uebermittelt", item.get("uebermittelt") !== true);
+    if (item) item.set("uebermittelt", true);
   };
 
   const setItemText = (abschnittId: string, key: EaListKey, itemId: string, text: string) => {
@@ -423,6 +428,31 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     }
   };
 
+  // Auftrags-Übermittlung (#225): Klick auf „übermittelt" → server-autoritativer
+  // ETB-Eintrag (Invariante #6, Ausgang Richtung A, An = Abschnittstitel) + Haken
+  // FEST setzen (nicht mehr entfernbar). Fehlgeschlagene ETB-Writes setzen den
+  // Haken NICHT (kein Zustand ohne Protokoll).
+  const uebermitteln = async (
+    abschnitt: Pick<Einsatzabschnitt, "typ" | "titel">,
+    item: EaListItem,
+    mark: () => void,
+  ) => {
+    if (!writable) return;
+    const text = item.text.trim();
+    if (!text) return;
+    if (item.uebermittelt === true) return; // schon fix gesetzt
+    try {
+      await api.createEtbEntry(session.room.joinCode, session.token, {
+        ...buildUebermittlungEtbEntry(abschnitt, text),
+        auto: true, // System-Übernahme → kursiv im ETB (#226)
+      });
+      mark(); // Haken fix — erst NACH erfolgreichem ETB-Write
+      flashEtbMsg(`Auftrag an ${buildUebermittlungEtbEntry(abschnitt, text).an} übermittelt`);
+    } catch (err) {
+      console.debug("ETB-Übermittlung fehlgeschlagen", err);
+      flashEtbMsg("ETB-Übermittlung fehlgeschlagen — Haken nicht gesetzt.");
+    }
+  };
   // Auto-Clear-Timer beim Unmount aufräumen.
   useEffect(() => () => {
     if (etbSyncTimerRef.current) clearTimeout(etbSyncTimerRef.current);
@@ -729,7 +759,7 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
               )}
             </div>
             {/* Aufträge der Führung (#177): abhakbar, wie die Listen je Abschnitt.
-                Kein ETB-Sync — Aufträge werden nicht ins ETB übernommen (#162-Muster). */}
+                „Übermittelt" (#225): ETB-Eintrag (Ausgang, An: Führung) + Haken fix. */}
             <EaItemList
               label="Aufträge"
               items={fuehrungAuftraege}
@@ -739,7 +769,10 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
               onSetText={setFuehrungAuftragText}
               onDelete={deleteFuehrungAuftrag}
               showUebermittelt
-              onToggleUebermittelt={toggleFuehrungAuftragUebermittelt}
+              onToggleUebermittelt={(itemId) => {
+                const item = fuehrungAuftraege.find((i) => i.id === itemId);
+                if (item) void uebermitteln({ typ: "EA", titel: "Führung" }, item, () => markFuehrungAuftragUebermittelt(itemId));
+              }}
             />
           </section>
         );
@@ -870,7 +903,15 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
                             void syncItemToEtb({ typ: "" as EaTyp, titel: "Bereitstellungsraum" }, key, item)
                     }
                     showUebermittelt={key === "auftraege"}
-                    onToggleUebermittelt={(itemId) => toggleBrItemUebermittelt(key, itemId)}
+                    onToggleUebermittelt={(itemId) => {
+                      const item = bereitstellung[key].find((i) => i.id === itemId);
+                      if (item)
+                        void uebermitteln(
+                          { typ: "" as EaTyp, titel: "Bereitstellungsraum" },
+                          item,
+                          () => markBrItemUebermittelt(key, itemId),
+                        );
+                    }}
                   />
                 ))}
               </div>
@@ -1054,9 +1095,12 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
                             ? undefined
                             : (item) => void syncItemToEtb(a, key, item)
                         }
-                        // „Übermittelt"-Haken nur für Aufträge (#180).
+                        // „Übermittelt"-Haken nur für Aufträge; Klick = ETB + Haken fix (#225).
                         showUebermittelt={key === "auftraege"}
-                        onToggleUebermittelt={(itemId) => toggleItemUebermittelt(a.id, key, itemId)}
+                        onToggleUebermittelt={(itemId) => {
+                          const item = a[key].find((i) => i.id === itemId);
+                          if (item) void uebermitteln(a, item, () => markItemUebermittelt(a.id, key, itemId));
+                        }}
                       />
                     ))}
                   </div>
@@ -1299,13 +1343,21 @@ function EaItemList({
                         {showUebermittelt && onToggleUebermittelt && (
                           <label
                             className={`ea-list__sent ${item.uebermittelt ? "is-on" : ""}`}
-                            title="An den Abschnitt übermittelt (unabhängig vom Erledigt-Haken)"
+                            title={
+                              item.uebermittelt
+                                ? "Übermittlung ist im ETB protokolliert und kann nicht zurückgenommen werden"
+                                : "Als an den Abschnitt übermittelt markieren — erzeugt einen ETB-Eintrag und setzt den Haken fest (#225)"
+                            }
                           >
                             <input
                               type="checkbox"
                               checked={item.uebermittelt === true}
-                              disabled={!writable}
-                              aria-label="übermittelt"
+                              disabled={!writable || item.uebermittelt === true}
+                              aria-label={
+                                item.uebermittelt
+                                  ? "übermittelt (fix gesetzt)"
+                                  : "als übermittelt markieren"
+                              }
                               onChange={() => onToggleUebermittelt(item.id)}
                             />
                             <span>übermittelt</span>
