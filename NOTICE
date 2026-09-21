@@ -27,6 +27,7 @@ Bundled third-party assets
   released into the public domain (CC0 1.0). Details and credit:
   packages/web/public/taktische-zeichen/ATTRIBUTION.md
 
-* DejaVu Sans font (used for PDF export) — DejaVu Fonts, a permissive free font
-  license (derived from the Bitstream Vera license). License text:
-  packages/web/public/fonts/README.txt
+* DejaVu Sans & DejaVu Sans Oblique fonts (used for PDF export) — DejaVu Fonts,
+  a permissive free font license (derived from the Bitstream Vera license).
+  License text: packages/web/public/fonts/DejaVu-License.txt
+  (both files unmodified from the upstream DejaVu v2.37 release)

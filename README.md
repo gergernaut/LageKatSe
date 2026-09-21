@@ -170,7 +170,7 @@ in der App und sind in der [`NOTICE`](./NOTICE)-Datei gebündelt:
 - **Regenradar, KONRAD3D, Wetter:** Deutscher Wetterdienst (DWD), teils via Bright Sky
 - **Pegelstände:** Wasserstraßen- und Schifffahrtsverwaltung des Bundes (WSV) / PEGELONLINE
 - **Taktische Zeichen:** [jonas-koeritz/Taktische-Zeichen](https://github.com/jonas-koeritz/Taktische-Zeichen), gemeinfrei (CC0)
-- **Schriftart (PDF):** DejaVu Sans (permissive)
+- **Schriftart (PDF):** DejaVu Sans + DejaVu Sans Oblique (permissive, [DejaVu-License.txt](./packages/web/public/fonts/DejaVu-License.txt))
 
 ## Für Entwickler
 
