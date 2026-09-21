@@ -405,6 +405,9 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
   margin: 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   font-size: 14px; letter-spacing: -.01em; color: var(--ink);
 }
+/* Sortier-Auswahl in der work__bar (#228) — reine Anzeige-Option. */
+.kraft-sort { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
+.kraft-sort select.tool { padding: 6px 8px; cursor: pointer; }
 .kraft-badge {
   font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--ink-2);
   padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface);

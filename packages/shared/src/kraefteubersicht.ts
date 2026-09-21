@@ -71,6 +71,61 @@ export interface KraftVehicle {
 /** Fields a client edits directly via Y.Map.set (everything but the id). */
 export type KraftEditableField = Exclude<keyof KraftVehicle, "id">;
 
+/** Sortier-Kriterien der Kräftelisten (#228) — client-lokale Anzeige-Option (Invariante #4). */
+export const KRAFT_SORTS = ["ea", "org", "typ", "funkrufname", "zeit"] as const;
+export type KraftSort = (typeof KRAFT_SORTS)[number];
+
+export const KRAFT_SORT_LABELS: Record<KraftSort, string> = {
+  ea: "Einsatzabschnitt",
+  org: "Organisation",
+  typ: "Fahrzeugtyp",
+  funkrufname: "Funkrufname",
+  zeit: "Zeitpunkt",
+};
+
+/** Normalisiert einen (evtl. aus localStorage gelesenen) Sortwert; Default „ea". */
+export function asKraftSort(value: unknown): KraftSort {
+  return (KRAFT_SORTS as readonly string[]).includes(value as string) ? (value as KraftSort) : "ea";
+}
+
+/**
+ * Sortiert eine Fahrzeugliste (#228) — rein & testbar, genutzt von Anzeige UND PDF,
+ * damit beide dieselbe Reihenfolge zeigen. Kollation deutsch/case-insensitiv,
+ * Zweitschlüssel Funkrufname für stabile Ordnung. „zeit" lässt die (chronologische)
+ * Eingabereihenfolge unverändert; bei „ea" landen unzugeordnete Fahrzeuge am Ende.
+ * `labelOf` löst einsatzabschnittId → Abschnittstitel auf (aus dem einsatzabschnitte-Doc).
+ */
+export function sortVehicles(
+  vehicles: readonly KraftVehicle[],
+  sort: KraftSort,
+  labelOf: (id: string | undefined) => string | null,
+): KraftVehicle[] {
+  const arr = [...vehicles];
+  if (sort === "zeit") return arr; // Anlage-Reihenfolge = chronologisch → unverändert
+  const cmp = (a: string, b: string) => a.localeCompare(b, "de", { sensitivity: "base" });
+  const byName = (a: KraftVehicle, b: KraftVehicle) => cmp(a.funkrufname ?? "", b.funkrufname ?? "");
+  return arr.sort((a, b) => {
+    switch (sort) {
+      case "funkrufname":
+        return byName(a, b);
+      case "org":
+        return cmp(a.org, b.org) || byName(a, b);
+      case "typ":
+        return cmp(a.typ ?? "", b.typ ?? "") || byName(a, b);
+      case "ea": {
+        const la = labelOf(a.einsatzabschnittId) ?? "";
+        const lb = labelOf(b.einsatzabschnittId) ?? "";
+        if (la === lb) return byName(a, b);
+        if (!la) return 1; // unzugeordnet ans Ende
+        if (!lb) return -1;
+        return cmp(la, lb);
+      }
+      default:
+        return 0;
+    }
+  });
+}
+
 /** DV-100 strength triple plus derived total. */
 export interface Staerke {
   fuehrer: number;
