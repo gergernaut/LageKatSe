@@ -771,7 +771,9 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
               showUebermittelt
               onToggleUebermittelt={(itemId) => {
                 const item = fuehrungAuftraege.find((i) => i.id === itemId);
-                if (item) void uebermitteln({ typ: "EA", titel: "Führung" }, item, () => markFuehrungAuftragUebermittelt(itemId));
+                // Die Führung ist kein Einsatzabschnitt → leerer Typ, damit im ETB
+                // „Führung" statt „EA Führung" steht (wie BR → „Bereitstellungsraum").
+                if (item) void uebermitteln({ typ: "" as EaTyp, titel: "Führung" }, item, () => markFuehrungAuftragUebermittelt(itemId));
               }}
             />
           </section>
