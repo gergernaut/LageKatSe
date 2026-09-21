@@ -8,7 +8,9 @@ import {
   countByTyp,
   formatStaerke,
   KRAFT_EXPORT_FORMAT,
+  asKraftSort,
   parseKraftExport,
+  sortVehicles,
   sumStaerke,
   vehicleStaerke,
   type KraftVehicle,
@@ -141,5 +143,50 @@ describe("parseKraftExport / coerceVehicle", () => {
   it("behält vorhandene IDs bei", () => {
     const row = coerceVehicle({ id: "keep-me", org: "FW" }, fallbackId);
     expect(row.id).toBe("keep-me");
+  });
+});
+
+// Sortierung der Kräftelisten (#228) — rein, genutzt von Anzeige UND PDF.
+describe("sortVehicles / asKraftSort", () => {
+  // labelOf-Stub: mappt einsatzabschnittId → Abschnittstitel (wie im Modul).
+  const labelOf = (id: string | undefined): string | null =>
+    id === "n" ? "EA Nord" : id === "s" ? "EA Süd" : id === "f" ? "Führung" : null;
+
+  const fleet: KraftVehicle[] = [
+    vehicle({ id: "1", funkrufname: "Florian 3", org: "THW", typ: "GKW", einsatzabschnittId: "s", createdAt: "2026-08-18T10:00:00Z" }),
+    vehicle({ id: "2", funkrufname: "Florian 1", org: "FW", typ: "LF 20", einsatzabschnittId: "n", createdAt: "2026-08-18T10:01:00Z" }),
+    vehicle({ id: "3", funkrufname: "Florian 2", org: "RD", typ: "RTW", einsatzabschnittId: undefined, createdAt: "2026-08-18T10:02:00Z" }),
+    vehicle({ id: "4", funkrufname: "Florian 4", org: "FW", typ: "DLK", einsatzabschnittId: "n", createdAt: "2026-08-18T10:03:00Z" }),
+  ];
+  const ids = (vs: KraftVehicle[]) => vs.map((v) => v.id);
+
+  it("asKraftSort normalisiert Unbekanntes auf „ea“", () => {
+    expect(asKraftSort("org")).toBe("org");
+    expect(asKraftSort("quatsch")).toBe("ea");
+    expect(asKraftSort(undefined)).toBe("ea");
+  });
+
+  it("„zeit“ lässt die Eingabereihenfolge unverändert", () => {
+    expect(ids(sortVehicles(fleet, "zeit", labelOf))).toEqual(["1", "2", "3", "4"]);
+  });
+
+  it("„funkrufname“ sortiert alphabetisch", () => {
+    expect(ids(sortVehicles(fleet, "funkrufname", labelOf))).toEqual(["2", "3", "1", "4"]);
+  });
+
+  it("„ea“ gruppiert nach Abschnittstitel, unzugeordnete ans Ende", () => {
+    // EA Nord (2,4 – nach Funkrufname), EA Süd (1), dann unzugeordnet (3).
+    expect(ids(sortVehicles(fleet, "ea", labelOf))).toEqual(["2", "4", "1", "3"]);
+  });
+
+  it("„org“ sortiert nach Organisation, Zweitschlüssel Funkrufname", () => {
+    // FW (2,4), RD (3), THW (1).
+    expect(ids(sortVehicles(fleet, "org", labelOf))).toEqual(["2", "4", "3", "1"]);
+  });
+
+  it("mutiert die Eingabe nicht (reine Funktion)", () => {
+    const before = ids(fleet);
+    sortVehicles(fleet, "funkrufname", labelOf);
+    expect(ids(fleet)).toEqual(before);
   });
 });

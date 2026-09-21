@@ -11,13 +11,18 @@ import {
   isRecord,
   KRAFT_EXPORT_FORMAT,
   KRAFT_ORGS,
+  KRAFT_SORT_LABELS,
+  KRAFT_SORTS,
   KRAFT_VEHICLES,
+  asKraftSort,
   parseKraftExport,
+  sortVehicles,
   sumStaerke,
   vehicleStaerke,
   type Einsatzabschnitt,
   type KraftExport,
   type KraftOrg,
+  type KraftSort,
   type KraftStatus,
   type KraftVehicle,
 } from "@lagekatse/shared";
@@ -45,6 +50,23 @@ export function Kraefteubersicht({ session }: { session: Session }) {
   const [notice, setNotice] = useState("");
   const [importing, setImporting] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
+  // Sortierung (#228): reine Anzeige-Option, client-lokal (Invariante #4) — auch der
+  // Read-only-Monitor darf sie nutzen, ohne den geteilten Zustand zu ändern.
+  const [sort, setSort] = useState<KraftSort>(() => {
+    try {
+      return asKraftSort(localStorage.getItem("lks.kraftSort"));
+    } catch {
+      return "ea";
+    }
+  });
+  const changeSort = (next: KraftSort) => {
+    setSort(next);
+    try {
+      localStorage.setItem("lks.kraftSort", next);
+    } catch {
+      /* localStorage nicht verfügbar → nur diese Sitzung */
+    }
+  };
   const importInputRef = useRef<HTMLInputElement>(null);
   const vehiclesRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   const writable = canWrite(session.roles, "kraefteubersicht", {
@@ -190,7 +212,7 @@ export function Kraefteubersicht({ session }: { session: Session }) {
     try {
       // pdf-lib ist schwer → erst beim Export dynamisch laden (eigener Chunk).
       const { kraefteToPdf } = await import("../pdf");
-      const bytes = await kraefteToPdf(items, abschnittLabel, {
+      const bytes = await kraefteToPdf(items, abschnittLabel, sort, {
         roomName: session.room.name,
         joinCode: session.room.joinCode,
         stamp: dug(),
@@ -430,6 +452,21 @@ export function Kraefteubersicht({ session }: { session: Session }) {
           </span>
         )}
         <div className="spacer" />
+        <label className="kraft-sort" title="Sortierung der Kräftelisten (nur für dich)">
+          <span>Sortierung</span>
+          <select
+            className="tool"
+            value={sort}
+            aria-label="Sortierung der Kräfte"
+            onChange={(e) => changeSort(asKraftSort(e.currentTarget.value))}
+          >
+            {KRAFT_SORTS.map((s) => (
+              <option key={s} value={s}>
+                {KRAFT_SORT_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </label>
         {writable && (
           <button className="tool" type="button" onClick={() => importInputRef.current?.click()} disabled={importing}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -474,7 +511,7 @@ export function Kraefteubersicht({ session }: { session: Session }) {
               {formatStaerke(brStaerke)} · {brItems.length} Fz.
             </span>
           </h3>
-          {renderTable(brItems, "br")}
+          {renderTable(sortVehicles(brItems, sort, abschnittLabel), "br")}
         </section>
 
         <section className="kraft-section">
@@ -484,7 +521,7 @@ export function Kraefteubersicht({ session }: { session: Session }) {
               {formatStaerke(sumStaerke(einsatzItems))} · {einsatzItems.length} Fz.
             </span>
           </h3>
-          {renderTable(einsatzItems, "einsatz")}
+          {renderTable(sortVehicles(einsatzItems, sort, abschnittLabel), "einsatz")}
         </section>
       </div>
     </div>

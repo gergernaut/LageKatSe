@@ -19,10 +19,12 @@ import {
   formatStaerke,
   KRAFT_ORG_LABELS,
   KRAFT_STATUS_LABELS,
+  sortVehicles,
   sumStaerke,
   type AbAuftragZeile,
   type AbMeilensteinKategorie,
   type Arbeitsblatt,
+  type KraftSort,
   type KraftStatus,
   type KraftVehicle,
   type LogEntry,
@@ -745,6 +747,7 @@ async function createDoc(landscape: boolean) {
 export async function kraefteToPdf(
   vehicles: KraftVehicle[],
   abschnittLabel: (id: string | undefined) => string | null,
+  sort: KraftSort,
   meta: PdfMeta,
 ): Promise<Uint8Array> {
   const doc = await createDoc(true);
@@ -764,7 +767,8 @@ export async function kraefteToPdf(
   // Im Einsatz zuerst (aktive Kräfte), dann Bereitstellungsraum.
   const groups: KraftStatus[] = ["einsatz", "br"];
   for (const status of groups) {
-    const group = vehicles.filter((v) => v.status === status);
+    // Gleiche Sortierung wie in der Anzeige (#228), damit Bildschirm und PDF übereinstimmen.
+    const group = sortVehicles(vehicles.filter((v) => v.status === status), sort, abschnittLabel);
     doc.heading(`${KRAFT_STATUS_LABELS[status]} — ${formatStaerke(sumStaerke(group))} · ${group.length} Fz.`);
     doc.table(
       cols,
