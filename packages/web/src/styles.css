@@ -517,8 +517,11 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .zeitstrahl__item--geplant .zeitstrahl__punkt { background: var(--surface); border-color: var(--ink-3); }
 /* Darkmode: Flächen-Punkte bleiben lesbar, Randfarben unverändert. */
 .zeitstrahl__titel {
-  font-size: 11.5px; color: var(--ink-2); max-width: 110px; overflow: hidden;
-  text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11.5px; color: var(--ink-2); max-width: 110px; line-height: 1.2;
+  /* Bis zu zwei Zeilen umbrechen, dann erst kürzen (#224) — der Track (oben)
+     reserviert unten bereits Platz dafür. break-word bricht nur überlange Wörter. */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden; overflow-wrap: break-word;
 }
 .zeitstrahl__now {
   position: absolute; top: 0; bottom: 0; width: 0; z-index: 0;
