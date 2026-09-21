@@ -3,6 +3,7 @@ import {
   abschnittKraft,
   asEaTyp,
   buildEaEtbEntry,
+  buildUebermittlungEtbEntry,
   coerceBereitstellung,
   coerceEaListItem,
   coerceEaListItems,
@@ -371,6 +372,31 @@ describe("Einsatzabschnitte-Modell", () => {
       ).toBe("X");
       expect(parseBereitstellungExport({ format: EA_EXPORT_FORMAT }, () => "gen").leiter).toBe("");
       expect(parseBereitstellungExport(null, () => "gen").auftraege).toEqual([]);
+    });
+  });
+
+  // Auftrags-Übermittlung → ETB (#225)
+  describe("buildUebermittlungEtbEntry", () => {
+    it("Richtung A (Ausgang), An = formatierter Abschnittstitel, Inhalt mit Auftragstext", () => {
+      const out = buildUebermittlungEtbEntry({ typ: "EA", titel: "Nord" }, "Absperrbereich sichern");
+      expect(out).toEqual({
+        richtung: "A",
+        an: "EA Nord",
+        inhalt: "Auftrag an EA Nord übermittelt: Absperrbereich sichern",
+      });
+    });
+
+    it("UA-Titel wird sauber formatiert, leeren Text trimmen", () => {
+      const out = buildUebermittlungEtbEntry({ typ: "UA", titel: "Nord-1" }, "  Riegel Ost  ");
+      expect(out.an).toBe("UA Nord-1");
+      expect(out.inhalt).toBe("Auftrag an UA Nord-1 übermittelt: Riegel Ost");
+    });
+
+    it("ohne Typ/Titel → 'EA' (trim) — Fallback greift nur bei komplett leer", () => {
+      expect(buildUebermittlungEtbEntry({ typ: "EA", titel: "" }, "x").an).toBe("EA");
+      expect(
+        buildUebermittlungEtbEntry({ typ: "" as unknown as "EA", titel: "" }, "x").an,
+      ).toBe("Einsatzabschnitt");
     });
   });
 });
