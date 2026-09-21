@@ -414,7 +414,8 @@ export function Einsatzabschnitte({ session }: { session: Session }) {
     const text = item.text.trim();
     if (!text) return;
     try {
-      await api.createEtbEntry(session.room.joinCode, session.token, buildEaEtbEntry(a, key, text));
+      // System-Übernahme aus dem Modul Abschnitte → kursiv im ETB (#226).
+      await api.createEtbEntry(session.room.joinCode, session.token, { ...buildEaEtbEntry(a, key, text), auto: true });
       flashEtbMsg(`„${text.slice(0, 40)}“ ins ETB übernommen`);
     } catch (err) {
       console.debug("ETB-Übernahme fehlgeschlagen", err);

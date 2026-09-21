@@ -1174,6 +1174,7 @@ export function Lagekarte({
             await api.createEtbEntry(session.room.joinCode, session.token, {
               inhalt: `Pegel ${st.name}${st.water ? ` (${st.water})` : ""}: ${st.value} ${st.unit} (${pegelStatusText(st)}), Stand ${formatDateTime(st.timestamp)}`,
               von: "PEGELONLINE/WSV",
+              auto: true, // System-Eintrag (#226) → kursiv im ETB
             });
             btn.textContent = "✓ im ETB";
           } catch {

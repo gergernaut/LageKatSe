@@ -363,6 +363,10 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .etb-row--storniert .nr,
 .etb-row--storniert .etb-value,
 .etb-row--storniert .etb-input { text-decoration: line-through; }
+/* #226: system-erzeugte Einträge kursiv (inkl. der Eingabefelder in der Editieransicht). */
+.etb-row--auto .etb-value,
+.etb-row--auto .etb-datum,
+.etb-row--auto .etb-input { font-style: italic; }
 .etb-cancel {
   display: block; margin-top: 6px; padding: 2px 0; border: 0;
   background: transparent; color: var(--danger); font-size: 10px;

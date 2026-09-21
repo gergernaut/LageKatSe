@@ -127,6 +127,7 @@ export class RoomHub {
         veranlassung: input.veranlassung ?? "",
         erledigt: false,
         bearbeiter,
+        auto: input.auto ?? false,
       };
 
       const yEntry = new Y.Map<unknown>();

@@ -369,6 +369,7 @@ export function Arbeitsblatt({ session }: { session: Session }) {
     await api.createEtbEntry(session.room.joinCode, session.token, {
       inhalt,
       von: "DWD/BrightSky",
+      auto: true, // System-Eintrag (#226) → kursiv im ETB
     });
   };
 

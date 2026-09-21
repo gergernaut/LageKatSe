@@ -42,6 +42,12 @@ export interface LogEntry {
   erledigt: boolean;
   bearbeiter: string; // handling sign; prefilled with the author's display name
   /**
+   * #226: vom System erzeugter Eintrag (Kräftebewegung, EA-Übernahme, Wetter-/
+   * Pegel-/Abschluss-Eintrag) statt manuell im ETB getippt. Rein visuell (kursiv);
+   * fehlt bei Alt-Einträgen → gilt als manuell.
+   */
+  auto?: boolean;
+  /**
    * §9.4: entries are *cancelled*, not deleted — this keeps the lfdNr chain
    * gapless. A cancelled entry stays visible (struck through) and in exports.
    */
@@ -63,7 +69,7 @@ export type EtbEditableField = Exclude<keyof LogEntry, "id" | "lfdNr">;
  * filled in inline after it appears.
  */
 export type NewEtbEntryInput = Partial<
-  Pick<LogEntry, "richtung" | "von" | "an" | "weg" | "inhalt" | "veranlassung">
+  Pick<LogEntry, "richtung" | "von" | "an" | "weg" | "inhalt" | "veranlassung" | "auto">
 >;
 
 /**
