@@ -69,6 +69,13 @@ async function embedDejaVu(pdf: PDFDocument): Promise<PDFFont> {
   return pdf.embedFont(await res.arrayBuffer(), { subset: true });
 }
 
+/** DejaVu Sans Oblique (Kursiv, subsetted) — kennzeichnet system-Einträge im PDF (#232). */
+async function embedDejaVuOblique(pdf: PDFDocument): Promise<PDFFont> {
+  const res = await fetch("/fonts/DejaVuSans-Oblique.ttf");
+  if (!res.ok) throw new Error(`Oblique-Schrift konnte nicht geladen werden (HTTP ${res.status})`);
+  return pdf.embedFont(await res.arrayBuffer(), { subset: true });
+}
+
 // A4 quer (Punkte), großzügiger Rand.
 const PAGE_W = 842;
 const PAGE_H = 595;
@@ -185,6 +192,10 @@ function drawHeaderRow(page: PDFPage, font: PDFFont, x0: number, top: number): n
 export async function etbToPdf(entries: LogEntry[], meta: PdfMeta): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const font = await embedDejaVu(pdf);
+  // Oblique nur laden, wenn tatsächlich system-Einträge vorhanden sind — spart
+  // Embedding-Aufwand für ETB ohne Auto-Zeilen (#232).
+  const hasAuto = entries.some((e) => e.auto);
+  const obliqueFont = hasAuto ? await embedDejaVuOblique(pdf) : null;
 
   const x0 = MARGIN;
   const tableWidth = COLS.reduce((s, c) => s + c.width, 0);
@@ -217,8 +228,11 @@ export async function etbToPdf(entries: LogEntry[], meta: PdfMeta): Promise<Uint
   }
 
   for (const entry of entries) {
+    // System-Einträge (#225/#231/#232) kursiv — dieselbe DejaVu-Familie, gleiche
+    // Zeilengeometrie (wrapText misst mit dem tatsächlich zeichnenden Font).
+    const rowFont = entry.auto && obliqueFont ? obliqueFont : font;
     const wrapped = COLS.map((col) =>
-      wrapText(cellText(entry, col.key), font, BODY, col.width - 2 * PAD),
+      wrapText(cellText(entry, col.key), rowFont, BODY, col.width - 2 * PAD),
     );
     const lines = Math.max(...wrapped.map((w) => w.length));
     const rowHeight = lines * LEAD + 2 * PAD;
@@ -229,7 +243,7 @@ export async function etbToPdf(entries: LogEntry[], meta: PdfMeta): Promise<Uint
     let x = x0;
     wrapped.forEach((cellLines, i) => {
       cellLines.forEach((ln, li) => {
-        page.drawText(ln, { x: x + PAD, y: y - PAD - BODY - li * LEAD, size: BODY, font, color });
+        page.drawText(ln, { x: x + PAD, y: y - PAD - BODY - li * LEAD, size: BODY, font: rowFont, color });
       });
       x += COLS[i].width;
     });
