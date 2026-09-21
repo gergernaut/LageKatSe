@@ -15,6 +15,7 @@ import { api } from "../api";
 import type { Session } from "../session";
 import { connectModule } from "../sync/provider";
 import { dug } from "../dug";
+import { formatDate, spansMultipleDays } from "../format";
 
 const WAYS: EtbWeg[] = ["", "Funk", "Telefon", "Fax", "persönlich", "E-Mail"];
 
@@ -84,6 +85,9 @@ export function Etb({ session }: { session: Session }) {
   // ETB-Import ist destruktiv + server-autoritativ (Invariante #6, /etb/import) →
   // nur Stabsrollen (wie der Bundle-Import); die reine ETB-Modulrolle bekäme 403.
   const canImport = hasStabRole(session.roles);
+  // #223: Bei mehrtägigen Lagen ist die Uhrzeit allein mehrdeutig → dann das Datum
+  // unter der Uhrzeit zeigen. Bei Ein-Tages-Lagen bleibt es (redundant) verborgen.
+  const multiDay = spansMultipleDays(items.map((entry) => entry.zeit));
 
   useEffect(() => {
     const conn = connectModule(session.room.id, "etb", session.token);
@@ -298,6 +302,8 @@ export function Etb({ session }: { session: Session }) {
                     ) : (
                       <span className="etb-value">{formatTime(entry.zeit)}</span>
                     )}
+                    {/* #223: Datum nur bei mehrtägigen Lagen, unter der Uhrzeit. */}
+                    {multiDay && <span className="etb-datum">{formatDate(entry.zeit)}</span>}
                   </td>
                   <td className="rt-cell">
                     {writable ? (
