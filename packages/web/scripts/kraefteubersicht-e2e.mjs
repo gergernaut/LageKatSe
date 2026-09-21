@@ -1,8 +1,8 @@
 // Smoke test for the `kraefteubersicht` module (#100) against a running backend.
 // Verifies: an S3 writer's vehicle row (vehicles Y.Array of Y.Map) and a status
-// move propagate to another client; a Monitor's write is blocked server-side;
-// the ETB side-channel (POST /kraft/etb-log) works for a LAGEKARTE-role user
-// (who has kraefteubersicht but NOT etb rights) and is refused for a Monitor.
+// move propagate to another client; a Monitor's write is blocked server-side.
+// (Kräftebewegungen landen seit #227 in einer client-CRDT-Historie, nicht mehr
+// im ETB — der frühere /kraft/etb-log-Endpoint entfällt.)
 // Uses its OWN throwaway room. Keys mirror shared's KRAFT_VEHICLES ("vehicles").
 //   API=http://<host>:<port> node packages/web/scripts/kraefteubersicht-e2e.mjs
 import * as Y from "yjs";
@@ -45,13 +45,6 @@ async function join(code, name, roles) {
   return r.json();
 }
 
-async function kraftEtbLog(code, token, inhalt) {
-  return fetch(`${API}/api/rooms/${code}/kraft/etb-log`, {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-    body: JSON.stringify({ inhalt }),
-  });
-}
 
 function connect(roomId, token, module) {
   const doc = new Y.Doc();
@@ -92,7 +85,6 @@ async function main() {
 
   const writer = await join(room.joinCode, "Writer S3", ["S3"]);
   const observer = await join(room.joinCode, "Obs S1", ["S1"]);
-  const lkf = await join(room.joinCode, "Lagekartenführer", ["LAGEKARTE"]);
   const monitor = await join(room.joinCode, "Beamer", ["MONITOR"]);
 
   const W = connect(room.id, writer.token, "kraefteubersicht");
@@ -144,25 +136,12 @@ async function main() {
   const test3 = oVehicles.length === 1;
   console.log(`[${test3 ? "PASS" : "FAIL"}] Monitor-Write auf kraefteubersicht blockiert (Rechte)`);
 
-  // ETB side-channel: a LAGEKARTE-role user (kraefteubersicht yes, etb no) may log.
-  const oEntries = Oetb.doc.getArray("entries");
-  const before = oEntries.length;
-  const lkfRes = await kraftEtbLog(room.joinCode, lkf.token, "Kräfte in den Einsatz: Florian 1/44/1 (Feuerwehr, LF 20) — Stärke 1/2/6//9");
-  await sleep(800);
-  const test4 = lkfRes.status === 201 && oEntries.length === before + 1;
-  console.log(`[${test4 ? "PASS" : "FAIL"}] Lagekartenführer protokolliert Kräftebewegung ins ETB (201 + Sync)`);
-
-  // ETB side-channel is refused for a Monitor (no kraefteubersicht rights).
-  const monRes = await kraftEtbLog(room.joinCode, monitor.token, "sollte 403 sein");
-  const test5 = monRes.status === 403;
-  console.log(`[${test5 ? "PASS" : "FAIL"}] Monitor darf NICHT ins ETB protokollieren (403)`);
-
   W.provider.destroy();
   O.provider.destroy();
   M.provider.destroy();
   Oetb.provider.destroy();
   await sleep(150);
-  process.exit(test1 && test2 && test3 && test4 && test5 ? 0 : 1);
+  process.exit(test1 && test2 && test3 ? 0 : 1);
 }
 
 main().catch((err) => {

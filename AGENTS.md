@@ -17,14 +17,15 @@ SPA mit **autoritativem** Echtzeit-Sync-Backend (Yjs/CRDT über WebSocket). Ster
   genutzt — die gemeinsame Quelle der Wahrheit.
 - `packages/server` — `@lagekatse/server`: Fastify HTTP-API + WebSocket-Sync-Gateway.
   `index.ts` (Bootstrap + Shutdown + Auto-Retention-Sweep), `http.ts` (REST: Räume, Join, autoritatives
-  ETB-Anlegen **+ ETB-Bundle-Import + Lage-abschließen `/close` + Kräfte-ETB-Log `/kraft/etb-log`**),
+  ETB-Anlegen **+ ETB-Bundle-Import + Lage-abschließen `/close`**),
   `sync/gateway.ts` (Auth + WS-Upgrade), `sync/room-hub.ts` (Yjs-Docs, Persistenz, Fan-out;
   `appendEtbEntry`/`replaceEtbEntries`/`closeRoom`), `store/` (`memory` | `postgres`;
   `getStaleRooms`/`deleteRoom`, Room mit `createdBy`, **Backend = Single Source of Truth fuer Schema** #106/#107).
 - `packages/web` — `@lagekatse/web`: React/Vite-SPA. `lobby/`, `uebersicht/`, `lagekarte/`
   (Karte + `Palette.tsx` + Regenradar [Bright Sky, proj4-reprojiziert, #166] / KONRAD3D-WMS-Overlay + Pegel-Layer), `etb/`,
   `arbeitsblatt/` (`Arbeitsblatt.tsx`, `Wetter.tsx`, `Zeitstrahl.tsx`; Feld D „Aufträge" read-only aus EA-Führung gesynct, Maßnahmen je Auftrags-id in `AB_MASSNAHMEN`, #163; **Karte Z „Zeitstrahl"**: Meilensteine `AB_ZEITSTRAHL` = `Y.Array<Y.Map>`, reine `kategorisiereMeilensteine` + „Jetzt"-Marker, #208; **Karten A–F+W einklappbar** via `AbPanelHead`/`collapsed`-localStorage, #206), `kraefteubersicht/` (`Kraefteubersicht.tsx`
-  — Bereitstellungsraum/Im-Einsatz, DV-100-Stärke, #100), `einsatzabschnitte/`
+  — Bereitstellungsraum/Im-Einsatz, DV-100-Stärke, #100; client-lokale Sortier-Auswahl #228;
+  Kräftebewegungen NICHT mehr ins ETB, sondern client-CRDT-**Verschiebe-Historie** `KRAFT_HISTORY` + „Verlauf"-Popup/PDF #227), `einsatzabschnitte/`
   (`Einsatzabschnitte.tsx` — EA/UA + Führungs-Singleton `EA_FUEHRUNG` (#154) + Fahrzeug-Zuordnung `einsatzabschnittId`, abgeleitete Stärke, #133;
   abhakbare Listen Aufträge/Rückmeldungen/Anforderungen mit ETB-Sync #161/#162, je Eintrag Umbruch + Zeitstempel + „übermittelt"-Haken bei Aufträgen #180; Bereitstellungsraum-Singleton `EA_BEREITSTELLUNG` fix unter der Führung, „Fahrzeuge" = Status-„br"-Zahl aus Kräfte, #180),
   `sync/provider.ts` (`connectModule` mit `cache`-Opt-out fuer transiente Verbindungen).

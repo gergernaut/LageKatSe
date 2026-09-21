@@ -408,6 +408,31 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 /* Sortier-Auswahl in der work__bar (#228) — reine Anzeige-Option. */
 .kraft-sort { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
 .kraft-sort select.tool { padding: 6px 8px; cursor: pointer; }
+
+/* Verschiebe-Historie-Popup (#227). */
+.kraft-history-backdrop {
+  position: fixed; inset: 0; z-index: 2000; background: rgba(0, 0, 0, .5);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.kraft-history {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  width: min(720px, 100%); max-height: 80vh; display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .4);
+}
+.kraft-history__head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.kraft-history__head h3 { margin: 0; font-size: 15px; }
+.kraft-history__count { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+.kraft-history__empty { padding: 28px 16px; color: var(--ink-3); text-align: center; }
+.kraft-history__list { list-style: none; margin: 0; padding: 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.kraft-history__item {
+  display: grid; grid-template-columns: 132px 1fr; gap: 12px; align-items: baseline;
+  padding: 7px 10px; border-radius: 6px; border-left: 3px solid var(--line-2); background: var(--surface-2);
+}
+.kraft-history__item--toEinsatz { border-left-color: #2e9e5b; }
+.kraft-history__item--toBr { border-left-color: #e08a1f; }
+.kraft-history__item--entlassen { border-left-color: var(--ink-3); }
+.kraft-history__time { font-family: var(--mono); font-size: 11px; color: var(--ink-2); white-space: nowrap; }
+.kraft-history__text { font-size: 13px; color: var(--ink); overflow-wrap: anywhere; }
 .kraft-badge {
   font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--ink-2);
   padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface);

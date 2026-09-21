@@ -22,6 +22,7 @@ import {
   parseFuehrungAuftraegeExport,
   parseFuehrungExport,
   parseKraftExport,
+  parseKraftHistory,
   type LogEntry,
   type MapFeature,
 } from "@lagekatse/shared";
@@ -136,7 +137,8 @@ export async function importBundle(session: Session, file: File): Promise<Bundle
 
   // --- Kräfteübersicht (client-CRDT, ersetzen) ---
   if (cls.kraefteubersicht) {
-    const rows = parseKraftExport(parseJson(files[cls.kraefteubersicht]), uid);
+    const payload = parseJson(files[cls.kraefteubersicht]);
+    const rows = parseKraftExport(payload, uid);
     if (!rows) {
       skipped.push("Kräfteübersicht (ungültiges Format)");
     } else {
@@ -144,7 +146,7 @@ export async function importBundle(session: Session, file: File): Promise<Bundle
       try {
         await waitForSync(conn);
         const vehicles = conn.doc.getArray<Y.Map<unknown>>(KRAFT_VEHICLES);
-        applyKraftImport(vehicles, rows, { replace: true });
+        applyKraftImport(vehicles, rows, { replace: true, history: parseKraftHistory(payload, uid) });
       } finally {
         conn.destroy();
       }

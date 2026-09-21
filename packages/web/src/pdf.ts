@@ -24,6 +24,7 @@ import {
   type AbAuftragZeile,
   type AbMeilensteinKategorie,
   type Arbeitsblatt,
+  type KraftHistoryEntry,
   type KraftSort,
   type KraftStatus,
   type KraftVehicle,
@@ -748,6 +749,7 @@ export async function kraefteToPdf(
   vehicles: KraftVehicle[],
   abschnittLabel: (id: string | undefined) => string | null,
   sort: KraftSort,
+  history: KraftHistoryEntry[],
   meta: PdfMeta,
 ): Promise<Uint8Array> {
   const doc = await createDoc(true);
@@ -783,6 +785,19 @@ export async function kraefteToPdf(
     );
     doc.gap();
   }
+
+  // Verschiebe-Historie (#227) — chronologisch, als Nachweis der Bewegungen (nicht mehr im ETB).
+  doc.heading(
+    `Verschiebe-Historie — ${history.length} ${history.length === 1 ? "Eintrag" : "Einträge"}`,
+  );
+  doc.table(
+    [
+      { label: "Zeitpunkt", width: 130 },
+      { label: "Vorgang", width: 640 },
+    ],
+    history.map((h) => [formatDateTime(h.at), h.text]),
+    "Keine Kräftebewegungen protokolliert.",
+  );
 
   return doc.finalize("LageKatSe · Kräfteübersicht");
 }
