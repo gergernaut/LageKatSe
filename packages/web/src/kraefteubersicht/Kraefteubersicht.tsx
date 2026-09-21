@@ -1,7 +1,8 @@
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import {
-  buildKraftEtbText,
+  buildKraftHistoryEntry,
   canWrite,
+  coerceKraftHistory,
   countByTyp,
   EA_ABSCHNITTE,
   EA_BEREITSTELLUNG,
@@ -10,27 +11,31 @@ import {
   formatStaerke,
   isRecord,
   KRAFT_EXPORT_FORMAT,
+  KRAFT_HISTORY,
   KRAFT_ORGS,
   KRAFT_SORT_LABELS,
   KRAFT_SORTS,
   KRAFT_VEHICLES,
   asKraftSort,
   parseKraftExport,
+  parseKraftHistory,
   sortVehicles,
   sumStaerke,
   vehicleStaerke,
   type Einsatzabschnitt,
+  type KraftEtbAction,
   type KraftExport,
+  type KraftHistoryEntry,
   type KraftOrg,
   type KraftSort,
   type KraftStatus,
   type KraftVehicle,
 } from "@lagekatse/shared";
 import * as Y from "yjs";
-import { api } from "../api";
 import type { Session } from "../session";
 import { connectModule } from "../sync/provider";
 import { dug } from "../dug";
+import { formatDateTime } from "../format";
 import { uid } from "../uid";
 import { applyKraftImport } from "./applyImport";
 
@@ -50,6 +55,10 @@ export function Kraefteubersicht({ session }: { session: Session }) {
   const [notice, setNotice] = useState("");
   const [importing, setImporting] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
+  // Verschiebe-Historie (#227): client-CRDT-Liste im selben Dokument + Verlauf-Popup.
+  const [history, setHistory] = useState<KraftHistoryEntry[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const historyRef = useRef<Y.Array<Y.Map<unknown>> | null>(null);
   // Sortierung (#228): reine Anzeige-Option, client-lokal (Invariante #4) — auch der
   // Read-only-Monitor darf sie nutzen, ohne den geteilten Zustand zu ändern.
   const [sort, setSort] = useState<KraftSort>(() => {
@@ -76,16 +85,22 @@ export function Kraefteubersicht({ session }: { session: Session }) {
   useEffect(() => {
     const conn = connectModule(session.room.id, "kraefteubersicht", session.token);
     const vehicles = conn.doc.getArray<Y.Map<unknown>>(KRAFT_VEHICLES);
+    const historyArr = conn.doc.getArray<Y.Map<unknown>>(KRAFT_HISTORY);
     vehiclesRef.current = vehicles;
+    historyRef.current = historyArr;
 
     const refresh = () => {
       setItems(vehicles.toArray().map((v) => v.toJSON() as KraftVehicle));
+      setHistory(coerceKraftHistory(historyArr.toJSON(), uid));
     };
     vehicles.observeDeep(refresh);
+    historyArr.observeDeep(refresh);
     refresh();
 
     return () => {
       vehicles.unobserveDeep(refresh);
+      historyArr.unobserveDeep(refresh);
+      historyRef.current = null;
       vehiclesRef.current = null;
       conn.destroy();
     };
@@ -149,15 +164,16 @@ export function Kraefteubersicht({ session }: { session: Session }) {
     vehicles.push([map]);
   };
 
-  // Server-autoritatives ETB-Protokoll der Kräftebewegung (Invariante #6). Die
-  // CRDT-Mutation ist bereits erfolgt/lokal sichtbar — schlägt nur das Logging
-  // fehl, bleibt die Bewegung stehen; wir zeigen einen nicht-blockierenden Hinweis.
-  const logToEtb = async (text: string) => {
-    try {
-      await api.kraftEtbLog(session.room.joinCode, session.token, text);
-    } catch (cause) {
-      setNotice(cause instanceof Error ? `ETB-Protokoll fehlgeschlagen: ${cause.message}` : "ETB-Protokoll fehlgeschlagen.");
-    }
+  // Verschiebe-Historie (#227): eine Kräftebewegung als Eintrag in die client-CRDT-
+  // Y.Array KRAFT_HISTORY (kein ETB mehr). Der Text wird VOR der Mutation gebaut
+  // (beim Entlassen ist `vehicle.status` dann noch die Ursprungstabelle).
+  const appendHistory = (vehicle: KraftVehicle, action: KraftEtbAction) => {
+    const arr = historyRef.current;
+    if (!arr) return;
+    const entry = buildKraftHistoryEntry(vehicle, action, uid(), new Date().toISOString());
+    const map = new Y.Map<unknown>();
+    for (const [key, value] of Object.entries(entry)) map.set(key, value);
+    arr.push([map]);
   };
 
   const moveVehicle = (vehicle: KraftVehicle, to: KraftStatus) => {
@@ -170,7 +186,7 @@ export function Kraefteubersicht({ session }: { session: Session }) {
       if (to === "br") map.set("einsatzabschnittId", "");
       map.set("updatedAt", new Date().toISOString());
     });
-    void logToEtb(buildKraftEtbText(vehicle, to === "einsatz" ? "toEinsatz" : "toBr"));
+    appendHistory(vehicle, to === "einsatz" ? "toEinsatz" : "toBr");
   };
 
   const releaseVehicle = (vehicle: KraftVehicle) => {
@@ -179,13 +195,12 @@ export function Kraefteubersicht({ session }: { session: Session }) {
       return;
     }
     setNotice("");
-    const text = buildKraftEtbText(vehicle, "entlassen"); // vor dem Löschen bauen
+    appendHistory(vehicle, "entlassen"); // vor dem Löschen (Status = Ursprungstabelle)
     const vehicles = vehiclesRef.current;
     if (vehicles) {
       const idx = vehicles.toArray().findIndex((v) => v.get("id") === vehicle.id);
       if (idx >= 0) vehicles.delete(idx, 1);
     }
-    void logToEtb(text);
   };
 
   const exportJson = () => {
@@ -194,6 +209,7 @@ export function Kraefteubersicht({ session }: { session: Session }) {
       version: 1,
       exportedAt: new Date().toISOString(),
       vehicles: items,
+      history, // Verschiebe-Historie mitsichern (#227)
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -212,7 +228,7 @@ export function Kraefteubersicht({ session }: { session: Session }) {
     try {
       // pdf-lib ist schwer → erst beim Export dynamisch laden (eigener Chunk).
       const { kraefteToPdf } = await import("../pdf");
-      const bytes = await kraefteToPdf(items, abschnittLabel, sort, {
+      const bytes = await kraefteToPdf(items, abschnittLabel, sort, history, {
         roomName: session.room.name,
         joinCode: session.room.joinCode,
         stamp: dug(),
@@ -257,7 +273,7 @@ export function Kraefteubersicht({ session }: { session: Session }) {
       setNotice("");
       setError("");
       const vehicles = vehiclesRef.current;
-      if (vehicles) applyKraftImport(vehicles, rows, { replace: true });
+      if (vehicles) applyKraftImport(vehicles, rows, { replace: true, history: parseKraftHistory(parsed, uid) });
       setNotice(`${rows.length} Fahrzeug${rows.length === 1 ? "" : "e"} importiert.`);
     } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : "Import fehlgeschlagen.");
@@ -467,6 +483,17 @@ export function Kraefteubersicht({ session }: { session: Session }) {
             ))}
           </select>
         </label>
+        <button
+          className="tool"
+          type="button"
+          onClick={() => setShowHistory(true)}
+          title="Verlauf der Kräftebewegungen (Einsatz/BR/entlassen)"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M3 3v5h5M3.05 13a9 9 0 1 0 2.6-6.36L3 8M12 7v5l4 2" />
+          </svg>
+          Verlauf{history.length > 0 ? ` (${history.length})` : ""}
+        </button>
         {writable && (
           <button className="tool" type="button" onClick={() => importInputRef.current?.click()} disabled={importing}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -524,6 +551,44 @@ export function Kraefteubersicht({ session }: { session: Session }) {
           {renderTable(sortVehicles(einsatzItems, sort, abschnittLabel), "einsatz")}
         </section>
       </div>
+
+      {showHistory && (
+        <div
+          className="kraft-history-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Verlauf der Kräftebewegungen"
+          onClick={() => setShowHistory(false)}
+        >
+          <div className="kraft-history" onClick={(e) => e.stopPropagation()}>
+            <div className="kraft-history__head">
+              <h3>Verlauf der Kräftebewegungen</h3>
+              <span className="kraft-history__count">
+                {history.length} {history.length === 1 ? "Eintrag" : "Einträge"}
+              </span>
+              <div className="spacer" />
+              <button className="tool" type="button" onClick={() => setShowHistory(false)}>
+                Schließen
+              </button>
+            </div>
+            {history.length === 0 ? (
+              <p className="kraft-history__empty">Noch keine Kräftebewegungen protokolliert.</p>
+            ) : (
+              // Neueste zuerst — die Y.Array wächst chronologisch hinten an.
+              <ol className="kraft-history__list">
+                {[...history].reverse().map((h) => (
+                  <li key={h.id} className={`kraft-history__item kraft-history__item--${h.action}`}>
+                    <time className="kraft-history__time" dateTime={h.at}>
+                      {formatDateTime(h.at)}
+                    </time>
+                    <span className="kraft-history__text">{h.text}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

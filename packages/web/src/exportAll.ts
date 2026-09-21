@@ -26,6 +26,7 @@ import {
   coerceBereitstellung,
   coerceEaListItems,
   coerceFuehrung,
+  coerceKraftHistory,
   EA_ABSCHNITTE,
   EA_BEREITSTELLUNG,
   EA_EXPORT_FORMAT,
@@ -34,6 +35,7 @@ import {
   ETB_ENTRIES,
   ETB_EXPORT_FORMAT,
   KRAFT_EXPORT_FORMAT,
+  KRAFT_HISTORY,
   KRAFT_VEHICLES,
   LAGEKARTE_FEATURES,
   type Einsatzabschnitt,
@@ -164,6 +166,8 @@ export async function exportAll(session: Session): Promise<void> {
         version: 1,
         exportedAt: new Date().toISOString(),
         vehicles: vehicles.toArray().map((v) => v.toJSON() as KraftVehicle),
+        // Verschiebe-Historie (#227) mitsichern, damit sie „Lage abschließen" übersteht.
+        history: coerceKraftHistory(conn.doc.getArray(KRAFT_HISTORY).toJSON(), uid),
       };
       files[`kraefteuebersicht-${code}-${stamp}.json`] = new TextEncoder().encode(
         JSON.stringify(payload, null, 2),

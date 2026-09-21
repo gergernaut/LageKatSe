@@ -1087,8 +1087,9 @@ Gesamt-Export (ZIP), DUG-Dateinamen, Chat-Auto-Scroll, **Arbeitsblatt-JSON-Impor
 - ⏳ Ausbaustufen: Live-Cursor (offen, nicht getrackt)
 
 ### Nach M4 ergänzt
-- ✅ **Modul 4: Kräfteübersicht** (#100): Bereitstellungsraum / Im Einsatz, DV-100-Stärke, ETB-Kopplung
-  via `/kraft/etb-log`; Übersichtskarte auf der Übersichtsseite (#109)
+- ✅ **Modul 4: Kräfteübersicht** (#100): Bereitstellungsraum / Im Einsatz, DV-100-Stärke; Kräftebewegungen
+  in einer client-CRDT-Verschiebe-Historie (`KRAFT_HISTORY`, #227, statt früher ins ETB); Übersichtskarte
+  auf der Übersichtsseite (#109); client-lokale Sortier-Auswahl (#228)
 - ✅ **Modul 5: Einsatzabschnitte** (#133, M3): EA/UA mit Fahrzeug-Zuordnung (`einsatzabschnittId` am
   Fahrzeug, Option A) und abgeleiteter Stärke; Cross-Reads in Taktische Übersicht (Feld C + PDF) und
   Kräfteübersicht-Badge; Export/Import (Einzeldatei + Bundle)
@@ -1122,10 +1123,11 @@ angefragt. Wie das Arbeitsblatt **ohne** server-autoritative Felder → reine Cl
   (Gesamtstärke BR + Fahrzeuganzahl mit Typ-Aufschlüsselung) aus reinen, unit-getesteten Helfern
   (`sumStaerke`/`formatStaerke`/`countByTyp`).
 - **Rechte:** Schreiben dürfen S1–S6 **sowie** LAGEKARTE und ETB (Modulrollen); Monitor read-only.
-- **ETB-Kopplung:** Verschieben (BR↔Einsatz) und „Entlassen" (Zeile löschen) schreiben einen
-  **server-autoritativen** ETB-Eintrag (Invariante #6, lückenlose lfdNr) über
-  `POST /api/rooms/:code/kraft/etb-log` — gated durch *kraefteubersicht*-Schreibrecht (nicht etb),
-  damit auch ein Lagekartenführer protokollieren kann. Text via `buildKraftEtbText` (rein, testbar).
+- **Verschiebe-Historie (#227):** Verschieben (BR↔Einsatz) und „Entlassen" (Zeile löschen) landen
+  **nicht mehr im ETB** (dort bei großen Lagen zu viel Rauschen), sondern als Eintrag in einer
+  client-geschriebenen `Y.Array` `KRAFT_HISTORY` im selben Dokument (kein server-autoritatives Feld,
+  wie die Fahrzeuge). Angezeigt im **„Verlauf"-Popup** und im **Kräfte-PDF**, mitgesichert im Export/Bundle.
+  Text via `buildKraftEtbText`, Eintrag via `buildKraftHistoryEntry` (rein, testbar).
 - **Export/Import:** verlustfreies JSON (`lagekatse.kraefteubersicht`), Teil des Bundles (§12);
   Apply client-CRDT über `kraefteubersicht/applyImport.ts` (React-frei, von Einzeldatei- **und**
   Bundle-Import geteilt). Smoke: `packages/web/scripts/kraefteubersicht-e2e.mjs`.

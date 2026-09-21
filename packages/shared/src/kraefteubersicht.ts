@@ -5,11 +5,10 @@
  *
  * Like the Arbeitsblatt — and unlike the ETB — it has NO server-authoritative
  * fields (no monotonic number, no server clock), so every row is a plain client
- * CRDT write and the server needs no special seeding. The ONE server touch point
- * is the ETB side-effect: moving/releasing a vehicle writes an ETB entry
- * server-authoritatively (Invariante #6) via POST /api/rooms/:code/kraft/etb-log,
- * so the lfdNr chain stays gapless. That route is gated by *kraefteubersicht*
- * write rights (not etb), so a Lagekartenführer moving forces can still log.
+ * CRDT write and the server needs no special seeding. Moving/releasing a vehicle
+ * is logged into a module-local, client-written Verschiebe-Historie (KRAFT_HISTORY,
+ * #227) — NOT the ETB (there it was just noise at scale); shown in the „Verlauf"
+ * popup and the Kräfte-PDF.
  *
  * The document holds one Y.Array named KRAFT_VEHICLES; each element is a Y.Map
  * (one vehicle row) so two people can edit *different* columns of the same
@@ -188,14 +187,67 @@ export function countByTyp(vehicles: readonly Pick<KraftVehicle, "typ">[]): Reco
   return out;
 }
 
-/* ---- ETB-Protokolltext für Kräftebewegungen (server-autoritativ geloggt) ---- */
+/* ---- Verschiebe-Historie der Kräftebewegungen (#227) ----
+ * Kräftebewegungen (BR↔Einsatz / entlassen) landen NICHT mehr im ETB (dort bei
+ * großen Lagen zu viel Rauschen), sondern in einer modul-eigenen, client-geschriebenen
+ * Y.Array `KRAFT_HISTORY` im kräfteubersicht-Dokument (kein server-autoritatives Feld,
+ * wie die Fahrzeuge selbst). Angezeigt im „Verlauf"-Popup und im Kräfte-PDF. */
 
 export type KraftEtbAction = "toEinsatz" | "toBr" | "entlassen";
+export const KRAFT_ETB_ACTIONS = ["toEinsatz", "toBr", "entlassen"] as const;
+
+/** Y.Array-Key der Verschiebe-Historie im kräfteubersicht-Dokument (#227). */
+export const KRAFT_HISTORY = "history" as const;
+
+/** Ein Eintrag der Kräfte-Verschiebe-Historie (#227): wann welche Bewegung. */
+export interface KraftHistoryEntry {
+  id: string; // uid() (kein crypto.randomUUID, Invariante #3)
+  at: string; // ISO-8601 (Client-Zeit, wie createdAt/updatedAt am Fahrzeug)
+  action: KraftEtbAction;
+  text: string; // fertige Beschreibung (buildKraftEtbText)
+}
+
+/** Normalisiert einen (evtl. fremden) Bewegungs-Typ; Default „toEinsatz". */
+export function asKraftEtbAction(value: unknown): KraftEtbAction {
+  return (KRAFT_ETB_ACTIONS as readonly string[]).includes(value as string)
+    ? (value as KraftEtbAction)
+    : "toEinsatz";
+}
 
 /**
- * Baut den ETB-Eintragstext für eine Kräftebewegung. Rein & testbar; der Aufruf
- * baut den Text VOR der Mutation (beim Entlassen ist `vehicle.status` daher noch
- * die Ursprungstabelle).
+ * Baut einen Historie-Eintrag (#227) aus einer Bewegung. Rein & testbar — `id` und
+ * `at` (Zeit) reicht der Aufrufer bei (uid() bzw. Client-ISO), der Text kommt aus
+ * `buildKraftEtbText` (VOR der Mutation bauen, s. dort).
+ */
+export function buildKraftHistoryEntry(
+  vehicle: KraftVehicle,
+  action: KraftEtbAction,
+  id: string,
+  at: string,
+): KraftHistoryEntry {
+  return { id, at, action, text: buildKraftEtbText(vehicle, action) };
+}
+
+/** Defensive Coercion eines Historie-Eintrags (fehlende/defekte Felder → sicher). */
+export function coerceKraftHistoryEntry(value: unknown, fallbackId: () => string): KraftHistoryEntry {
+  const r: Record<string, unknown> = isRecord(value) ? value : {};
+  return {
+    id: asString(r.id) || fallbackId(),
+    at: asString(r.at),
+    action: asKraftEtbAction(r.action),
+    text: asString(r.text),
+  };
+}
+
+/** Coerct eine ganze Historie; Nicht-Arrays werden zu []. */
+export function coerceKraftHistory(value: unknown, fallbackId: () => string): KraftHistoryEntry[] {
+  return Array.isArray(value) ? value.map((v) => coerceKraftHistoryEntry(v, fallbackId)) : [];
+}
+
+/**
+ * Baut den Beschreibungstext für eine Kräftebewegung (#227-Historie). Rein & testbar;
+ * der Aufruf baut den Text VOR der Mutation (beim Entlassen ist `vehicle.status` daher
+ * noch die Ursprungstabelle).
  */
 export function buildKraftEtbText(vehicle: KraftVehicle, action: KraftEtbAction): string {
   const org = KRAFT_ORG_LABELS[vehicle.org] ?? vehicle.org;
@@ -222,6 +274,13 @@ export interface KraftExport {
   version: 1;
   exportedAt: string; // ISO-8601
   vehicles: KraftVehicle[];
+  /** Verschiebe-Historie (#227) — optional, ältere Exporte ohne bleiben gültig. */
+  history?: KraftHistoryEntry[];
+}
+
+/** Liest die Verschiebe-Historie (#227) defensiv aus einem Export (fehlt → []). */
+export function parseKraftHistory(payload: unknown, fallbackId: () => string): KraftHistoryEntry[] {
+  return coerceKraftHistory(isRecord(payload) ? payload.history : undefined, fallbackId);
 }
 
 /** Defensive Coercion einer Fremd-Zeile in eine gültige KraftVehicle. */

@@ -8,8 +8,12 @@ import {
   countByTyp,
   formatStaerke,
   KRAFT_EXPORT_FORMAT,
+  asKraftEtbAction,
   asKraftSort,
+  buildKraftHistoryEntry,
+  coerceKraftHistory,
   parseKraftExport,
+  parseKraftHistory,
   sortVehicles,
   sumStaerke,
   vehicleStaerke,
@@ -188,5 +192,43 @@ describe("sortVehicles / asKraftSort", () => {
     const before = ids(fleet);
     sortVehicles(fleet, "funkrufname", labelOf);
     expect(ids(fleet)).toEqual(before);
+  });
+});
+
+// Verschiebe-Historie (#227) — rein, genutzt von Popup, PDF und Export/Import.
+describe("Kräfte-Verschiebe-Historie (#227)", () => {
+  it("asKraftEtbAction akzeptiert bekannte Werte, sonst Default toEinsatz", () => {
+    expect(asKraftEtbAction("toBr")).toBe("toBr");
+    expect(asKraftEtbAction("entlassen")).toBe("entlassen");
+    expect(asKraftEtbAction("quatsch")).toBe("toEinsatz");
+    expect(asKraftEtbAction(undefined)).toBe("toEinsatz");
+  });
+
+  it("buildKraftHistoryEntry übernimmt id/at/action + Text aus buildKraftEtbText", () => {
+    const entry = buildKraftHistoryEntry(vehicle(), "toEinsatz", "h1", "2026-09-21T12:00:00Z");
+    expect(entry).toEqual({
+      id: "h1",
+      at: "2026-09-21T12:00:00Z",
+      action: "toEinsatz",
+      text: "Kräfte in den Einsatz: Florian 1/44/1 (Feuerwehr, LF 20) — Stärke 1/2/6//9",
+    });
+  });
+
+  it("coerceKraftHistory bereinigt defensiv, Nicht-Array → []", () => {
+    const rows = coerceKraftHistory(
+      [{ id: "h1", at: "2026-09-21T12:00:00Z", action: "toBr", text: "x" }, { action: "kaputt" }],
+      () => "gen",
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toEqual({ id: "h1", at: "2026-09-21T12:00:00Z", action: "toBr", text: "x" });
+    expect(rows[1].id).toBe("gen"); // fehlende id → fallback
+    expect(rows[1].action).toBe("toEinsatz"); // unbekannt → Default
+    expect(coerceKraftHistory("kein Array", () => "gen")).toEqual([]);
+  });
+
+  it("parseKraftHistory liest payload.history; fehlt → []", () => {
+    expect(parseKraftHistory({ history: [{ id: "h1", at: "t", action: "toBr", text: "x" }] }, () => "gen")).toHaveLength(1);
+    expect(parseKraftHistory({}, () => "gen")).toEqual([]);
+    expect(parseKraftHistory(null, () => "gen")).toEqual([]);
   });
 });
