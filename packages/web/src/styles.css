@@ -327,6 +327,8 @@ table.etb tr:hover td { background: var(--surface-2); }
   color: var(--ink); font-family: var(--mono);
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
+/* #223: Datumszeile unter der Uhrzeit (nur bei mehrtägigen Lagen sichtbar). */
+.etb-datum { display: block; margin-top: 2px; font-size: 10.5px; color: var(--ink-3); }
 .etb .von, .etb .an { font-family: var(--mono); font-size: 12px; }
 .etb-value { white-space: pre-wrap; overflow-wrap: anywhere; }
 .etb-input {
