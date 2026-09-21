@@ -36,6 +36,8 @@ const newEtbEntrySchema = z.object({
   weg: z.enum(["Funk", "Telefon", "Fax", "persönlich", "E-Mail", ""]).optional(),
   inhalt: z.string().max(4000, "Inhalt ist zu lang (max. 4000 Zeichen).").optional(),
   veranlassung: z.string().max(4000, "Veranlassung ist zu lang (max. 4000 Zeichen).").optional(),
+  // #226: markiert system-erzeugte Einträge (EA-Übernahme, Wetter/Pegel, Abschluss).
+  auto: z.boolean().optional(),
 });
 
 // Kräfteübersicht-Protokoll (#100): eine Kräftebewegung (BR↔Einsatz / entlassen)
@@ -63,6 +65,7 @@ const etbImportSchema = z.object({
         veranlassung: z.string().max(4000),
         erledigt: z.boolean(),
         bearbeiter: z.string().max(200),
+        auto: z.boolean().optional(),
         storniert: z.boolean().optional(),
       }),
     )
@@ -160,7 +163,8 @@ export function registerRoutes(
     }
 
     const body = kraftEtbLogSchema.parse(req.body ?? {});
-    const entry = await hub.appendEtbEntry(rec.id, claims.name, { inhalt: body.inhalt });
+    // Kräftebewegungen sind system-erzeugt (#226) → kursiv im ETB.
+    const entry = await hub.appendEtbEntry(rec.id, claims.name, { inhalt: body.inhalt, auto: true });
     return reply.code(201).send({ entry });
   });
 

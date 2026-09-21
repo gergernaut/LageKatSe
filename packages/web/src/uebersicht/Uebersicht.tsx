@@ -128,7 +128,7 @@ export function Uebersicht({
         closedBy,
       });
       // 1) Abschluss-Eintrag server-autoritativ (Invariante #6) — VOR dem Export.
-      await api.createEtbEntry(session.room.joinCode, session.token, { inhalt, von: closedBy });
+      await api.createEtbEntry(session.room.joinCode, session.token, { inhalt, von: closedBy, auto: true });
       // 2) Gesamt-Export (ZIP) — enthält den Abschluss-Eintrag.
       await exportAll(session);
       // 3) Serverseitig schließen + löschen; Broadcast leitet alle auf die Landing.

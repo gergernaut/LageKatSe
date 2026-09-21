@@ -286,7 +286,15 @@ export function Etb({ session }: { session: Session }) {
             </thead>
             <tbody>
               {items.map((entry) => (
-                <tr key={entry.id} className={entry.storniert ? "etb-row--storniert" : undefined}>
+                <tr
+                  key={entry.id}
+                  className={
+                    [entry.auto && "etb-row--auto", entry.storniert && "etb-row--storniert"]
+                      .filter(Boolean)
+                      .join(" ") || undefined
+                  }
+                >
+
                   <td className="nr">{String(entry.lfdNr).padStart(3, "0")}</td>
                   <td className="zeit">
                     {writable ? (
