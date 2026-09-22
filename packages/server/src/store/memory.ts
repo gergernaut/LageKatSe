@@ -36,6 +36,10 @@ export class MemoryStore implements Store {
     return [...this.rooms.values()].filter((r) => new Date(r.lastActiveAt).getTime() < threshold);
   }
 
+  async listRooms(): Promise<RoomRecord[]> {
+    return [...this.rooms.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   async deleteRoom(id: string): Promise<void> {
     const rec = this.rooms.get(id);
     if (!rec) return;
