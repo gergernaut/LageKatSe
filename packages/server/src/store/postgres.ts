@@ -136,6 +136,11 @@ export class PostgresStore implements Store {
     return res.rows.map(rowToRoom);
   }
 
+  async listRooms(): Promise<RoomRecord[]> {
+    const res = await this.pool.query<RoomRow>(`SELECT * FROM room ORDER BY name`);
+    return res.rows.map(rowToRoom);
+  }
+
   async deleteRoom(id: string): Promise<void> {
     // ON DELETE CASCADE in SCHEMA_SQL removes module_doc + doc_update rows.
     await this.pool.query(`DELETE FROM room WHERE id = $1`, [id]);

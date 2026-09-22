@@ -52,6 +52,18 @@ async function main(): Promise<void> {
   const runRetention = async () => {
     try {
       const stale = await store.getStaleRooms(retentionMs);
+      // Aktive Räume mitschreiben (periodischer Überblick, Admin-Feedback): Code + Titel.
+      const all = await store.listRooms();
+      const staleIds = new Set(stale.map((s) => s.id));
+      const active = all.filter((r) => !staleIds.has(r.id));
+      const activeSummary =
+        active.length === 0
+          ? "keine aktiven Räume"
+          : active
+              .slice(0, 20)
+              .map((r) => `${r.name} (${r.joinCode})`)
+              .join(", ") + (active.length > 20 ? ` … (+${active.length - 20} weitere)` : "");
+      app.log.info(`[retention] aktive Räume (${active.length}): ${activeSummary}`);
       if (stale.length === 0) {
         app.log.info(`[retention] swept 0 stale room(s) (limit: ${config.retention.days}d)`);
         return;

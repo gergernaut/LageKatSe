@@ -33,6 +33,8 @@ export interface Store {
   touchRoom(id: string, lastActiveAt: string): Promise<void>;
   /** Räume deren last_active_at älter als der Schwellwert ist (E10/#66). */
   getStaleRooms(olderThanMs: number): Promise<RoomRecord[]>;
+  /** Alle Räume (für periodische Status-Logs, #232-Feedback). */
+  listRooms(): Promise<RoomRecord[]>;
   /** Löscht einen Raum + alle abhängigen Daten per Cascade (E10/#66). */
   deleteRoom(id: string): Promise<void>;
 
