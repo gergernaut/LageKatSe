@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@geoman-io/leaflet-geoman-free": "^2.20.1",
+    "@geoman-io/leaflet-geoman-free": "^2.20.2",
     "@lagekatse/shared": "workspace:*",
     "@pdf-lib/fontkit": "^1.1.1",
     "fflate": "^0.8.3",
@@ -22,7 +22,7 @@
     "react-dom": "^19.3.0",
     "y-indexeddb": "^9.0.12",
     "y-websocket": "^3.1.0",
-    "yjs": "^13.6.32"
+    "yjs": "^13.6.33"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.22",
