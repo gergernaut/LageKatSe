@@ -1,9 +1,11 @@
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import {
   canWrite,
+  ETB_CONTENT_FIELDS,
   ETB_ENTRIES,
   ETB_EXPORT_FORMAT,
   hasStabRole,
+  isEtbEntryLocked,
   isRecord,
   type EtbExport,
   type EtbRichtung,
@@ -88,6 +90,13 @@ export function Etb({ session }: { session: Session }) {
   // #223: Bei mehrtägigen Lagen ist die Uhrzeit allein mehrdeutig → dann das Datum
   // unter der Uhrzeit zeigen. Bei Ein-Tages-Lagen bleibt es (redundant) verborgen.
   const multiDay = spansMultipleDays(items.map((entry) => entry.zeit));
+  // #237: „Jetzt" als getickter State, damit Einträge beim Überschreiten der
+  // 2-Min-Frist von selbst in read-only kippen (ohne dass ein anderer Edit rerendert).
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 15_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const conn = connectModule(session.room.id, "etb", session.token);
@@ -111,12 +120,32 @@ export function Etb({ session }: { session: Session }) {
     if (!writable) return;
     const entries = entriesRef.current;
     if (!entries) return;
+    const isContent = (ETB_CONTENT_FIELDS as readonly string[]).includes(field);
 
     for (const entry of entries.toArray()) {
-      if (entry.get("id") === id) {
-        entry.set(field, value);
-        return;
+      if (entry.get("id") !== id) continue;
+      if (isContent) {
+        // #237: gesperrte Inhaltsspalten nicht mehr schreiben (Guardrail zusätzlich
+        // zur ausgegrauten UI). Storno/Erledigt laufen hier nicht durch (kein Content).
+        const locked = isEtbEntryLocked(
+          {
+            zeit: typeof entry.get("zeit") === "string" ? (entry.get("zeit") as string) : "",
+            lastEditedAt:
+              typeof entry.get("lastEditedAt") === "string" ? (entry.get("lastEditedAt") as string) : undefined,
+            auto: entry.get("auto") === true,
+          },
+          Date.now(),
+        );
+        if (locked) return;
+        // Sperr-Frist an die letzte Bearbeitung hängen (synct via CRDT, #237).
+        entry.doc?.transact(() => {
+          entry.set(field, value);
+          entry.set("lastEditedAt", new Date().toISOString());
+        });
+      } else {
+        entry.set(field, value); // erledigt/storniert — ohne Fristen-Reset, auch nach Sperre
       }
+      return;
     }
   };
 
@@ -285,19 +314,34 @@ export function Etb({ session }: { session: Session }) {
               </tr>
             </thead>
             <tbody>
-              {items.map((entry) => (
+              {items.map((entry) => {
+                // #237: Inhaltsspalten sind nach der Frist (oder bei Auto-Einträgen sofort)
+                // read-only; Storno/Erledigt bleiben an `writable` gekoppelt.
+                const locked = isEtbEntryLocked(entry, nowMs);
+                const editable = writable && !locked;
+                return (
                 <tr
                   key={entry.id}
                   className={
-                    [entry.auto && "etb-row--auto", entry.storniert && "etb-row--storniert"]
+                    [entry.auto && "etb-row--auto", entry.storniert && "etb-row--storniert", locked && "etb-row--locked"]
                       .filter(Boolean)
                       .join(" ") || undefined
                   }
                 >
-
-                  <td className="nr">{String(entry.lfdNr).padStart(3, "0")}</td>
+                  <td className="nr">
+                    {String(entry.lfdNr).padStart(3, "0")}
+                    {locked && (
+                      <span
+                        className="etb-lock"
+                        title="Fertig geschrieben — Inhalt nach 2 Min. gesperrt. Storno/Erledigt weiter möglich."
+                        aria-label="gesperrt"
+                      >
+                        {"\u{1F512}"}
+                      </span>
+                    )}
+                  </td>
                   <td className="zeit">
-                    {writable ? (
+                    {editable ? (
                       <input
                         className="etb-input etb-time"
                         type="time"
@@ -314,7 +358,7 @@ export function Etb({ session }: { session: Session }) {
                     {multiDay && <span className="etb-datum">{formatDate(entry.zeit)}</span>}
                   </td>
                   <td className="rt-cell">
-                    {writable ? (
+                    {editable ? (
                       <select
                         className={`etb-input etb-select rt ${
                           entry.richtung === "E" ? "rt--e" : entry.richtung === "A" ? "rt--a" : ""
@@ -342,19 +386,19 @@ export function Etb({ session }: { session: Session }) {
                   <td className="von">
                     <TextCell
                       value={entry.von}
-                      writable={writable}
+                      writable={editable}
                       onChange={(value) => setField(entry.id, "von", value)}
                     />
                   </td>
                   <td className="an">
                     <TextCell
                       value={entry.an}
-                      writable={writable}
+                      writable={editable}
                       onChange={(value) => setField(entry.id, "an", value)}
                     />
                   </td>
                   <td>
-                    {writable ? (
+                    {editable ? (
                       <select
                         className="etb-input etb-select"
                         value={entry.weg}
@@ -376,7 +420,7 @@ export function Etb({ session }: { session: Session }) {
                   <td>
                     <TextCell
                       value={entry.inhalt}
-                      writable={writable}
+                      writable={editable}
                       multiline
                       onChange={(value) => setField(entry.id, "inhalt", value)}
                     />
@@ -384,7 +428,7 @@ export function Etb({ session }: { session: Session }) {
                   <td>
                     <TextCell
                       value={entry.veranlassung}
-                      writable={writable}
+                      writable={editable}
                       multiline
                       onChange={(value) => setField(entry.id, "veranlassung", value)}
                     />
@@ -419,7 +463,8 @@ export function Etb({ session }: { session: Session }) {
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {items.length === 0 && !writable && (
                 <tr>
                   <td className="etb-empty" colSpan={10}>

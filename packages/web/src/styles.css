@@ -367,6 +367,8 @@ button.done:hover { box-shadow: 0 0 0 2px rgba(47,107,216,.22); }
 .etb-row--auto .etb-value,
 .etb-row--auto .etb-datum,
 .etb-row--auto .etb-input { font-style: italic; }
+/* #237: „fertig geschrieben" — Inhalt gesperrt (Storno/Erledigt weiter möglich). */
+.etb-lock { margin-left: 5px; font-size: 10px; opacity: .55; cursor: help; }
 .etb-cancel {
   display: block; margin-top: 6px; padding: 2px 0; border: 0;
   background: transparent; color: var(--danger); font-size: 10px;

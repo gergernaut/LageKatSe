@@ -59,6 +59,7 @@ const etbImportSchema = z.object({
         erledigt: z.boolean(),
         bearbeiter: z.string().max(200),
         auto: z.boolean().optional(),
+        lastEditedAt: z.string().max(40).optional(),
         storniert: z.boolean().optional(),
       }),
     )
