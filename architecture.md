@@ -560,6 +560,12 @@ Ein kollaboratives, tabellarisches Einsatztagebuch (ETB) nach üblicher FwDV-Pra
 - **Lfd. Nr.** wird automatisch vergeben (server-monoton, lückenlos).
 - **Uhrzeit** wird beim Anlegen automatisch gesetzt (**Server-Zeit**, nicht Client-Uhr) – **editierbar**.
 - **Live-Sync** & **Hot-Join** wie bei der Karte; Sichtbarkeit für alle, Schreiben je Rechte-Scope.
+- **Soft-Sperre (#237):** Inhaltsspalten werden `ETB_LOCK_MS` (2 Min) nach der letzten Bearbeitung
+  (`lastEditedAt`, synct via CRDT) **client-seitig read-only** — ein „fertig geschrieben"-Kompromiss
+  zwischen Unveränderlichkeit und Bedienbarkeit. **Storno/Erledigt** bleiben nutzbar; **Auto-Einträge
+  (#226)** sind sofort gesperrt. Bewusst **nur UI-Leitplanke** (keine Server-Erzwingung — der Server
+  relayt Feld-Edits weiter, s. Invariante zu #6); echte Manipulationssicherheit bräuchte
+  server-autoritative Edits (zurückgestellt).
 - **Export** als **JSON** (verlustfrei, re-importierbar via Bundle §12) und **PDF** (Ablage/Nachweis).
 
 ### 9.2 Spalten

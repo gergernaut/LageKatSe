@@ -42,6 +42,13 @@ export interface LogEntry {
   erledigt: boolean;
   bearbeiter: string; // handling sign; prefilled with the author's display name
   /**
+   * #237: ISO-Zeit der letzten Inhalts-Bearbeitung (Client-Uhr). Dient der
+   * Soft-Sperre: Inhaltsspalten werden `ETB_LOCK_MS` nach der letzten Änderung
+   * read-only (s. isEtbEntryLocked). Synct über das CRDT (nicht client-lokal!),
+   * damit auch neu gejointe Clients dieselbe Sperre sehen. Fehlt bei Alt-Einträgen.
+   */
+  lastEditedAt?: string;
+  /**
    * #226: vom System erzeugter Eintrag (Kräftebewegung, EA-Übernahme, Wetter-/
    * Pegel-/Abschluss-Eintrag) statt manuell im ETB getippt. Rein visuell (kursiv);
    * fehlt bei Alt-Einträgen → gilt als manuell.
@@ -71,6 +78,45 @@ export type EtbEditableField = Exclude<keyof LogEntry, "id" | "lfdNr">;
 export type NewEtbEntryInput = Partial<
   Pick<LogEntry, "richtung" | "von" | "an" | "weg" | "inhalt" | "veranlassung" | "auto">
 >;
+
+/**
+ * #237: Inhaltsspalten, die der Soft-Sperre unterliegen und deren Bearbeitung die
+ * Sperr-Frist neu startet. `erledigt`/`storniert`/`bearbeiter` gehören bewusst NICHT
+ * dazu — Storno/Erledigt bleiben auch nach der Sperre nutzbar.
+ */
+export const ETB_CONTENT_FIELDS = [
+  "zeit",
+  "richtung",
+  "von",
+  "an",
+  "weg",
+  "inhalt",
+  "veranlassung",
+] as const;
+
+/**
+ * #237: Frist, nach der ein ETB-Eintrag ohne weitere Bearbeitung als „fertig
+ * geschrieben" gilt und die Inhaltsspalten (client-seitig) read-only werden.
+ * Bewusst (noch) nicht konfigurierbar.
+ */
+export const ETB_LOCK_MS = 2 * 60 * 1000;
+
+/**
+ * Ist der Eintrag für Inhalts-Edits gesperrt (#237)? Rein & testbar — `nowMs` reicht
+ * der Aufrufer (lokale Uhr). Auto-Einträge (#226) sind sofort gesperrt (System-Text);
+ * sonst greift die Sperre `windowMs` nach der letzten Bearbeitung (`lastEditedAt`,
+ * Fallback Anlagezeit `zeit`). Unparsebare Zeit → nicht sperren (defensiv).
+ */
+export function isEtbEntryLocked(
+  entry: Pick<LogEntry, "zeit" | "lastEditedAt" | "auto">,
+  nowMs: number,
+  windowMs: number = ETB_LOCK_MS,
+): boolean {
+  if (entry.auto) return true;
+  const t = Date.parse(entry.lastEditedAt || entry.zeit);
+  if (Number.isNaN(t)) return false;
+  return nowMs - t > windowMs;
+}
 
 /**
  * Envelope of the ETB export (Teil des Stabsraum-Bundles, architecture.md §12).
